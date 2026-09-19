@@ -89,6 +89,34 @@ npx syncytium diff
 ```
 Compares target bridge files on disk with the canonical `.syncytium/` source of truth to detect unsynced or modified files.
 
+### 6. Reverse Migration (`import`)
+```bash
+npx syncytium import
+```
+Scans existing legacy or fragmented AI rule files (`CLAUDE.md`, `.cursorrules`, `.clinerules`, `.github/copilot-instructions.md`, etc.) and automatically imports them into modular `.syncytium/rules/` canonical files. Add `--dry-run` to preview.
+
+### 7. Handoff Audit Timeline (`log`)
+```bash
+npx syncytium log
+```
+Displays an ASCII visual history of all agent baton passes, completed tasks, and next goals.
+
+### 8. Rule & Context Linter (`lint`)
+```bash
+npx syncytium lint
+```
+Validates rule naming standards (kebab-case), YAML frontmatter schema, empty files, and context integrity before committing.
+
+### 9. Git Pre-Commit Hook (`hook`)
+```bash
+# Block commits if bridge files are drifted
+npx syncytium hook install
+
+# Or auto-sync bridge files on every git commit
+npx syncytium hook install --auto-sync
+```
+Installs a pre-commit hook in `.git/hooks/pre-commit` to prevent repository context drift.
+
 ---
 
 ## 🤝 Multi-Agent Handoff Protocol

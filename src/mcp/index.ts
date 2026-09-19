@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { runMcpServer } from './server.js';
 
 runMcpServer(process.cwd()).catch((err) => {

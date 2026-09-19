@@ -89,6 +89,34 @@ npx syncytium diff
 ```
 Disk üzerindeki köprü dosyalarını `.syncytium/` ana kaynağıyla karşılaştırır; senkronize olmayan, eksik veya değiştirilmiş dosyaları anında listeler.
 
+### 6. Tersine Göç / İçe Aktarma (`import`)
+```bash
+npx syncytium import
+```
+Projedeki mevcut dağınık AI kural dosyalarını (`CLAUDE.md`, `.cursorrules`, `.clinerules`, `.github/copilot-instructions.md` vb.) otomatik tarar ve `.syncytium/rules/` altına modüler kurallar olarak aktarır. Önizleme için `--dry-run` bayrağını ekleyebilirsiniz.
+
+### 7. Ajan Devir Teslim Zaman Çizelgesi (`log`)
+```bash
+npx syncytium log
+```
+Ajanlar arasında tamamlanan hedefleri, sıradaki görevleri ve devir teslim geçmişini görsel bir terminal zaman çizelgesiyle listeler.
+
+### 8. Kural ve Bağlam Linter'ı (`lint`)
+```bash
+npx syncytium lint
+```
+Kural dosyalarının isimlendirme standartlarını (kebab-case), YAML frontmatter şemasını ve içerik bütünlüğünü commit öncesi denetler.
+
+### 9. Git Pre-Commit Kancası (`hook`)
+```bash
+# Kurallar senkronize değilse commiti engelle
+npx syncytium hook install
+
+# Veya her git commit işleminde köprü dosyalarını otomatik senkronize et
+npx syncytium hook install --auto-sync
+```
+`.git/hooks/pre-commit` kancasını kurarak projedeki bağlam kaymalarını (context drift) engeller.
+
 ---
 
 ## 🤝 Çoklu Ajan Devir Teslimi (Handoff Protokolü)

@@ -6,7 +6,8 @@ import type {
   CanonicalRule,
   MemoryDecision,
   HandoffState,
-  SyncytiumConfig
+  SyncytiumConfig,
+  HandoffHistoryEntry
 } from './types.js';
 import {
   DEFAULT_CONFIG,
@@ -47,6 +48,10 @@ export class SyncytiumStorage {
 
   get handoffPath(): string {
     return path.join(this.syncytiumDir, 'HANDOFF.md');
+  }
+
+  get handoffHistoryPath(): string {
+    return path.join(this.memoryDir, 'handoff-history.json');
   }
 
   async exists(): Promise<boolean> {
@@ -252,5 +257,35 @@ ${handoff.contextNotes || 'No specific notes provided.'}
       handoff,
       rootDir: this.rootDir
     };
+  }
+
+  async loadHandoffHistory(): Promise<HandoffHistoryEntry[]> {
+    try {
+      const data = await fs.readFile(this.handoffHistoryPath, 'utf-8');
+      const list = JSON.parse(data);
+      return Array.isArray(list) ? (list as HandoffHistoryEntry[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  async recordHandoffHistory(entry: HandoffHistoryEntry): Promise<void> {
+    const history = await this.loadHandoffHistory();
+    history.unshift(entry); // newest first
+    // Keep max 50 entries to prevent infinite growth
+    const capped = history.slice(0, 50);
+    await fs.mkdir(this.memoryDir, { recursive: true });
+    await fs.writeFile(this.handoffHistoryPath, JSON.stringify(capped, null, 2), 'utf-8');
+  }
+
+  async saveRule(filename: string, content: string): Promise<void> {
+    await fs.mkdir(this.rulesDir, { recursive: true });
+    const target = path.join(this.rulesDir, filename.endsWith('.md') ? filename : `${filename}.md`);
+    await fs.writeFile(target, content.trim() + '\n', 'utf-8');
+  }
+
+  async saveArchitecture(content: string): Promise<void> {
+    await fs.mkdir(this.syncytiumDir, { recursive: true });
+    await fs.writeFile(this.architecturePath, content.trim() + '\n', 'utf-8');
   }
 }

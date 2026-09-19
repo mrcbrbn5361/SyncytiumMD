@@ -139,6 +139,74 @@ describe('SyncytiumMD Test Suite', () => {
     assert.ok(report.checks.some(c => c.name.includes('Live Agent Handoff') && c.status === 'ok'));
   });
 
+  test('engine.getHandoffHistory records and returns audit trail', async () => {
+    const history = await engine.getHandoffHistory(5);
+    assert.ok(history.length >= 1);
+    assert.ok(history[0].id.startsWith('HND-'));
+    assert.equal(history[0].toAgent, 'Cursor');
+    assert.equal(history[0].status, 'in_progress');
+  });
+
+  test('engine.lint validates project rules and context', async () => {
+    const report = await engine.lint();
+    assert.equal(report.valid, true);
+    assert.ok(report.totalChecked >= 4);
+    assert.equal(report.issues.filter(i => i.type === 'error').length, 0);
+  });
+
+  test('engine.installGitHook and uninstallGitHook manage pre-commit hook', async () => {
+    const gitDir = path.join(tempDir, '.git');
+    await fs.mkdir(gitDir, { recursive: true });
+
+    const installRes = await engine.installGitHook({ autoSync: true });
+    assert.equal(installRes.success, true);
+    const hookContent = await fs.readFile(installRes.hookPath, 'utf-8');
+    assert.ok(hookContent.includes('BEGIN SYNCYTIUM HOOK'));
+    assert.ok(hookContent.includes('syncytium sync'));
+
+    const uninstallRes = await engine.uninstallGitHook();
+    assert.equal(uninstallRes.success, true);
+    const hookExists = await fs.access(uninstallRes.hookPath).then(() => true).catch(() => false);
+    assert.equal(hookExists, false);
+  });
+
+  test('engine.importExisting reverse-migrates legacy rule files', async () => {
+    const importDir = await fs.mkdtemp(path.join(os.tmpdir(), 'syncytium-import-test-'));
+    try {
+      const importEngine = new SyncytiumEngine(importDir);
+
+      // Create legacy rule files
+      await fs.writeFile(
+        path.join(importDir, 'CLAUDE.md'),
+        '# Legacy Claude Rules\nAlways write tests first and adhere to TypeScript strict mode.'
+      );
+      await fs.writeFile(
+        path.join(importDir, '.clinerules'),
+        '# Legacy Cline Rules\nDo not execute rm -rf on project root.'
+      );
+
+      const report = await importEngine.importExisting();
+      assert.equal(report.importedCount, 2);
+      assert.ok(report.items.some(i => i.sourceFile === 'CLAUDE.md'));
+      assert.ok(report.items.some(i => i.sourceFile === '.clinerules'));
+
+      // Verify canonical rules created
+      const importedClaude = await fs.readFile(
+        path.join(importDir, '.syncytium', 'rules', 'imported-claude.md'),
+        'utf-8'
+      );
+      assert.ok(importedClaude.includes('Always write tests first'));
+
+      const importedCline = await fs.readFile(
+        path.join(importDir, '.syncytium', 'rules', 'imported-cline.md'),
+        'utf-8'
+      );
+      assert.ok(importedCline.includes('Do not execute rm -rf'));
+    } finally {
+      await fs.rm(importDir, { recursive: true, force: true });
+    }
+  });
+
   test('engine.clean safely removes bridge files', async () => {
     const cleaned = await engine.clean();
     assert.ok(cleaned.length > 0);

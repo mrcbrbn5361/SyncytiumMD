@@ -112,3 +112,43 @@ export interface DiffReport {
   };
 }
 
+export interface HandoffHistoryEntry {
+  id: string;
+  timestamp: string;
+  fromAgent: string;
+  toAgent: string;
+  status: 'in_progress' | 'ready_for_review' | 'blocked' | 'completed';
+  goal: string;
+  tasksDone: string[];
+  nextTasks: string[];
+  activeFiles: string[];
+  notes?: string;
+}
+
+export interface LintIssue {
+  file: string;
+  line?: number;
+  type: 'error' | 'warning';
+  message: string;
+  ruleId?: string;
+}
+
+export interface LintReport {
+  valid: boolean;
+  issues: LintIssue[];
+  totalChecked: number;
+}
+
+export interface ImportItem {
+  sourceFile: string;
+  adapterName: string;
+  targetRuleFile: string;
+  extractedTitle: string;
+}
+
+export interface ImportReport {
+  importedCount: number;
+  items: ImportItem[];
+}
+
+

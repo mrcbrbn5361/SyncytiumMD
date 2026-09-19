@@ -14,8 +14,8 @@ alwaysApply: true
 ### 🤝 Live Handoff Status
 - **Active Agent:** `Antigravity` (Next: `Cursor`)
 - **Status:** `IN_PROGRESS`
-- **Current Goal:** Implement authentication controller
+- **Current Goal:** Implement v0.1.3 features
 - **Pending Tasks:**
-  - [ ] Write src/routes/auth.ts controller
+  - [ ] Publish v0.1.3 to npm
 - **Notes:** Use JWT with 15min expiry, refresh tokens in Redis
 

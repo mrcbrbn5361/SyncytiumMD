@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { Command } from 'commander';
 import pc from 'picocolors';
 import { SyncytiumEngine } from '../core/engine.js';
@@ -8,7 +9,7 @@ const engine = new SyncytiumEngine();
 program
   .name('syncytium')
   .description('Universal Context & Handoff Bridge for AI Coding Tools (IDEs, VSCode extensions, CLIs)')
-  .version('0.1.2');
+  .version('0.1.3');
 
 // INIT
 program
@@ -251,6 +252,145 @@ program
       }
     } catch (err: any) {
       console.error(pc.red(`❌ Clean failed: ${err.message}`));
+      process.exit(1);
+    }
+  });
+
+// IMPORT
+program
+  .command('import')
+  .description('Reverse migrate existing AI rule files (CLAUDE.md, .cursorrules, .clinerules, etc.) into .syncytium/')
+  .option('--dry-run', 'Preview imported files without writing to disk')
+  .action(async (options) => {
+    try {
+      console.log(pc.cyan('📥 Scanning workspace for existing AI rule files...'));
+      const report = await engine.importExisting({ dryRun: options.dryRun });
+      if (report.importedCount === 0) {
+        console.log(pc.yellow('ℹ️ No unmanaged AI rule files found to import.'));
+        return;
+      }
+      console.log(pc.green(`✨ Successfully discovered ${report.importedCount} AI instruction sources:`));
+      for (const item of report.items) {
+        console.log(`  ${pc.bold(pc.white(item.sourceFile))} (${pc.blue(item.adapterName)}) ➔ ${pc.cyan(`.syncytium/rules/${item.targetRuleFile}`)}`);
+      }
+      if (options.dryRun) {
+        console.log(pc.yellow('\n[Dry Run] No files were modified. Run `syncytium import` without --dry-run to apply.'));
+      } else {
+        console.log(pc.green('\n🎉 Imported rules saved and synchronized across all adapters!'));
+      }
+    } catch (err: any) {
+      console.error(pc.red(`❌ Import failed: ${err.message}`));
+      process.exit(1);
+    }
+  });
+
+// LOG
+program
+  .command('log')
+  .description('Display multi-agent handoff audit history and timeline')
+  .option('-n, --limit <number>', 'Number of past handoff entries to show', '5')
+  .action(async (options) => {
+    try {
+      const limit = parseInt(options.limit, 10) || 5;
+      const history = await engine.getHandoffHistory(limit);
+      console.log(pc.bold(pc.cyan('\n📜 Syncytium Multi-Agent Handoff History:')));
+      console.log(pc.dim('──────────────────────────────────────────────────────────────────────────'));
+
+      if (history.length === 0) {
+        console.log(pc.dim('No handoff history recorded yet. Use `syncytium handoff` to pass the baton.'));
+        console.log(pc.dim('──────────────────────────────────────────────────────────────────────────\n'));
+        return;
+      }
+
+      for (let i = 0; i < history.length; i++) {
+        const item = history[i];
+        const dateStr = new Date(item.timestamp).toLocaleString();
+        const statusColor = item.status === 'completed' ? pc.green : item.status === 'in_progress' ? pc.yellow : item.status === 'blocked' ? pc.red : pc.blue;
+
+        console.log(`${pc.bold(pc.magenta(`[${item.id}]`))} ${pc.dim(dateStr)}`);
+        console.log(`  ${pc.yellow(item.fromAgent)} ➔ ${pc.cyan(item.toAgent)} [${statusColor(item.status.toUpperCase())}]`);
+        console.log(`  ${pc.bold('Goal:')} "${item.goal}"`);
+        if (item.tasksDone && item.tasksDone.length > 0) {
+          console.log(`  ${pc.green('Completed:')} ${item.tasksDone.join(', ')}`);
+        }
+        if (item.nextTasks && item.nextTasks.length > 0) {
+          console.log(`  ${pc.cyan('Next Tasks:')} ${item.nextTasks.join(', ')}`);
+        }
+        if (item.notes) {
+          console.log(`  ${pc.dim('Notes:')} ${item.notes}`);
+        }
+        if (i < history.length - 1) {
+          console.log(pc.dim('  ↓'));
+        }
+      }
+      console.log(pc.dim('──────────────────────────────────────────────────────────────────────────\n'));
+    } catch (err: any) {
+      console.error(pc.red(`❌ Failed to read handoff log: ${err.message}`));
+      process.exit(1);
+    }
+  });
+
+// LINT
+program
+  .command('lint')
+  .description('Validate canonical rules, frontmatter schema, and structure in .syncytium/')
+  .action(async () => {
+    try {
+      console.log(pc.cyan('🔍 Linting Syncytium canonical rules and context...'));
+      const report = await engine.lint();
+
+      if (report.issues.length === 0) {
+        console.log(pc.green(`✅ All ${report.totalChecked} checked files are valid and follow best practices!`));
+        return;
+      }
+
+      for (const issue of report.issues) {
+        const icon = issue.type === 'error' ? pc.red('✖ error') : pc.yellow('⚠ warning');
+        console.log(`  ${icon}  ${pc.bold(issue.file)}: ${issue.message}`);
+      }
+
+      console.log(pc.dim('──────────────────────────────────────────────────────────────────────────'));
+      if (!report.valid) {
+        console.log(pc.red(`Found ${report.issues.filter(i => i.type === 'error').length} error(s). Please fix before committing.`));
+        process.exit(1);
+      } else {
+        console.log(pc.yellow(`Found ${report.issues.length} warning(s). All critical checks passed.`));
+      }
+    } catch (err: any) {
+      console.error(pc.red(`❌ Lint failed: ${err.message}`));
+      process.exit(1);
+    }
+  });
+
+// HOOK
+program
+  .command('hook <action>')
+  .description('Manage Git pre-commit hook (actions: install, uninstall)')
+  .option('--auto-sync', 'Automatically sync bridge files instead of blocking on drift', false)
+  .action(async (action, options) => {
+    try {
+      if (action === 'install') {
+        const res = await engine.installGitHook({ autoSync: options.autoSync });
+        console.log(pc.green('🪝 Git pre-commit hook installed successfully!'));
+        console.log(pc.dim(`Hook location: ${res.hookPath}`));
+        if (options.autoSync) {
+          console.log(pc.cyan('Mode: Auto-sync bridge files on every git commit.'));
+        } else {
+          console.log(pc.cyan('Mode: Verify context drift and block commit if bridge files are out of date.'));
+        }
+      } else if (action === 'uninstall') {
+        const res = await engine.uninstallGitHook();
+        if (res.success) {
+          console.log(pc.green('🪝 Git pre-commit hook removed successfully.'));
+        } else {
+          console.log(pc.yellow('No Syncytium hook found to uninstall.'));
+        }
+      } else {
+        console.error(pc.red(`Unknown action "${action}". Available actions: install, uninstall`));
+        process.exit(1);
+      }
+    } catch (err: any) {
+      console.error(pc.red(`❌ Hook management failed: ${err.message}`));
       process.exit(1);
     }
   });
