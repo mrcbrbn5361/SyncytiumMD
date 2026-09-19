@@ -33,10 +33,38 @@ async function main() {
   run('npm test');
   console.log('✅ Build and tests passed with 100% success.');
 
-  // 2. Publish to NPM
+  // 2. Publish to NPM with retry and duplicate version detection
   console.log(`\n🌐 Step 2: Publishing v${version} to NPM registry...`);
-  run('npm publish --access public');
-  console.log('✅ Package published to npm registry.');
+  const alreadyPublished = runSilent(`npm view syncytium-md@${version} version`);
+  if (alreadyPublished === version) {
+    console.log(`ℹ️ Version ${version} is already published on NPM. Proceeding to verification & global upgrade...`);
+  } else {
+    let publishSuccess = false;
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`  ↳ Executing npm publish (attempt ${attempt}/${maxRetries})...`);
+        run('npm publish --access public');
+        publishSuccess = true;
+        console.log('✅ Package successfully published to NPM registry.');
+        break;
+      } catch (err) {
+        const errMsg = String(err?.message || err || '');
+        if (errMsg.includes('EPUBLISHCONFLICT') || errMsg.includes('cannot publish over')) {
+          console.log(`ℹ️ Version ${version} was successfully received by NPM registry.`);
+          publishSuccess = true;
+          break;
+        }
+        console.warn(`⚠️ npm publish attempt ${attempt} failed: ${errMsg.slice(0, 120)}`);
+        if (attempt < maxRetries) {
+          console.log('  ↳ Retrying in 5 seconds...');
+          await sleep(5000);
+        } else {
+          throw err;
+        }
+      }
+    }
+  }
 
   // 3. Smart CDN Propagation Polling
   console.log('\n⏳ Step 3: Verifying NPM global CDN replication (polling registry)...');

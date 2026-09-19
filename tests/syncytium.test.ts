@@ -351,6 +351,35 @@ describe('SyncytiumMD Test Suite', () => {
     assert.ok(graph.stats.bridgeFilesCount >= 1);
   });
 
+  test('engine.getKnowledgeGraph supports compact, excludeFiles, and excludeTags options', async () => {
+    // Normal graph has files and tags
+    const fullGraph = await engine.getKnowledgeGraph();
+    const hasFiles = fullGraph.nodes.some(n => n.type === 'file');
+    const hasTags = fullGraph.nodes.some(n => n.type === 'tag');
+
+    // Compact mode: omits both files and tags
+    const compactGraph = await engine.getKnowledgeGraph({ compact: true });
+    assert.equal(compactGraph.nodes.some(n => n.type === 'file'), false);
+    assert.equal(compactGraph.nodes.some(n => n.type === 'tag'), false);
+    assert.ok(compactGraph.nodes.length < fullGraph.nodes.length);
+    assert.ok(compactGraph.nodes.some(n => n.type === 'root'));
+    assert.ok(compactGraph.nodes.some(n => n.type === 'rule'));
+
+    // excludeFiles only
+    const noFilesGraph = await engine.getKnowledgeGraph({ excludeFiles: true });
+    assert.equal(noFilesGraph.nodes.some(n => n.type === 'file'), false);
+    if (hasTags) {
+      assert.equal(noFilesGraph.nodes.some(n => n.type === 'tag'), true);
+    }
+
+    // excludeTags only
+    const noTagsGraph = await engine.getKnowledgeGraph({ excludeTags: true });
+    assert.equal(noTagsGraph.nodes.some(n => n.type === 'tag'), false);
+    if (hasFiles) {
+      assert.equal(noTagsGraph.nodes.some(n => n.type === 'file'), true);
+    }
+  });
+
   test('engine.startUiServer starts local server and exposes /api/graph and UI', async () => {
     const ui = await engine.startUiServer({ port: 3899, open: false });
     assert.equal(ui.port, 3899);

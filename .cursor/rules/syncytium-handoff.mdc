@@ -14,10 +14,9 @@ alwaysApply: true
 ### 🤝 Live Handoff Status
 - **Active Agent:** `Antigravity` (Next: `Any`)
 - **Status:** `IN_PROGRESS`
-- **Current Goal:** Release v0.1.6 with Obsidian-style Knowledge Graph UI, dogfooding, and automated CDN-verified release pipeline
+- **Current Goal:** Release v0.1.7: 3D WebGL knowledge galaxy, physics sleep mode, compact view, and resilient npm publishing
 - **Pending Tasks:**
-  - [ ] Update README.md and README.tr.md documentation for v0.1.6
-  - [ ] Execute automated release via npm run release
-  - [ ] Push changes to GitHub main branch
+  - [ ] Run npm run release to publish v0.1.7 to NPM
+  - [ ] Commit and push to GitHub repository
 - **Notes:** SyncytiumMD is now dogfooded within its own repository. Run syncytium graph to view the live knowledge graph.
 

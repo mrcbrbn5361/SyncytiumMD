@@ -858,7 +858,15 @@ ${content.trim()}
     });
   }
 
-  async getKnowledgeGraph(): Promise<KnowledgeGraph> {
+  async getKnowledgeGraph(options?: {
+    compact?: boolean;
+    excludeFiles?: boolean;
+    excludeTags?: boolean;
+  }): Promise<KnowledgeGraph> {
+    const isCompact = options?.compact ?? false;
+    const hideFiles = options?.excludeFiles ?? isCompact;
+    const hideTags = options?.excludeTags ?? isCompact;
+
     const config = await this.storage.loadConfig().catch(() => ({ projectName: path.basename(this.storage.rootDir), enabledAdapters: [] }));
     const rules = await this.storage.loadRules().catch(() => []);
     const decisions = await this.storage.loadDecisions().catch(() => []);
@@ -913,7 +921,7 @@ ${content.trim()}
         type: 'contains'
       });
 
-      if (Array.isArray(rule.tags)) {
+      if (!hideTags && Array.isArray(rule.tags)) {
         for (const tag of rule.tags) {
           const normTag = tag.trim().toLowerCase();
           if (!normTag) continue;
@@ -928,15 +936,17 @@ ${content.trim()}
       }
     }
 
-    // Add Tag Nodes
-    for (const tag of tagsSet) {
-      nodes.push({
-        id: `tag:${tag}`,
-        label: `#${tag}`,
-        type: 'tag',
-        group: 'tags',
-        description: `Tag category: ${tag}`
-      });
+    // Add Tag Nodes (unless hidden)
+    if (!hideTags) {
+      for (const tag of tagsSet) {
+        nodes.push({
+          id: `tag:${tag}`,
+          label: `#${tag}`,
+          type: 'tag',
+          group: 'tags',
+          description: `Tag category: ${tag}`
+        });
+      }
     }
 
     // 3. ADR Decisions
@@ -1045,7 +1055,10 @@ ${content.trim()}
         label: adapter.name,
         type: 'adapter',
         group: 'adapters',
-        description: adapter.description
+        description: adapter.description,
+        metadata: {
+          targetFiles: adapter.defaultTargetFiles
+        }
       });
 
       edges.push({
@@ -1055,25 +1068,29 @@ ${content.trim()}
         type: 'contains'
       });
 
-      for (const targetFile of adapter.defaultTargetFiles) {
-        const fileNodeId = `file:${targetFile}`;
-        if (!filesSet.has(targetFile)) {
-          filesSet.add(targetFile);
-          nodes.push({
-            id: fileNodeId,
-            label: targetFile,
-            type: 'file',
-            group: 'files',
-            description: `Generated AI context file: ${targetFile}`
+      if (!hideFiles) {
+        for (const targetFile of adapter.defaultTargetFiles) {
+          const fileNodeId = `file:${targetFile}`;
+          if (!filesSet.has(targetFile)) {
+            filesSet.add(targetFile);
+            nodes.push({
+              id: fileNodeId,
+              label: targetFile,
+              type: 'file',
+              group: 'files',
+              description: `Generated AI context file: ${targetFile}`
+            });
+          }
+
+          edges.push({
+            source: adpNodeId,
+            target: fileNodeId,
+            label: 'generates',
+            type: 'generates'
           });
         }
-
-        edges.push({
-          source: adpNodeId,
-          target: fileNodeId,
-          label: 'generates',
-          type: 'generates'
-        });
+      } else {
+        adapter.defaultTargetFiles.forEach(f => filesSet.add(f));
       }
     }
 
@@ -1090,7 +1107,13 @@ ${content.trim()}
     };
   }
 
-  async startUiServer(options?: { port?: number; open?: boolean }): Promise<{
+  async startUiServer(options?: {
+    port?: number;
+    open?: boolean;
+    compact?: boolean;
+    excludeFiles?: boolean;
+    excludeTags?: boolean;
+  }): Promise<{
     port: number;
     url: string;
     server: http.Server;
@@ -1124,7 +1147,10 @@ ${content.trim()}
 
       if (parsedUrl.pathname === '/api/graph') {
         try {
-          const graph = await this.getKnowledgeGraph();
+          const compact = parsedUrl.searchParams.get('compact') === 'true' || (options?.compact ?? false);
+          const excludeFiles = parsedUrl.searchParams.get('noFiles') === 'true' || (options?.excludeFiles ?? compact);
+          const excludeTags = parsedUrl.searchParams.get('noTags') === 'true' || (options?.excludeTags ?? compact);
+          const graph = await this.getKnowledgeGraph({ compact, excludeFiles, excludeTags });
           res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify(graph));
         } catch (err: any) {
@@ -1156,7 +1182,11 @@ ${content.trim()}
 
       if (parsedUrl.pathname === '/' || parsedUrl.pathname === '/index.html') {
         const config = await this.storage.loadConfig().catch(() => ({ projectName: path.basename(this.storage.rootDir) }));
-        const html = renderGraphHtml(config.projectName || 'Syncytium Project');
+        const html = renderGraphHtml(config.projectName || 'Syncytium Project', {
+          compact: options?.compact ?? false,
+          excludeFiles: options?.excludeFiles ?? false,
+          excludeTags: options?.excludeTags ?? false
+        });
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(html);
         return;

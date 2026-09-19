@@ -53,6 +53,21 @@ decisions:
       publishes, polls npm view with exponential backoff until live, and then installs globally.
     consequences: >-
       Zero failed releases, automated verification, and frictionless developer workflow.
+  - id: ADR-005
+    title: High-Performance 3D Knowledge Galaxy with Physics Sleep & Geometry Pooling
+    status: accepted
+    date: '2026-09-19'
+    context: >-
+      For large codebases with dozens of files, tags, and rules, the 3D WebGL knowledge
+      graph experienced sluggish startup, canvas texture contention, and unbounded O(N^2)
+      physics loop CPU load.
+    decision: >-
+      Implement Three.js unit sphere geometry and material caching/pooling, simulation
+      alpha decay with auto-sleeping (0% idle CPU load), LOD lazy text sprite generation,
+      floating hover tooltips, and compact view mode (--compact, --no-files, --no-tags).
+    consequences: >-
+      Silky 60+ FPS rendering, instant boot on large repositories, zero idle CPU consumption,
+      and clean uncluttered visual brain inspection.
 ---
 # Architectural Decision Records (ADR)
 
@@ -113,5 +128,20 @@ Implement scripts/release.mjs (npm run release) which verifies tests, publishes,
 
 **Consequences:**
 Zero failed releases, automated verification, and frictionless developer workflow.
+
+---
+
+### [ADR-005] High-Performance 3D Knowledge Galaxy with Physics Sleep & Geometry Pooling
+- **Status:** accepted
+- **Date:** 2026-09-19
+
+**Context:**
+For large codebases with dozens of files, tags, and rules, the 3D WebGL knowledge graph experienced sluggish startup, canvas texture contention, and unbounded O(N^2) physics loop CPU load.
+
+**Decision:**
+Implement Three.js unit sphere geometry and material caching/pooling, simulation alpha decay with auto-sleeping (0% idle CPU load), LOD lazy text sprite generation, floating hover tooltips, and compact view mode (`--compact`, `--no-files`, `--no-tags`).
+
+**Consequences:**
+Silky 60+ FPS rendering, instant boot on large repositories, zero idle CPU consumption, and clean uncluttered visual brain inspection.
 
 ---

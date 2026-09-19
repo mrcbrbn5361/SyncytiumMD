@@ -11,11 +11,10 @@
 ### 🤝 Live Handoff Status
 - **Active Agent:** `Antigravity` (Next: `Any`)
 - **Status:** `IN_PROGRESS`
-- **Current Goal:** Release v0.1.6 with Obsidian-style Knowledge Graph UI, dogfooding, and automated CDN-verified release pipeline
+- **Current Goal:** Release v0.1.7: 3D WebGL knowledge galaxy, physics sleep mode, compact view, and resilient npm publishing
 - **Pending Tasks:**
-  - [ ] Update README.md and README.tr.md documentation for v0.1.6
-  - [ ] Execute automated release via npm run release
-  - [ ] Push changes to GitHub main branch
+  - [ ] Run npm run release to publish v0.1.7 to NPM
+  - [ ] Commit and push to GitHub repository
 - **Notes:** SyncytiumMD is now dogfooded within its own repository. Run syncytium graph to view the live knowledge graph.
 
 
@@ -117,4 +116,5 @@ When adding or updating adapters in `src/adapters/`:
 - **[ADR-002] Zero-Heavy-Dependencies Knowledge Graph UI:** Implement an embedded Canvas-based force-directed graph server using native node:http and Server-Sent Events (SSE). *(Status: accepted)*
 - **[ADR-003] Lease-Based Multi-Agent Collision Prevention Lock:** Introduce syncytium lock with time-expiring leases (e.g. 30-45 minutes) stored in .syncytium/memory/lock.json. *(Status: accepted)*
 - **[ADR-004] Automated Release Pipeline with NPM CDN Replication Polling:** Implement scripts/release.mjs (npm run release) which verifies tests, publishes, polls npm view with exponential backoff until live, and then installs globally. *(Status: accepted)*
+- **[ADR-005] High-Performance 3D Knowledge Galaxy with Physics Sleep & Geometry Pooling:** Implement Three.js unit sphere geometry and material caching/pooling, simulation alpha decay with auto-sleeping (0% idle CPU load), LOD lazy text sprite generation, floating hover tooltips, and compact view mode (--compact, --no-files, --no-tags). *(Status: accepted)*
 

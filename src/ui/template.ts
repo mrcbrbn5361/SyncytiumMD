@@ -1,4 +1,4 @@
-export function renderGraphHtml(projectName: string): string {
+export function renderGraphHtml(projectName: string, initialConfig?: { compact?: boolean; excludeFiles?: boolean; excludeTags?: boolean }): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -173,6 +173,39 @@ export function renderGraphHtml(projectName: string): string {
       border-color: var(--accent);
       color: #fff;
       box-shadow: 0 0 12px var(--accent-glow);
+    }
+    .action-btn.active {
+      background: var(--accent);
+      border-color: #818cf8;
+      color: #fff;
+      box-shadow: 0 0 14px var(--accent-glow);
+    }
+
+    /* Floating Hover Tooltip */
+    #hover-tooltip {
+      position: absolute;
+      display: none;
+      pointer-events: none;
+      z-index: 1000;
+      background: rgba(13, 17, 28, 0.94);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(12px);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      white-space: nowrap;
+      transform: translate(14px, -50%);
+    }
+    .tooltip-tag {
+      font-size: 0.68rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+      text-transform: uppercase;
+      font-weight: 700;
     }
 
     .status-indicator {
@@ -406,6 +439,47 @@ export function renderGraphHtml(projectName: string): string {
       transform: translateX(4px);
     }
 
+    /* Cosmic Loading Overlay */
+    #loader-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: radial-gradient(circle at center, #0f172a 0%, #07090e 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .loader-spinner {
+      width: 52px;
+      height: 52px;
+      border: 3px solid rgba(99, 102, 241, 0.18);
+      border-top-color: var(--accent);
+      border-right-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      box-shadow: 0 0 24px var(--accent-glow);
+    }
+    .loader-title {
+      margin-top: 18px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #fff;
+    }
+    .loader-sub {
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     /* Fallback notice */
     #fallback-msg {
       display: none;
@@ -423,6 +497,14 @@ export function renderGraphHtml(projectName: string): string {
   </style>
 </head>
 <body>
+  <div id="loader-overlay">
+    <div class="loader-spinner"></div>
+    <div class="loader-title">🌌 Syncytium Cosmos</div>
+    <div class="loader-sub">Preparing 3D Knowledge Graph...</div>
+  </div>
+
+  <div id="hover-tooltip"></div>
+
   <header>
     <div class="brand">
       <span class="brand-icon">🧬</span>
@@ -457,6 +539,7 @@ export function renderGraphHtml(projectName: string): string {
         </div>
       </div>
 
+      <button class="action-btn" id="compact-btn" title="Toggle Compact View (Hides File & Tag clutter)">⚡ Compact View</button>
       <button class="action-btn" id="reset-cam-btn">🎯 Center</button>
       <button class="action-btn" id="auto-rotate-btn">🔄 Orbit</button>
 
@@ -507,6 +590,8 @@ export function renderGraphHtml(projectName: string): string {
   <div id="fallback-msg">WebGL could not be initialized in this browser.</div>
 
   <script>
+    const initialConfig = ${JSON.stringify(initialConfig || {})};
+
     // Configuration & Color Palette
     const COLOR_HEX = {
       root: 0x6366f1,
@@ -529,10 +614,44 @@ export function renderGraphHtml(projectName: string): string {
     };
 
     let graphData = { nodes: [], edges: [] };
-    let activeFilters = new Set(['root', 'rule', 'tag', 'decision', 'agent', 'adapter', 'file']);
+    let compactMode = Boolean(initialConfig.compact);
+    let activeFilters = new Set(['root', 'rule', 'decision', 'agent', 'adapter']);
+    if (!compactMode && !initialConfig.excludeFiles) activeFilters.add('file');
+    if (!compactMode && !initialConfig.excludeTags) activeFilters.add('tag');
+
     let searchQuery = '';
     let selectedNode = null;
     let autoRotate = true;
+
+    // Physics Simulation Alpha (Decay & Sleep mode)
+    let simulationAlpha = 1.0;
+    const MIN_ALPHA = 0.0035;
+    let isPhysicsSleeping = false;
+
+    function wakePhysics(alpha = 0.4) {
+      simulationAlpha = Math.max(simulationAlpha, alpha);
+      isPhysicsSleeping = false;
+    }
+
+    // Geometry and Material Pooling (drastically reduces allocations)
+    const sharedSphereGeo = new THREE.SphereGeometry(1, 16, 16);
+    const materialCache = new Map();
+
+    function getNodeMaterial(type) {
+      let mat = materialCache.get(type);
+      if (!mat) {
+        const color = COLOR_HEX[type] || 0x6366f1;
+        mat = new THREE.MeshStandardMaterial({
+          color: color,
+          emissive: color,
+          emissiveIntensity: type === 'root' ? 0.65 : 0.28,
+          roughness: 0.35,
+          metalness: 0.35
+        });
+        materialCache.set(type, mat);
+      }
+      return mat;
+    }
 
     // Three.js 3D Engine Variables
     let scene, camera, renderer;
@@ -541,6 +660,8 @@ export function renderGraphHtml(projectName: string): string {
     let starfieldMesh;
     let raycaster, mouse;
     let hoveredMesh = null;
+    let lastClientX = 0;
+    let lastClientY = 0;
 
     // 3D Camera Spherical Coordinates
     let camRadius = 380;
@@ -573,8 +694,12 @@ export function renderGraphHtml(projectName: string): string {
       camera = new THREE.PerspectiveCamera(55, width / height, 1, 3000);
       updateCameraPos();
 
-      // 3. Renderer with antialiasing
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+      // 3. Renderer with powerPreference: high-performance
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: false,
+        powerPreference: 'high-performance'
+      });
       renderer.setSize(width, height);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setClearColor(0x07090e, 1);
@@ -584,7 +709,7 @@ export function renderGraphHtml(projectName: string): string {
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
       scene.add(ambientLight);
 
-      const dirLight1 = new THREE.DirectionalLight(0x6366f1, 0.8);
+      const dirLight1 = new THREE.DirectionalLight(0x6366f1, 0.85);
       dirLight1.position.set(200, 300, 200);
       scene.add(dirLight1);
 
@@ -602,10 +727,24 @@ export function renderGraphHtml(projectName: string): string {
       // 7. Event Listeners
       window.addEventListener('resize', onWindowResize);
       setupControls(renderer.domElement);
+
+      // Setup Compact button state
+      syncCompactButtonState();
+    }
+
+    function syncCompactButtonState() {
+      const btn = document.getElementById('compact-btn');
+      if (btn) {
+        btn.classList.toggle('active', compactMode);
+      }
+      document.querySelectorAll('.filter-pills .pill').forEach(pill => {
+        const type = pill.getAttribute('data-type');
+        pill.classList.toggle('active', activeFilters.has(type));
+      });
     }
 
     function createStarfield() {
-      const starCount = 1400;
+      const starCount = 1200;
       const starGeo = new THREE.BufferGeometry();
       const positions = new Float32Array(starCount * 3);
 
@@ -643,10 +782,12 @@ export function renderGraphHtml(projectName: string): string {
         prevMouseX = e.clientX;
         prevMouseY = e.clientY;
         isFlying = false;
+        wakePhysics(0.2);
       });
 
       window.addEventListener('mousemove', e => {
-        // Raycasting for hover
+        lastClientX = e.clientX;
+        lastClientY = e.clientY;
         mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
@@ -682,13 +823,12 @@ export function renderGraphHtml(projectName: string): string {
 
       dom.addEventListener('wheel', e => {
         e.preventDefault();
-        camRadius *= (e.deltaY > 0 ? 1.1 : 0.9);
+        camRadius *= (e.deltaY > 0 ? 1.08 : 0.92);
         camRadius = Math.max(60, Math.min(1200, camRadius));
         isFlying = false;
       }, { passive: false });
 
       dom.addEventListener('click', e => {
-        // Only trigger click if not dragged significantly
         raycaster.setFromCamera(mouse, camera);
         const meshes = Array.from(nodeMeshMap.values()).map(entry => entry.sphereMesh);
         const intersects = raycaster.intersectObjects(meshes);
@@ -705,25 +845,43 @@ export function renderGraphHtml(projectName: string): string {
 
     function handleHover() {
       raycaster.setFromCamera(mouse, camera);
-      const meshes = Array.from(nodeMeshMap.values()).map(entry => entry.sphereMesh);
+      const meshes = Array.from(nodeMeshMap.values())
+        .filter(entry => entry.group.visible)
+        .map(entry => entry.sphereMesh);
       const intersects = raycaster.intersectObjects(meshes);
+      const tooltip = document.getElementById('hover-tooltip');
 
       if (intersects.length > 0) {
         const hit = intersects[0].object;
+        const node = hit.userData.node;
+
         if (hoveredMesh !== hit) {
-          if (hoveredMesh && hoveredMesh !== selectedNode?.mesh) {
-            hoveredMesh.scale.set(1, 1, 1);
+          if (hoveredMesh && (!selectedNode || hoveredMesh.userData.node?.id !== selectedNode.id)) {
+            const baseRad = hoveredMesh.userData.radius || 6;
+            hoveredMesh.scale.setScalar(baseRad);
           }
           hoveredMesh = hit;
-          hoveredMesh.scale.set(1.3, 1.3, 1.3);
+          const rad = hit.userData.radius || 6;
+          hoveredMesh.scale.setScalar(rad * 1.35);
           document.body.style.cursor = 'pointer';
         }
+
+        if (tooltip && node) {
+          const colorHex = '#' + (COLOR_HEX[node.type] || 0x6366f1).toString(16).padStart(6, '0');
+          const connCount = graphData.edges.filter(e => e.source === node.id || e.target === node.id).length;
+          tooltip.innerHTML = '<span>' + escapeHtml(node.label) + '</span><span class="tooltip-tag" style="background:' + colorHex + '; color:#000;">' + node.type + ' (' + connCount + ')</span>';
+          tooltip.style.left = lastClientX + 'px';
+          tooltip.style.top = lastClientY + 'px';
+          tooltip.style.display = 'block';
+        }
       } else {
-        if (hoveredMesh && hoveredMesh !== selectedNode?.mesh) {
-          hoveredMesh.scale.set(1, 1, 1);
+        if (hoveredMesh && (!selectedNode || hoveredMesh.userData.node?.id !== selectedNode.id)) {
+          const baseRad = hoveredMesh.userData.radius || 6;
+          hoveredMesh.scale.setScalar(baseRad);
         }
         hoveredMesh = null;
         document.body.style.cursor = 'default';
+        if (tooltip) tooltip.style.display = 'none';
       }
     }
 
@@ -743,7 +901,7 @@ export function renderGraphHtml(projectName: string): string {
           } else {
             const phi = Math.acos(-1 + (2 * i) / n);
             const theta = Math.sqrt(n * Math.PI) * phi;
-            const rad = 70 + Math.random() * 110;
+            const rad = 70 + Math.random() * 100;
             node.x = rad * Math.cos(theta) * Math.sin(phi);
             node.y = rad * Math.sin(theta) * Math.sin(phi);
             node.z = rad * Math.cos(phi);
@@ -751,26 +909,37 @@ export function renderGraphHtml(projectName: string): string {
           node.vx = 0; node.vy = 0; node.vz = 0;
         }
       });
+      wakePhysics(1.0);
     }
 
-    // Step physics with strict bounds and velocity damping (never NaN or fly away!)
+    // Step physics with strict bounds, alpha decay and sleeping
     function step3DPhysics() {
+      if (simulationAlpha < MIN_ALPHA) {
+        isPhysicsSleeping = true;
+        return false;
+      }
+
       const nodes = graphData.nodes.filter(n => activeFilters.has(n.type));
       const edges = graphData.edges;
+      const cutoff = 240;
+      const cutoffSq = cutoff * cutoff;
 
-      // 1. Softened Repulsion between all nodes
+      // 1. Softened Repulsion with distance threshold cutoff
       for (let i = 0; i < nodes.length; i++) {
+        const a = nodes[i];
         for (let j = i + 1; j < nodes.length; j++) {
-          const a = nodes[i];
           const b = nodes[j];
           const dx = b.x - a.x;
+          if (Math.abs(dx) > cutoff) continue;
           const dy = b.y - a.y;
+          if (Math.abs(dy) > cutoff) continue;
           const dz = b.z - a.z;
-          const distSq = dx * dx + dy * dy + dz * dz + 400; // Softening factor prevents explosion
-          const dist = Math.sqrt(distSq);
+          if (Math.abs(dz) > cutoff) continue;
 
-          if (dist < 280) {
-            const repForce = (280 - dist) / dist * 0.025;
+          const distSq = dx * dx + dy * dy + dz * dz + 400;
+          if (distSq < cutoffSq) {
+            const dist = Math.sqrt(distSq);
+            const repForce = ((cutoff - dist) / dist) * 0.024 * simulationAlpha;
             const fx = dx * repForce;
             const fy = dy * repForce;
             const fz = dz * repForce;
@@ -783,6 +952,7 @@ export function renderGraphHtml(projectName: string): string {
 
       // 2. Spring Attraction along Edges
       const nodeMap = new Map(nodes.map(n => [n.id, n]));
+      const springAlpha = 0.0024 * simulationAlpha;
       edges.forEach(edge => {
         const a = nodeMap.get(edge.source);
         const b = nodeMap.get(edge.target);
@@ -793,7 +963,7 @@ export function renderGraphHtml(projectName: string): string {
         const dz = b.z - a.z;
         const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
         const targetDist = 65;
-        const springForce = (dist - targetDist) * 0.002;
+        const springForce = (dist - targetDist) * springAlpha;
 
         const fx = dx * springForce;
         const fy = dy * springForce;
@@ -807,22 +977,18 @@ export function renderGraphHtml(projectName: string): string {
       const maxSpeed = 1.8;
       nodes.forEach(node => {
         if (node.type === 'root') {
-          // Keep root pinned at center
           node.x = 0; node.y = 0; node.z = 0;
           return;
         }
 
-        // Pull toward center
-        node.vx -= node.x * 0.0012;
-        node.vy -= node.y * 0.0012;
-        node.vz -= node.z * 0.0012;
+        node.vx -= node.x * 0.0012 * simulationAlpha;
+        node.vy -= node.y * 0.0012 * simulationAlpha;
+        node.vz -= node.z * 0.0012 * simulationAlpha;
 
-        // Friction damping
         node.vx *= 0.88;
         node.vy *= 0.88;
         node.vz *= 0.88;
 
-        // Clamp max speed
         node.vx = Math.max(-maxSpeed, Math.min(maxSpeed, node.vx));
         node.vy = Math.max(-maxSpeed, Math.min(maxSpeed, node.vy));
         node.vz = Math.max(-maxSpeed, Math.min(maxSpeed, node.vz));
@@ -831,7 +997,7 @@ export function renderGraphHtml(projectName: string): string {
         node.y += node.vy;
         node.z += node.vz;
 
-        // Sphere bounding box: prevent flying off screen
+        // Bounding sphere
         const curDist = Math.sqrt(node.x * node.x + node.y * node.y + node.z * node.z);
         if (curDist > 300) {
           const scale = 300 / curDist;
@@ -840,11 +1006,14 @@ export function renderGraphHtml(projectName: string): string {
           node.z *= scale;
         }
       });
+
+      // Cool simulation down gradually
+      simulationAlpha *= 0.985;
+      return true;
     }
 
-    // Build 3D Meshes from graphData
+    // Build 3D Meshes from graphData with geometry/material pooling
     function build3DScene() {
-      // Clear old node meshes
       nodeMeshMap.forEach(entry => {
         scene.remove(entry.group);
       });
@@ -856,30 +1025,24 @@ export function renderGraphHtml(projectName: string): string {
       }
 
       initPhysicsPositions();
+      const totalNodes = graphData.nodes.length;
 
-      // Create Meshes for each Node
+      // Create Meshes using shared unit geometry & cached materials
       graphData.nodes.forEach(node => {
         const radius = RADIUS_MAP[node.type] || 6;
         const color = COLOR_HEX[node.type] || 0xffffff;
 
         const group = new THREE.Group();
 
-        // 1. 3D Sphere with emissive glow
-        const sphereGeo = new THREE.SphereGeometry(radius, 24, 24);
-        const sphereMat = new THREE.MeshStandardMaterial({
-          color: color,
-          emissive: color,
-          emissiveIntensity: node.type === 'root' ? 0.6 : 0.25,
-          roughness: 0.3,
-          metalness: 0.4
-        });
-        const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
-        sphereMesh.userData = { node };
+        // 1. Pooled 3D Sphere Mesh
+        const sphereMesh = new THREE.Mesh(sharedSphereGeo, getNodeMaterial(node.type));
+        sphereMesh.scale.setScalar(radius);
+        sphereMesh.userData = { node, radius };
         group.add(sphereMesh);
 
         // 2. Extra Pulsing Ring for Root Core
         if (node.type === 'root') {
-          const ringGeo = new THREE.TorusGeometry(radius * 1.6, 0.8, 16, 64);
+          const ringGeo = new THREE.TorusGeometry(radius * 1.6, 0.8, 12, 48);
           const ringMat = new THREE.MeshBasicMaterial({ color: 0x818cf8, wireframe: true });
           const ringMesh = new THREE.Mesh(ringGeo, ringMat);
           ringMesh.rotation.x = Math.PI / 2.5;
@@ -887,10 +1050,14 @@ export function renderGraphHtml(projectName: string): string {
           group.userData.ring = ringMesh;
         }
 
-        // 3. Text Billboard Sprite Label
-        const labelSprite = createTextSprite(node.label, color);
-        labelSprite.position.set(0, radius + 7, 0);
-        group.add(labelSprite);
+        // 3. LOD Text Billboard Sprite Label
+        let labelSprite = null;
+        const isCoreNode = (node.type === 'root' || node.type === 'rule' || node.type === 'decision' || node.type === 'agent' || node.type === 'adapter');
+        if (isCoreNode || totalNodes < 35) {
+          labelSprite = createTextSprite(node.label, color);
+          labelSprite.position.set(0, radius + 7, 0);
+          group.add(labelSprite);
+        }
 
         group.position.set(node.x, node.y, node.z);
         scene.add(group);
@@ -898,7 +1065,6 @@ export function renderGraphHtml(projectName: string): string {
         nodeMeshMap.set(node.id, { group, sphereMesh, labelSprite, node });
       });
 
-      // Create LineSegments for Edges
       rebuildEdgeLines();
     }
 
@@ -908,7 +1074,7 @@ export function renderGraphHtml(projectName: string): string {
       canvas.height = 64;
       const ctx = canvas.getContext('2d');
 
-      ctx.fillStyle = 'rgba(10, 14, 26, 0.75)';
+      ctx.fillStyle = 'rgba(10, 14, 26, 0.78)';
       ctx.roundRect ? ctx.roundRect(4, 4, 248, 56, 12) : ctx.rect(4, 4, 248, 56);
       ctx.fill();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
@@ -989,49 +1155,41 @@ export function renderGraphHtml(projectName: string): string {
       colAttr.needsUpdate = true;
     }
 
-    // Animation Render Loop
+    // Animation Render Loop with Physics sleeping
     function animate() {
       requestAnimationFrame(animate);
 
-      // Run Physics Step
-      step3DPhysics();
-
-      // Sync 3D Mesh positions
-      nodeMeshMap.forEach(entry => {
-        const node = entry.node;
-        const visible = activeFilters.has(node.type);
-        entry.group.visible = visible;
-
-        if (visible) {
-          entry.group.position.set(node.x, node.y, node.z);
-
-          // Pulse root ring
-          if (entry.group.userData.ring) {
-            entry.group.userData.ring.rotation.z += 0.015;
+      // 1. Run Physics Step (only updates when active)
+      const physicsActive = step3DPhysics();
+      if (physicsActive) {
+        nodeMeshMap.forEach(entry => {
+          const node = entry.node;
+          const visible = activeFilters.has(node.type);
+          entry.group.visible = visible;
+          if (visible) {
+            entry.group.position.set(node.x, node.y, node.z);
           }
+        });
+        updateEdgeLines();
+      }
 
-          // Highlight search matches
-          if (searchQuery && node.label.toLowerCase().includes(searchQuery)) {
-            entry.sphereMesh.scale.set(1.4, 1.4, 1.4);
-          } else if (entry.sphereMesh !== hoveredMesh && (!selectedNode || selectedNode.id !== node.id)) {
-            entry.sphereMesh.scale.set(1, 1, 1);
-          }
-        }
-      });
+      // 2. Pulse root ring (minimal overhead)
+      const rootEntry = nodeMeshMap.get('syncytium:root');
+      if (rootEntry && rootEntry.group.userData.ring) {
+        rootEntry.group.userData.ring.rotation.z += 0.015;
+      }
 
-      updateEdgeLines();
-
-      // Starfield slow cosmic rotation
+      // 3. Starfield slow cosmic rotation
       if (starfieldMesh) {
         starfieldMesh.rotation.y += 0.0003;
       }
 
-      // Auto-orbit camera if enabled
+      // 4. Auto-orbit camera if enabled
       if (autoRotate && !isMouseDown && !isFlying) {
         camTheta += 0.0015;
       }
 
-      // Smooth camera interpolation
+      // 5. Smooth camera interpolation
       if (isFlying) {
         camera.position.lerp(flyTargetPos, 0.06);
         currentLookAt.lerp(flyTargetLook, 0.06);
@@ -1039,7 +1197,6 @@ export function renderGraphHtml(projectName: string): string {
 
         if (camera.position.distanceTo(flyTargetPos) < 2) {
           isFlying = false;
-          // Sync spherical coordinates after fly
           const offset = new THREE.Vector3().subVectors(camera.position, currentLookAt);
           camRadius = offset.length();
           camPhi = Math.acos(Math.max(-1, Math.min(1, offset.y / camRadius)));
@@ -1057,8 +1214,8 @@ export function renderGraphHtml(projectName: string): string {
     function selectNode(node) {
       selectedNode = node;
       openSidebar(node);
+      wakePhysics(0.3);
 
-      // Smooth fly-to camera focus
       flyTargetLook.set(node.x, node.y, node.z);
       const normal = new THREE.Vector3(node.x, node.y, node.z).normalize();
       if (normal.lengthSq() < 0.1) normal.set(0, 0.4, 1).normalize();
@@ -1134,11 +1291,30 @@ export function renderGraphHtml(projectName: string): string {
       camTheta = 0.5;
       camPhi = 1.2;
       isFlying = false;
+      wakePhysics(0.25);
     });
 
     document.getElementById('auto-rotate-btn').addEventListener('click', (e) => {
       autoRotate = !autoRotate;
       e.target.style.background = autoRotate ? 'var(--accent)' : 'rgba(30, 35, 60, 0.8)';
+    });
+
+    // Compact Mode Toggle Button
+    document.getElementById('compact-btn').addEventListener('click', () => {
+      compactMode = !compactMode;
+      if (compactMode) {
+        activeFilters.delete('file');
+        activeFilters.delete('tag');
+      } else {
+        activeFilters.add('file');
+        activeFilters.add('tag');
+      }
+      syncCompactButtonState();
+      nodeMeshMap.forEach(entry => {
+        entry.group.visible = activeFilters.has(entry.node.type);
+      });
+      rebuildEdgeLines();
+      wakePhysics(0.5);
     });
 
     // Filter pills
@@ -1152,7 +1328,11 @@ export function renderGraphHtml(projectName: string): string {
           activeFilters.add(type);
           pill.classList.add('active');
         }
+        nodeMeshMap.forEach(entry => {
+          entry.group.visible = activeFilters.has(entry.node.type);
+        });
         rebuildEdgeLines();
+        wakePhysics(0.4);
       });
     });
 
@@ -1165,6 +1345,7 @@ export function renderGraphHtml(projectName: string): string {
           flyTargetLook.set(match.x, match.y, match.z);
           flyTargetPos.set(match.x, match.y, match.z + 140);
           isFlying = true;
+          wakePhysics(0.3);
         }
       }
     });
@@ -1192,8 +1373,17 @@ export function renderGraphHtml(projectName: string): string {
         graphData = newData;
         build3DScene();
         updateHud();
+
+        // Smoothly dismiss loader overlay
+        const loader = document.getElementById('loader-overlay');
+        if (loader) {
+          loader.style.opacity = '0';
+          setTimeout(() => loader.remove(), 400);
+        }
       } catch (e) {
         console.error('Failed to load 3D graph data', e);
+        const loader = document.getElementById('loader-overlay');
+        if (loader) loader.remove();
       }
     }
 

@@ -172,6 +172,11 @@ npx syncytium sync
 ```bash
 # Opens the interactive 3D WebGL knowledge visualizer on http://localhost:3737:
 npx syncytium graph
+
+# For large repositories with many files and tags, launch in ultra-fast compact mode:
+npx syncytium graph --compact
+# Or filter specific node categories:
+npx syncytium graph --no-files --no-tags
 ```
 
 ### 4. Continuous Guardrails & CI

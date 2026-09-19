@@ -561,16 +561,25 @@ program
   .alias('ui')
   .description('Launch Obsidian-style interactive visual Knowledge Graph and project brain in browser')
   .option('-p, --port <number>', 'Local server port (default: 3737)', '3737')
+  .option('-c, --compact', 'Start in compact view (collapses/hides individual file nodes and tag clutter)', false)
+  .option('--no-files', 'Hide generated AI tool file nodes', false)
+  .option('--no-tags', 'Hide tag category nodes', false)
   .option('--no-open', 'Start server without automatically opening browser', false)
   .action(async (options) => {
     try {
       const portNum = parseInt(options.port, 10) || 3737;
       console.log(pc.bold(pc.cyan('\n🧠 Syncytium Knowledge Graph UI')));
+      if (options.compact) {
+        console.log(pc.yellow('⚡ Compact mode enabled (files & tags collapsed).'));
+      }
       console.log(pc.dim('Starting local server...'));
 
       const ui = await engine.startUiServer({
         port: portNum,
-        open: options.open !== false
+        open: options.open !== false,
+        compact: options.compact === true,
+        excludeFiles: options.files === false,
+        excludeTags: options.tags === false
       });
 
       console.log(pc.green(`✨ Visual Knowledge Graph running at: ${pc.bold(pc.underline(ui.url))}`));

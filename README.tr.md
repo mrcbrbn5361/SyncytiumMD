@@ -157,18 +157,22 @@ npx syncytium lock status
 npx syncytium lock release --agent Cursor
 ```
 
-### 14. Obsidian Tarzı Canlı Bilgi Grafiği Arayüzü (`graph` / `ui`)
-Projenizin tüm yapay zeka beyin topolojisini (kurallar, etiketler, ADR kararları, aktif ajanlar, adaptörler ve köprü dosyaları) tarayıcınızda interaktif, 2 boyutlu bir bilgi grafiği (force-directed knowledge graph) olarak görselleştirir:
+### 14. 3D WebGL Canlı Bilgi Galaksisi Arayüzü (`graph` / `ui`)
+Projenizin tüm yapay zeka beyin topolojisini (kurallar, etiketler, ADR kararları, aktif ajanlar, adaptörler ve köprü dosyaları) tarayıcınızda Three.js tabanlı, fütüristik 3D bir uzay galaksisi olarak görselleştirir:
 ```bash
-# http://localhost:3737 üzerinde interaktif arayüzü başlat
+# http://localhost:3737 üzerinde 3D görselleştiriciyi başlat
 npx syncytium graph
 
-# Farklı port ve otomatik tarayıcı açılışını kapatma:
-npx syncytium graph --port 4000 --no-open
+# Çok fazla dosya ve etiket bulunan büyük projeler için ultra hafif kompakt mod:
+npx syncytium graph --compact
+
+# Belirli katmanları gizleyerek odaklanma:
+npx syncytium graph --no-files --no-tags
 ```
-- **Sıfır Ek Ağır Bağımlılık:** Node.js'in yerel HTTP sunucusunda çalışır, harici ağır framework gerektirmez.
-- **İnteraktif Gezinti:** Düğümleri sürükleme, yakınlaştırma/uzaklaştırma (zoom/pan), düğümlere tıklayıp açılır yan çekmecede Markdown detaylarını okuma, arama ve filtreleme.
-- **Canlı Senkronizasyon (SSE):** Dosyalarda yapılan değişikliklerde tarayıcıyı yenilemeden grafiği anlık günceller.
+- **v0.1.7 Yüksek Performans Mimarisi:** Three.js geometri & materyal havuzlama (mesh pooling), fizik alpha sönümleme ile simülasyon uyku modu (düğümler yerleştiğinde %0 CPU yükü), ve dinamik LOD metin etiketleri.
+- **Kompakt Görünüm Butonu:** Arayüzdeki `⚡ Compact View` butonu ile dosya ve etiket kalabalığını tek tıkla gizleyip ana beyin çekirdeğine odaklanabilme.
+- **İnteraktif 3D Gezinti:** Orbit döndürme, pan, yumuşak odaklanma (fly-to focus), arama, filtreler ve anlık yan panel bilgi kartları.
+- **Canlı Senkronizasyon (SSE):** `.syncytium/` dosyalarında değişiklik yapıldığında tarayıcıyı yenilemeden 3D galaksiyi anlık günceller.
 
 ---
 
