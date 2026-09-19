@@ -157,6 +157,19 @@ npx syncytium lock status
 npx syncytium lock release --agent Cursor
 ```
 
+### 14. Obsidian Tarzı Canlı Bilgi Grafiği Arayüzü (`graph` / `ui`)
+Projenizin tüm yapay zeka beyin topolojisini (kurallar, etiketler, ADR kararları, aktif ajanlar, adaptörler ve köprü dosyaları) tarayıcınızda interaktif, 2 boyutlu bir bilgi grafiği (force-directed knowledge graph) olarak görselleştirir:
+```bash
+# http://localhost:3737 üzerinde interaktif arayüzü başlat
+npx syncytium graph
+
+# Farklı port ve otomatik tarayıcı açılışını kapatma:
+npx syncytium graph --port 4000 --no-open
+```
+- **Sıfır Ek Ağır Bağımlılık:** Node.js'in yerel HTTP sunucusunda çalışır, harici ağır framework gerektirmez.
+- **İnteraktif Gezinti:** Düğümleri sürükleme, yakınlaştırma/uzaklaştırma (zoom/pan), düğümlere tıklayıp açılır yan çekmecede Markdown detaylarını okuma, arama ve filtreleme.
+- **Canlı Senkronizasyon (SSE):** Dosyalarda yapılan değişikliklerde tarayıcıyı yenilemeden grafiği anlık günceller.
+
 ---
 
 ## 🤝 Çoklu Ajan Devir Teslimi (Handoff Protokolü)

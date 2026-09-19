@@ -12,10 +12,12 @@ alwaysApply: true
 # 🤝 Syncytium Active Handoff
 
 ### 🤝 Live Handoff Status
-- **Active Agent:** `Antigravity` (Next: `Cursor`)
+- **Active Agent:** `Antigravity` (Next: `Any`)
 - **Status:** `IN_PROGRESS`
-- **Current Goal:** Implement v0.1.3 features
+- **Current Goal:** Release v0.1.6 with Obsidian-style Knowledge Graph UI, dogfooding, and automated CDN-verified release pipeline
 - **Pending Tasks:**
-  - [ ] Publish v0.1.3 to npm
-- **Notes:** Use JWT with 15min expiry, refresh tokens in Redis
+  - [ ] Update README.md and README.tr.md documentation for v0.1.6
+  - [ ] Execute automated release via npm run release
+  - [ ] Push changes to GitHub main branch
+- **Notes:** SyncytiumMD is now dogfooded within its own repository. Run syncytium graph to view the live knowledge graph.
 

@@ -1,59 +1,69 @@
 ---
 activeAgent: Antigravity
-nextAgent: Cursor
+nextAgent: Any
 status: in_progress
-goal: Implement v0.1.3 features
+goal: Release v0.1.6 with Obsidian-style Knowledge Graph UI, dogfooding, and automated CDN-verified release pipeline
 completedWork:
-  - Initialized .syncytium/ single source of truth directory
-  - 'Created core rules: code style, testing, security'
-  - >-
-    Configured default adapters for Cursor, Claude, Copilot, Cline, Antigravity,
-    Windsurf, Trae, and OpenCode
-  - Database migration completed
-  - 'Added lint, import, log, git hook'
+  - Implemented embedded Knowledge Graph UI server (syncytium graph / syncytium ui)
+  - Added syncytium_get_graph tool to MCP server
+  - Created automated release pipeline (scripts/release.mjs) with CDN propagation polling
+  - Enhanced SyncytiumMD self-hosting (.syncytium/ architecture, ADRs, and adapter standards)
+  - 'Added unit tests: 20/20 tests passing'
 pendingTasks:
-  - Publish v0.1.3 to npm
+  - Update README.md and README.tr.md documentation for v0.1.6
+  - Execute automated release via npm run release
+  - Push changes to GitHub main branch
 touchedFiles:
-  - .syncytium/syncytium.config.json
-  - .syncytium/rules/code-style.md
-  - .syncytium/rules/security.md
-  - .syncytium/rules/testing-standards.md
+  - package.json
+  - src/core/types.ts
+  - src/core/engine.ts
+  - src/mcp/server.ts
+  - src/cli/index.ts
+  - src/ui/template.ts
+  - scripts/release.mjs
+  - tests/syncytium.test.ts
   - .syncytium/architecture.md
   - .syncytium/memory/decisions.md
+  - .syncytium/rules/adapter-standards.md
   - .syncytium/HANDOFF.md
-  - src/routes/auth.ts
-contextNotes: 'Use JWT with 15min expiry, refresh tokens in Redis'
-lastUpdated: '2026-09-19T16:05:40.263Z'
+contextNotes: 'SyncytiumMD is now dogfooded within its own repository. Run syncytium graph to view the live knowledge graph.'
+lastUpdated: '2026-09-19T16:50:00.000Z'
 ---
 # 🤝 Syncytium Handoff & Live State
 
 > **Active Agent:** `Antigravity`  
-> **Next Recommended Agent:** `Cursor`  
+> **Next Recommended Agent:** `Any`  
 > **Status:** `IN_PROGRESS`  
-> **Last Updated:** `2026-09-19T16:05:40.263Z`
+> **Last Updated:** `2026-09-19T16:50:00.000Z`
 
 ## 🎯 Current Goal
-Implement v0.1.3 features
+Release v0.1.6 with Obsidian-style Knowledge Graph UI, dogfooding, and automated CDN-verified release pipeline
 
 ## ✅ Completed in Recent Turns
-- Initialized .syncytium/ single source of truth directory
-- Created core rules: code style, testing, security
-- Configured default adapters for Cursor, Claude, Copilot, Cline, Antigravity, Windsurf, Trae, and OpenCode
-- Database migration completed
-- Added lint, import, log, git hook
+- Implemented embedded Knowledge Graph UI server (`syncytium graph` / `syncytium ui`)
+- Added `syncytium_get_graph` tool to MCP server
+- Created automated release pipeline (`scripts/release.mjs`) with CDN propagation polling
+- Enhanced SyncytiumMD self-hosting (`.syncytium/` architecture, ADRs, and adapter standards)
+- Added unit tests: 20/20 tests passing
 
 ## 📋 Pending Tasks (Next Agent Action Items)
-- [ ] Publish v0.1.3 to npm
+- [ ] Update README.md and README.tr.md documentation for v0.1.6
+- [ ] Execute automated release via npm run release
+- [ ] Push changes to GitHub main branch
 
 ## 📂 Recently Touched Files
-- `.syncytium/syncytium.config.json`
-- `.syncytium/rules/code-style.md`
-- `.syncytium/rules/security.md`
-- `.syncytium/rules/testing-standards.md`
+- `package.json`
+- `src/core/types.ts`
+- `src/core/engine.ts`
+- `src/mcp/server.ts`
+- `src/cli/index.ts`
+- `src/ui/template.ts`
+- `scripts/release.mjs`
+- `tests/syncytium.test.ts`
 - `.syncytium/architecture.md`
 - `.syncytium/memory/decisions.md`
+- `.syncytium/rules/adapter-standards.md`
 - `.syncytium/HANDOFF.md`
-- `src/routes/auth.ts`
 
 ## 🧠 Context & Handoff Notes for Next Agent
-Use JWT with 15min expiry, refresh tokens in Redis
+SyncytiumMD is now dogfooded within its own repository. Run `syncytium graph` to view the live knowledge graph.

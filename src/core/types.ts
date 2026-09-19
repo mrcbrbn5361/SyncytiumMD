@@ -160,4 +160,33 @@ export interface SyncytiumLock {
   expiresAt?: string;
 }
 
+export interface GraphNode {
+  id: string;
+  label: string;
+  type: 'root' | 'rule' | 'tag' | 'decision' | 'agent' | 'adapter' | 'file';
+  group: string;
+  description?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  label?: string;
+  type?: 'contains' | 'tagged' | 'implements' | 'hands_off_to' | 'generates' | 'references';
+}
+
+export interface KnowledgeGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  stats: {
+    rulesCount: number;
+    tagsCount: number;
+    decisionsCount: number;
+    activeAgentsCount: number;
+    bridgeFilesCount: number;
+  };
+}
+
+
 

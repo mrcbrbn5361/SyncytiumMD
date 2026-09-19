@@ -15,6 +15,44 @@ decisions:
     consequences: >-
       All tools stay in sync with zero manual copy-pasting. Changes in rules
       propagate automatically to all connected IDEs and CLIs.
+  - id: ADR-002
+    title: Zero-Heavy-Dependencies Knowledge Graph UI
+    status: accepted
+    date: '2026-09-19'
+    context: >-
+      Users need an Obsidian-style visual brain graph of their rules, tags, and
+      ADRs without installing heavy frontend runtimes (e.g. Next.js, Electron, or Express).
+    decision: >-
+      Implement an embedded Canvas-based force-directed graph server using native
+      node:http and Server-Sent Events (SSE).
+    consequences: >-
+      Instant startup, zero external runtime weight, works offline, and automatically
+      re-renders when files in .syncytium/ change.
+  - id: ADR-003
+    title: Lease-Based Multi-Agent Collision Prevention Lock
+    status: accepted
+    date: '2026-09-19'
+    context: >-
+      When running multiple autonomous agents or human-AI handoffs, agents risk
+      overwriting each other's active work simultaneously.
+    decision: >-
+      Introduce syncytium lock with time-expiring leases (e.g. 30-45 minutes)
+      stored in .syncytium/memory/lock.json.
+    consequences: >-
+      Agents verify workspace availability before starting long autonomous runs;
+      expired locks clear automatically without blocking forever.
+  - id: ADR-004
+    title: Automated Release Pipeline with NPM CDN Replication Polling
+    status: accepted
+    date: '2026-09-19'
+    context: >-
+      Publishing to NPM immediately triggers ETARGET errors if global installation
+      is attempted before edge CDNs replicate the new version tarball.
+    decision: >-
+      Implement scripts/release.mjs (npm run release) which verifies tests,
+      publishes, polls npm view with exponential backoff until live, and then installs globally.
+    consequences: >-
+      Zero failed releases, automated verification, and frictionless developer workflow.
 ---
 # Architectural Decision Records (ADR)
 
@@ -33,3 +71,47 @@ All tools stay in sync with zero manual copy-pasting. Changes in rules propagate
 
 ---
 
+### [ADR-002] Zero-Heavy-Dependencies Knowledge Graph UI
+- **Status:** accepted
+- **Date:** 2026-09-19
+
+**Context:**
+Users need an Obsidian-style visual brain graph of their rules, tags, and ADRs without installing heavy frontend runtimes (e.g. Next.js, Electron, or Express).
+
+**Decision:**
+Implement an embedded Canvas-based force-directed graph server using native node:http and Server-Sent Events (SSE).
+
+**Consequences:**
+Instant startup, zero external runtime weight, works offline, and automatically re-renders when files in .syncytium/ change.
+
+---
+
+### [ADR-003] Lease-Based Multi-Agent Collision Prevention Lock
+- **Status:** accepted
+- **Date:** 2026-09-19
+
+**Context:**
+When running multiple autonomous agents or human-AI handoffs, agents risk overwriting each other's active work simultaneously.
+
+**Decision:**
+Introduce syncytium lock with time-expiring leases (e.g. 30-45 minutes) stored in .syncytium/memory/lock.json.
+
+**Consequences:**
+Agents verify workspace availability before starting long autonomous runs; expired locks clear automatically without blocking forever.
+
+---
+
+### [ADR-004] Automated Release Pipeline with NPM CDN Replication Polling
+- **Status:** accepted
+- **Date:** 2026-09-19
+
+**Context:**
+Publishing to NPM immediately triggers ETARGET errors if global installation is attempted before edge CDNs replicate the new version tarball.
+
+**Decision:**
+Implement scripts/release.mjs (npm run release) which verifies tests, publishes, polls npm view with exponential backoff until live, and then installs globally.
+
+**Consequences:**
+Zero failed releases, automated verification, and frictionless developer workflow.
+
+---

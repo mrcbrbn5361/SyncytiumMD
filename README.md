@@ -157,6 +157,19 @@ npx syncytium lock status
 npx syncytium lock release --agent Cursor
 ```
 
+### 14. Obsidian-Style Knowledge Graph UI (`graph` / `ui`)
+Visualizes your project's entire brain topology (rules, tags, ADRs, active agents, adapters, and bridge files) as an interactive 2D force-directed knowledge graph in your browser:
+```bash
+# Launch interactive graph UI on http://localhost:3737
+npx syncytium graph
+
+# Custom port without opening browser automatically:
+npx syncytium graph --port 4000 --no-open
+```
+- **Zero Heavy Dependencies:** Runs on a native Node.js HTTP server.
+- **Interactive Exploration:** Drag nodes, zoom/pan, click to inspect markdown details in a slide-out drawer, search nodes in real-time, and filter by tags/types.
+- **Live Sync (SSE):** Automatically updates in real-time when rules or handoff states change on disk.
+
 ---
 
 ## 🤝 Multi-Agent Handoff Protocol

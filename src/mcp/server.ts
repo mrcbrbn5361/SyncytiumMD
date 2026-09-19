@@ -141,6 +141,14 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
             type: 'object',
             properties: {}
           }
+        },
+        {
+          name: 'syncytium_get_graph',
+          description: 'Get the complete Obsidian-like project knowledge graph (rules, tags, ADRs, agents, and bridge connections).',
+          inputSchema: {
+            type: 'object',
+            properties: {}
+          }
         }
       ]
     };
@@ -280,6 +288,18 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
             {
               type: 'text',
               text: JSON.stringify(diffReport, null, 2)
+            }
+          ]
+        };
+      }
+
+      if (name === 'syncytium_get_graph') {
+        const graph = await engine.getKnowledgeGraph();
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(graph, null, 2)
             }
           ]
         };

@@ -1,11 +1,14 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import http from 'node:http';
+import { exec } from 'node:child_process';
 import chokidar from 'chokidar';
 import pc from 'picocolors';
 import matter from 'gray-matter';
 import { CI_WORKFLOW_TEMPLATE } from './templates.js';
 import { SyncytiumStorage } from './storage.js';
 import { AdapterRegistry } from '../adapters/registry.js';
+import { renderGraphHtml } from '../ui/template.js';
 import type {
   HandoffState,
   HandoffHistoryEntry,
@@ -19,7 +22,10 @@ import type {
   ImportReport,
   ImportItem,
   SyncytiumLock,
-  CanonicalRule
+  CanonicalRule,
+  KnowledgeGraph,
+  GraphNode,
+  GraphEdge
 } from './types.js';
 
 export class SyncytiumEngine {
@@ -852,6 +858,354 @@ ${content.trim()}
     });
   }
 
+  async getKnowledgeGraph(): Promise<KnowledgeGraph> {
+    const config = await this.storage.loadConfig().catch(() => ({ projectName: path.basename(this.storage.rootDir), enabledAdapters: [] }));
+    const rules = await this.storage.loadRules().catch(() => []);
+    const decisions = await this.storage.loadDecisions().catch(() => []);
+    const handoff: HandoffState = await this.storage.loadHandoff().catch(() => ({
+      activeAgent: 'None',
+      nextAgent: undefined,
+      status: 'in_progress',
+      goal: '',
+      completedWork: [],
+      pendingTasks: [],
+      touchedFiles: [],
+      contextNotes: '',
+      lastUpdated: new Date().toISOString()
+    }));
+    const architecture = await this.storage.loadArchitecture().catch(() => '');
+
+    const nodes: GraphNode[] = [];
+    const edges: GraphEdge[] = [];
+
+    // 1. Root Node (Project Brain)
+    const rootId = 'project-root';
+    nodes.push({
+      id: rootId,
+      label: config.projectName || path.basename(this.storage.rootDir),
+      type: 'root',
+      group: 'project',
+      description: 'Central Project Brain and Memory Core'
+    });
+
+    // 2. Rules & Tags
+    const tagsSet = new Set<string>();
+    for (const rule of rules) {
+      const ruleId = `rule:${rule.id}`;
+      nodes.push({
+        id: ruleId,
+        label: rule.title,
+        type: 'rule',
+        group: 'rules',
+        description: rule.description || `Rule ${rule.id}`,
+        metadata: {
+          alwaysApply: rule.alwaysApply ?? true,
+          globs: rule.globs,
+          tags: rule.tags,
+          content: rule.content
+        }
+      });
+
+      edges.push({
+        source: rootId,
+        target: ruleId,
+        label: 'governs',
+        type: 'contains'
+      });
+
+      if (Array.isArray(rule.tags)) {
+        for (const tag of rule.tags) {
+          const normTag = tag.trim().toLowerCase();
+          if (!normTag) continue;
+          tagsSet.add(normTag);
+          edges.push({
+            source: ruleId,
+            target: `tag:${normTag}`,
+            label: 'tagged',
+            type: 'tagged'
+          });
+        }
+      }
+    }
+
+    // Add Tag Nodes
+    for (const tag of tagsSet) {
+      nodes.push({
+        id: `tag:${tag}`,
+        label: `#${tag}`,
+        type: 'tag',
+        group: 'tags',
+        description: `Tag category: ${tag}`
+      });
+    }
+
+    // 3. ADR Decisions
+    for (const d of decisions) {
+      const adrId = `adr:${d.id}`;
+      nodes.push({
+        id: adrId,
+        label: `[${d.id}] ${d.title}`,
+        type: 'decision',
+        group: 'decisions',
+        description: d.context,
+        metadata: {
+          status: d.status,
+          date: d.date,
+          decision: d.decision,
+          consequences: d.consequences
+        }
+      });
+
+      edges.push({
+        source: rootId,
+        target: adrId,
+        label: 'decision_record',
+        type: 'contains'
+      });
+    }
+
+    // 4. Architecture Blueprint
+    if (architecture.trim()) {
+      const archId = 'doc:architecture';
+      nodes.push({
+        id: archId,
+        label: 'Architecture Blueprint',
+        type: 'decision',
+        group: 'architecture',
+        description: 'High-level system design and architectural guidelines',
+        metadata: {
+          content: architecture
+        }
+      });
+      edges.push({
+        source: rootId,
+        target: archId,
+        label: 'blueprint',
+        type: 'contains'
+      });
+    }
+
+    // 5. Active Agent & Handoff
+    if (handoff.activeAgent && handoff.activeAgent !== 'None') {
+      const activeAgentId = `agent:${handoff.activeAgent}`;
+      nodes.push({
+        id: activeAgentId,
+        label: `Agent: ${handoff.activeAgent}`,
+        type: 'agent',
+        group: 'agents',
+        description: `Current Active Agent (Status: ${handoff.status.toUpperCase()})`,
+        metadata: {
+          status: handoff.status,
+          goal: handoff.goal,
+          pendingTasks: handoff.pendingTasks,
+          completedWork: handoff.completedWork,
+          touchedFiles: handoff.touchedFiles,
+          notes: handoff.contextNotes,
+          lastUpdated: handoff.lastUpdated
+        }
+      });
+
+      edges.push({
+        source: rootId,
+        target: activeAgentId,
+        label: 'active_session',
+        type: 'contains'
+      });
+
+      if (handoff.nextAgent && handoff.nextAgent !== 'Any' && handoff.nextAgent !== handoff.activeAgent) {
+        const nextAgentId = `agent:${handoff.nextAgent}`;
+        nodes.push({
+          id: nextAgentId,
+          label: `Agent: ${handoff.nextAgent}`,
+          type: 'agent',
+          group: 'agents',
+          description: 'Designated Next Agent for Handoff'
+        });
+
+        edges.push({
+          source: activeAgentId,
+          target: nextAgentId,
+          label: 'baton_pass',
+          type: 'hands_off_to'
+        });
+      }
+    }
+
+    // 6. Adapters & Bridge Files
+    const enabledAdapters = config.enabledAdapters || [];
+    const filesSet = new Set<string>();
+
+    for (const adapterId of enabledAdapters) {
+      const adapter = this.registry.get(adapterId);
+      if (!adapter) continue;
+
+      const adpNodeId = `adapter:${adapter.id}`;
+      nodes.push({
+        id: adpNodeId,
+        label: adapter.name,
+        type: 'adapter',
+        group: 'adapters',
+        description: adapter.description
+      });
+
+      edges.push({
+        source: rootId,
+        target: adpNodeId,
+        label: 'bridges_to',
+        type: 'contains'
+      });
+
+      for (const targetFile of adapter.defaultTargetFiles) {
+        const fileNodeId = `file:${targetFile}`;
+        if (!filesSet.has(targetFile)) {
+          filesSet.add(targetFile);
+          nodes.push({
+            id: fileNodeId,
+            label: targetFile,
+            type: 'file',
+            group: 'files',
+            description: `Generated AI context file: ${targetFile}`
+          });
+        }
+
+        edges.push({
+          source: adpNodeId,
+          target: fileNodeId,
+          label: 'generates',
+          type: 'generates'
+        });
+      }
+    }
+
+    return {
+      nodes,
+      edges,
+      stats: {
+        rulesCount: rules.length,
+        tagsCount: tagsSet.size,
+        decisionsCount: decisions.length,
+        activeAgentsCount: handoff.activeAgent && handoff.activeAgent !== 'None' ? 1 : 0,
+        bridgeFilesCount: filesSet.size
+      }
+    };
+  }
+
+  async startUiServer(options?: { port?: number; open?: boolean }): Promise<{
+    port: number;
+    url: string;
+    server: http.Server;
+    close: () => Promise<void>;
+  }> {
+    const defaultPort = options?.port || 3737;
+    const sseClients = new Set<http.ServerResponse>();
+
+    const unwatch = this.watch(() => {
+      for (const res of sseClients) {
+        try {
+          res.write(`data: ${JSON.stringify({ type: 'reload' })}\n\n`);
+        } catch {
+          sseClients.delete(res);
+        }
+      }
+    });
+
+    const server = http.createServer(async (req, res) => {
+      const parsedUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+
+      if (parsedUrl.pathname === '/api/graph') {
+        try {
+          const graph = await this.getKnowledgeGraph();
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify(graph));
+        } catch (err: any) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+      }
+
+      if (parsedUrl.pathname === '/api/events') {
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive'
+        });
+        res.write(': connected\n\n');
+        sseClients.add(res);
+        req.on('close', () => {
+          sseClients.delete(res);
+        });
+        return;
+      }
+
+      if (parsedUrl.pathname === '/api/health') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok' }));
+        return;
+      }
+
+      if (parsedUrl.pathname === '/' || parsedUrl.pathname === '/index.html') {
+        const config = await this.storage.loadConfig().catch(() => ({ projectName: path.basename(this.storage.rootDir) }));
+        const html = renderGraphHtml(config.projectName || 'Syncytium Project');
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(html);
+        return;
+      }
+
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not Found');
+    });
+
+    const port = await new Promise<number>((resolve, reject) => {
+      server.listen(defaultPort, () => resolve(defaultPort));
+      server.on('error', (err: any) => {
+        if (err.code === 'EADDRINUSE') {
+          server.listen(0, () => {
+            const addr = server.address();
+            resolve(typeof addr === 'object' && addr ? addr.port : defaultPort + 1);
+          });
+        } else {
+          reject(err);
+        }
+      });
+    });
+
+    const url = `http://localhost:${port}`;
+
+    if (options?.open !== false) {
+      const openCommand = process.platform === 'win32'
+        ? `start "" "${url}"`
+        : process.platform === 'darwin'
+        ? `open "${url}"`
+        : `xdg-open "${url}"`;
+
+      exec(openCommand, () => {});
+    }
+
+    return {
+      port,
+      url,
+      server,
+      close: async () => {
+        await unwatch();
+        for (const c of sseClients) {
+          try { c.end(); } catch {}
+        }
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+    };
+  }
+
   watch(onSync?: (paths: string[]) => void): () => Promise<void> {
     const watcher = chokidar.watch(this.storage.syncytiumDir, {
       ignoreInitial: true,
@@ -886,4 +1240,5 @@ ${content.trim()}
     };
   }
 }
+
 

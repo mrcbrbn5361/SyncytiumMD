@@ -11,7 +11,7 @@ const engine = new SyncytiumEngine();
 program
   .name('syncytium')
   .description('Universal Context & Handoff Bridge for AI Coding Tools (IDEs, VSCode extensions, CLIs)')
-  .version('0.1.5');
+  .version('0.1.6');
 
 // INIT
 program
@@ -555,5 +555,36 @@ program
     }
   });
 
+// GRAPH / UI
+program
+  .command('graph')
+  .alias('ui')
+  .description('Launch Obsidian-style interactive visual Knowledge Graph and project brain in browser')
+  .option('-p, --port <number>', 'Local server port (default: 3737)', '3737')
+  .option('--no-open', 'Start server without automatically opening browser', false)
+  .action(async (options) => {
+    try {
+      const portNum = parseInt(options.port, 10) || 3737;
+      console.log(pc.bold(pc.cyan('\n🧠 Syncytium Knowledge Graph UI')));
+      console.log(pc.dim('Starting local server...'));
+
+      const ui = await engine.startUiServer({
+        port: portNum,
+        open: options.open !== false
+      });
+
+      console.log(pc.green(`✨ Visual Knowledge Graph running at: ${pc.bold(pc.underline(ui.url))}`));
+      console.log(pc.dim('Live SSE syncing is active. Modifying .syncytium/ automatically updates the graph.'));
+      console.log(pc.dim('Press Ctrl+C to stop the server.\n'));
+
+      // Keep server alive
+      await new Promise(() => {});
+    } catch (err: any) {
+      console.error(pc.red(`❌ Failed to start UI server: ${err.message}`));
+      process.exit(1);
+    }
+  });
+
 program.parse();
+
 

@@ -333,6 +333,44 @@ describe('SyncytiumMD Test Suite', () => {
     assert.equal(nonExistent.length, 0);
   });
 
+  test('engine.getKnowledgeGraph returns structured nodes, edges and stats', async () => {
+    const graph = await engine.getKnowledgeGraph();
+    assert.ok(graph.nodes.length >= 5);
+    assert.ok(graph.edges.length >= 4);
+
+    // Verify root node
+    const root = graph.nodes.find(n => n.type === 'root');
+    assert.ok(root);
+
+    // Verify rule nodes
+    const ruleNodes = graph.nodes.filter(n => n.type === 'rule');
+    assert.ok(ruleNodes.length >= 3);
+
+    // Verify stats
+    assert.ok(graph.stats.rulesCount >= 3);
+    assert.ok(graph.stats.bridgeFilesCount >= 1);
+  });
+
+  test('engine.startUiServer starts local server and exposes /api/graph and UI', async () => {
+    const ui = await engine.startUiServer({ port: 3899, open: false });
+    assert.equal(ui.port, 3899);
+    assert.ok(ui.url.includes('3899'));
+
+    try {
+      const res = await fetch(`http://localhost:3899/api/graph`);
+      assert.equal(res.status, 200);
+      const data = (await res.json()) as any;
+      assert.ok(data.nodes.length >= 5);
+
+      const htmlRes = await fetch(`http://localhost:3899/`);
+      assert.equal(htmlRes.status, 200);
+      const html = await htmlRes.text();
+      assert.ok(html.includes('SyncytiumMD Knowledge Graph'));
+    } finally {
+      await ui.close();
+    }
+  });
+
   test('engine.clean safely removes bridge files', async () => {
     const cleaned = await engine.clean();
     assert.ok(cleaned.length > 0);
