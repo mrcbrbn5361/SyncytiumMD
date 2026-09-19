@@ -157,22 +157,26 @@ npx syncytium lock status
 npx syncytium lock release --agent Cursor
 ```
 
-### 14. 3D WebGL Canlı Bilgi Galaksisi Arayüzü (`graph` / `ui`)
-Projenizin tüm yapay zeka beyin topolojisini (kurallar, etiketler, ADR kararları, aktif ajanlar, adaptörler ve köprü dosyaları) tarayıcınızda Three.js tabanlı, fütüristik 3D bir uzay galaksisi olarak görselleştirir:
+### 14. 🌌 Obsidian Studio & 3D WebGL Bilgi Galaksisi (`graph` / `ui`)
+Projenizin tüm yapay zeka beyin topolojisini ve araçlarını tarayıcınızda Obsidian benzeri çift panelli stüdyo ve interaktif 3D WebGL uzay galaksisi olarak görselleştirir ve inceler:
 ```bash
-# http://localhost:3737 üzerinde 3D görselleştiriciyi başlat
+# http://localhost:3737 üzerinde Obsidian Studio & 3D görselleştiriciyi başlat
 npx syncytium graph
 
-# Çok fazla dosya ve etiket bulunan büyük projeler için ultra hafif kompakt mod:
-npx syncytium graph --compact
+# CLI üzerinden doğrudan belirli perspektifleri filtreleyerek aç:
+npx syncytium graph --category ide        # Sadece Cursor, Windsurf, Trae
+npx syncytium graph --category cli        # Sadece Claude Code, Antigravity, OpenCode
+npx syncytium graph --category extension  # Sadece GitHub Copilot, Cline
+npx syncytium graph --category brain      # Sadece kanonik .syncytium/ ortak beyni
 
-# Belirli katmanları gizleyerek odaklanma:
-npx syncytium graph --no-files --no-tags
+# Büyük projeler için ultra hafif kompakt mod:
+npx syncytium graph --compact
 ```
-- **v0.1.7 Yüksek Performans Mimarisi:** Three.js geometri & materyal havuzlama (mesh pooling), fizik alpha sönümleme ile simülasyon uyku modu (düğümler yerleştiğinde %0 CPU yükü), ve dinamik LOD metin etiketleri.
-- **Kompakt Görünüm Butonu:** Arayüzdeki `⚡ Compact View` butonu ile dosya ve etiket kalabalığını tek tıkla gizleyip ana beyin çekirdeğine odaklanabilme.
-- **İnteraktif 3D Gezinti:** Orbit döndürme, pan, yumuşak odaklanma (fly-to focus), arama, filtreler ve anlık yan panel bilgi kartları.
-- **Canlı Senkronizasyon (SSE):** `.syncytium/` dosyalarında değişiklik yapıldığında tarayıcıyı yenilemeden 3D galaksiyi anlık günceller.
+- **Obsidian Dosya Gezgini (Sol Panel):** Kanonik `.syncytium/` kasasını (`rules/`, `memory/` ADRs, `architecture.md`, `HANDOFF.md`) ve IDE'ler, CLI'lar ile VSCode Eklentilerine göre gruplanmış araç adaptörlerini hiyerarşik klasör ağacı olarak listeler. Tıklanan dosyanın 3D düğümüne kamera otomatik uçar ve dokümanını açar.
+- **3D Celestial WebGL Galaksi (Orta Panel):** Three.js tabanlı, kısıtlı Coulomb itme gücü ve sönümleme fiziğiyle sıfır titreme ve uyku modu (%0 CPU yükü).
+- **Obsidian Doküman Okuyucu (Sağ Panel):** Canlı Markdown ayrıştırıcı, YAML frontmatter etiketleri, bağlı beyin düğümleri ve kaynak rozeti (`🧠 Canonical Source of Truth (.syncytium)` veya `⚡ Transpiled from .syncytium/`).
+- **Perspektif Değiştirici Butonları:** Arayüz üst çubuğundan tek tıkla `🌌 Universal Brain`, `🖥️ IDEs`, `⌨️ CLIs`, `🧩 VSCode Extensions` ve `📜 Core Vault` görünümleri arasında anlık geçiş.
+- **Canlı SSE Senkronizasyonu:** `.syncytium/` altındaki herhangi bir dosya güncellendiğinde tarayıcı yenilenmeden hem 3D uzay hem de doküman okuyucu canlı güncellenir.
 
 ---
 

@@ -106,12 +106,18 @@ Pass live tasks, touchsets, and operational context seamlessly between distinct 
 - **Top-of-Chat Injection:** Generates active handoff state directly injected into the target tool's prompt buffer.
 - **Milestone History:** Maintains an append-only JSON audit trail of task transitions, completed subtasks, and architectural deviations.
 
-### 4. 🌌 3D WebGL Knowledge Galaxy (`syncytium graph`)
-Visualizes your entire engineering topology as an interactive 3D celestial galaxy inside the browser:
-- **Real-Time Physics Simulation:** Built on Three.js with bounded, softened Coulomb repulsion and velocity damping (zero node drift or canvas fly-away).
-- **Relational Node Clusters:** Visualizes Project Brain Core, Canonical Rules, Tag Categories, Architectural Decisions (ADRs), Active Agents, and Generated Bridge Targets.
-- **Live SSE Sync:** Modifying any rule or handoff on disk updates the 3D space in real-time without refreshing.
-- **Deep Inspector Drawer:** Click any node or search to smoothly fly the camera to it, rendering markdown content and connected node dependencies.
+### 4. 🌌 Obsidian Studio & 3D Celestial Galaxy (`syncytium graph`)
+Visualizes and inspects your entire engineering topology as an interactive Obsidian-like dual-pane studio with a 3D WebGL celestial galaxy:
+- **Obsidian Vault Explorer (Left Pane):** Hierarchical, collapsible folder tree grouping the canonical `.syncytium/` vault (`rules/`, `memory/` ADRs, `architecture.md`, `HANDOFF.md`) and multi-tool adapters neatly categorized into **IDEs**, **CLIs**, and **VSCode Extensions**. Selecting any file immediately flies the camera to the node and displays its documentation.
+- **3D Celestial WebGL Galaxy (Center Pane):** Powered by Three.js with bounded Coulomb repulsion, velocity damping, and sleep-mode physics (0% CPU when settled).
+- **Obsidian Markdown Inspector (Right Pane):** Renders full Markdown documents with live syntax highlighting, frontmatter metadata tags, connected brain node pills, and provenance badges (`🧠 Canonical Source of Truth (.syncytium)` vs `⚡ Transpiled from .syncytium/`).
+- **Multi-Tool Perspective Switcher:** One-click instant isolation between:
+  - `🌌 Universal Brain` — Entire multi-agent ecosystem.
+  - `🖥️ IDEs` — Cursor, Windsurf, Trae.
+  - `⌨️ CLIs` — Claude Code, Google Antigravity, OpenCode.
+  - `🧩 VSCode Extensions` — GitHub Copilot, Cline / Roo Code.
+  - `📜 Core Vault (.syncytium)` — Pure canonical source of truth.
+- **Live SSE Sync:** Modifying any rule or handoff on disk updates both the 3D space and markdown document studio in real-time without browser reload.
 
 ### 5. 🛠️ Autonomous MCP Server (`syncytium-mcp`)
 Native Model Context Protocol integration exposing headless endpoints to agents like Claude Desktop, Cursor, or Cline:
@@ -168,15 +174,19 @@ npx syncytium init
 npx syncytium sync
 ```
 
-### 3. Launch 3D Knowledge Galaxy
+### 3. Launch Obsidian Studio & 3D Knowledge Galaxy
 ```bash
-# Opens the interactive 3D WebGL knowledge visualizer on http://localhost:3737:
+# Opens the interactive Obsidian Studio & 3D WebGL visualizer on http://localhost:3737:
 npx syncytium graph
 
-# For large repositories with many files and tags, launch in ultra-fast compact mode:
+# Isolate specific tool perspectives directly from the CLI:
+npx syncytium graph --category ide        # Focus on Cursor, Windsurf, Trae
+npx syncytium graph --category cli        # Focus on Claude Code, Antigravity, OpenCode
+npx syncytium graph --category extension  # Focus on GitHub Copilot, Cline
+npx syncytium graph --category brain      # Focus on canonical .syncytium/ vault
+
+# Ultra-fast compact mode for large repositories:
 npx syncytium graph --compact
-# Or filter specific node categories:
-npx syncytium graph --no-files --no-tags
 ```
 
 ### 4. Continuous Guardrails & CI

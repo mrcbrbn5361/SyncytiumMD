@@ -1,221 +1,169 @@
-export function renderGraphHtml(projectName: string, initialConfig?: { compact?: boolean; excludeFiles?: boolean; excludeTags?: boolean }): string {
+export function renderGraphHtml(
+  projectName: string,
+  initialConfig?: {
+    compact?: boolean;
+    excludeFiles?: boolean;
+    excludeTags?: boolean;
+    category?: string;
+  }
+): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🧠 SyncytiumMD Knowledge Graph 3D - ${projectName}</title>
+  <title>🧠 SyncytiumMD Obsidian Studio & 3D Galaxy - ${projectName}</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
     :root {
-      --bg: #07090e;
-      --panel-bg: rgba(13, 16, 26, 0.82);
-      --panel-border: rgba(99, 102, 241, 0.2);
+      --bg-dark: #07090e;
+      --bg-surface: #0c101a;
+      --bg-elevated: #131926;
+      --bg-hover: #1c2436;
+      --panel-border: rgba(99, 102, 241, 0.18);
+      --panel-border-bright: rgba(99, 102, 241, 0.45);
       --text-main: #f8fafc;
-      --text-dim: #94a3b8;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
       --accent: #6366f1;
-      --accent-glow: rgba(99, 102, 241, 0.4);
-      --rule-color: #38bdf8;
-      --tag-color: #fbbf24;
-      --decision-color: #c084fc;
+      --accent-glow: rgba(99, 102, 241, 0.35);
+      --ide-color: #38bdf8;
+      --cli-color: #fb923c;
+      --ext-color: #a855f7;
+      --rule-color: #22d3ee;
+      --adr-color: #e879f9;
       --agent-color: #34d399;
-      --adapter-color: #f43f5e;
-      --file-color: #a3e635;
-      --root-color: #6366f1;
+      --brain-color: #818cf8;
+      --tag-color: #fbbf24;
+      --file-color: #4ade80;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: var(--bg);
+      background: var(--bg-dark);
       color: var(--text-main);
       overflow: hidden;
       width: 100vw;
       height: 100vh;
+      display: flex;
+      flex-direction: column;
       user-select: none;
     }
 
-    /* 3D WebGL Canvas Container */
-    #webgl-container {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 1;
-    }
-
-    /* Top Futuristic Navbar */
+    /* Top Studio Header */
     header {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 60px;
-      background: var(--panel-bg);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      height: 56px;
+      background: rgba(10, 13, 22, 0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border-bottom: 1px solid var(--panel-border);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 24px;
-      z-index: 10;
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+      padding: 0 16px;
+      z-index: 100;
+      flex-shrink: 0;
     }
 
-    .brand {
+    .header-left {
       display: flex;
       align-items: center;
       gap: 12px;
+    }
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       font-weight: 800;
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       letter-spacing: -0.02em;
     }
     .brand-icon {
-      font-size: 1.3rem;
-      filter: drop-shadow(0 0 8px var(--accent));
+      font-size: 1.25rem;
+      filter: drop-shadow(0 0 10px var(--accent));
     }
-    .brand-badge {
+    .version-tag {
       background: linear-gradient(135deg, #4f46e5, #9333ea);
-      padding: 4px 10px;
+      padding: 2px 8px;
       border-radius: 6px;
-      font-size: 0.72rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+      font-size: 0.7rem;
       font-weight: 700;
+      letter-spacing: 0.05em;
       border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
-    .controls {
+    /* Perspective Switcher Tabs */
+    .perspective-nav {
       display: flex;
       align-items: center;
-      gap: 14px;
-    }
-
-    .search-box {
-      position: relative;
-    }
-    .search-input {
-      background: rgba(18, 22, 38, 0.9);
+      background: rgba(18, 24, 38, 0.9);
       border: 1px solid var(--panel-border);
-      border-radius: 20px;
-      color: #fff;
-      padding: 7px 14px 7px 34px;
-      font-size: 0.85rem;
-      outline: none;
-      width: 220px;
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      border-radius: 10px;
+      padding: 3px;
+      gap: 2px;
     }
-    .search-input:focus {
-      border-color: var(--accent);
-      width: 280px;
-      box-shadow: 0 0 16px var(--accent-glow);
-    }
-    .search-icon {
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--text-dim);
-      font-size: 0.85rem;
-    }
-
-    .filter-pills {
-      display: flex;
-      gap: 6px;
-    }
-    .pill {
-      background: rgba(20, 25, 45, 0.7);
-      border: 1px solid var(--panel-border);
-      color: var(--text-dim);
-      padding: 5px 12px;
-      border-radius: 20px;
-      font-size: 0.75rem;
+    .perspective-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 7px;
+      font-size: 0.78rem;
       font-weight: 600;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 6px;
-      transition: all 0.2s;
+      transition: all 0.18s ease;
     }
-    .pill:hover {
-      background: rgba(35, 42, 70, 0.9);
+    .perspective-btn:hover {
       color: #fff;
+      background: rgba(255, 255, 255, 0.06);
     }
-    .pill.active {
-      color: #fff;
-      border-color: currentColor;
-      box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
-    }
-    .pill-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-    }
-
-    .action-btn {
-      background: rgba(30, 35, 60, 0.8);
-      border: 1px solid var(--panel-border);
-      color: var(--text-main);
-      padding: 5px 12px;
-      border-radius: 8px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s;
-    }
-    .action-btn:hover {
+    .perspective-btn.active {
       background: var(--accent);
-      border-color: var(--accent);
       color: #fff;
       box-shadow: 0 0 12px var(--accent-glow);
     }
-    .action-btn.active {
-      background: var(--accent);
-      border-color: #818cf8;
-      color: #fff;
-      box-shadow: 0 0 14px var(--accent-glow);
-    }
 
-    /* Floating Hover Tooltip */
-    #hover-tooltip {
-      position: absolute;
-      display: none;
-      pointer-events: none;
-      z-index: 1000;
-      background: rgba(13, 17, 28, 0.94);
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tool-btn {
+      background: rgba(20, 26, 42, 0.8);
       border: 1px solid var(--panel-border);
-      backdrop-filter: blur(12px);
-      padding: 6px 12px;
+      color: var(--text-main);
+      padding: 6px 11px;
       border-radius: 8px;
-      font-size: 0.8rem;
+      font-size: 0.76rem;
       font-weight: 600;
-      color: #fff;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
-      white-space: nowrap;
-      transform: translate(14px, -50%);
-    }
-    .tooltip-tag {
-      font-size: 0.68rem;
-      padding: 2px 6px;
-      border-radius: 4px;
-      margin-left: 6px;
-      text-transform: uppercase;
-      font-weight: 700;
-    }
-
-    .status-indicator {
+      cursor: pointer;
       display: flex;
       align-items: center;
       gap: 6px;
-      font-size: 0.75rem;
+      transition: all 0.18s;
+    }
+    .tool-btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--panel-border-bright);
+    }
+    .tool-btn.active {
+      background: var(--accent);
+      border-color: #818cf8;
+      color: #fff;
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+    .status-live {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.72rem;
       color: var(--agent-color);
       background: rgba(16, 185, 129, 0.12);
-      padding: 5px 12px;
+      padding: 4px 10px;
       border-radius: 20px;
       border: 1px solid rgba(16, 185, 129, 0.3);
       font-weight: 600;
@@ -233,210 +181,431 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
       50% { transform: scale(1.4); opacity: 0.6; }
     }
 
-    /* Floating HUD Instructions */
-    .hud-help {
-      position: absolute;
-      top: 76px;
-      left: 24px;
-      background: var(--panel-bg);
-      backdrop-filter: blur(14px);
-      border: 1px solid var(--panel-border);
-      border-radius: 10px;
-      padding: 8px 14px;
-      font-size: 0.72rem;
-      color: var(--text-dim);
-      z-index: 5;
+    /* Main Studio Workspace Layout */
+    #studio-layout {
+      flex: 1;
       display: flex;
-      gap: 14px;
-      pointer-events: none;
-    }
-    .hud-help span {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .hud-help strong {
-      color: var(--text-main);
+      position: relative;
+      overflow: hidden;
     }
 
-    /* Bottom Stats & Legend */
-    .hud-stats {
-      position: absolute;
-      bottom: 24px;
-      left: 24px;
-      background: var(--panel-bg);
-      backdrop-filter: blur(14px);
-      border: 1px solid var(--panel-border);
-      padding: 10px 18px;
-      border-radius: 12px;
-      font-size: 0.8rem;
-      display: flex;
-      gap: 18px;
-      color: var(--text-dim);
-      pointer-events: none;
-      z-index: 5;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    }
-    .hud-stats strong {
-      color: var(--text-main);
-      font-size: 0.9rem;
-    }
-
-    .legend {
-      position: absolute;
-      bottom: 24px;
-      right: 24px;
-      background: var(--panel-bg);
-      backdrop-filter: blur(14px);
-      border: 1px solid var(--panel-border);
-      padding: 12px 16px;
-      border-radius: 12px;
-      font-size: 0.75rem;
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-      z-index: 5;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .legend-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      box-shadow: 0 0 6px currentColor;
-    }
-
-    /* Sidebar Glassmorphism Drawer */
-    .sidebar {
-      position: absolute;
-      top: 76px;
-      right: 24px;
-      bottom: 24px;
-      width: 400px;
-      background: rgba(13, 16, 28, 0.88);
+    /* Left Panel: Obsidian Vault File Explorer */
+    #vault-sidebar {
+      width: 290px;
+      background: rgba(11, 15, 24, 0.94);
       backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid var(--panel-border);
-      border-radius: 16px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+      border-right: 1px solid var(--panel-border);
       display: flex;
       flex-direction: column;
-      transform: translateX(440px);
-      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
       z-index: 20;
-      user-select: text;
+      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), width 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      flex-shrink: 0;
     }
-    .sidebar.open {
-      transform: translateX(0);
+    #vault-sidebar.collapsed {
+      transform: translateX(-100%);
+      width: 0;
+      padding: 0;
+      overflow: hidden;
+      border-right: none;
     }
 
-    .sidebar-header {
-      padding: 18px 20px;
+    .sidebar-header-box {
+      padding: 12px 14px;
       border-bottom: 1px solid var(--panel-border);
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      align-items: flex-start;
-      gap: 12px;
     }
-    .sidebar-title {
-      font-size: 1.15rem;
+    .sidebar-heading {
+      font-size: 0.74rem;
       font-weight: 700;
-      line-height: 1.35;
-    }
-    .sidebar-type {
-      display: inline-block;
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      padding: 3px 8px;
-      border-radius: 4px;
-      margin-top: 6px;
-      font-weight: 700;
-    }
-    .close-btn {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--panel-border);
+      letter-spacing: 0.06em;
       color: var(--text-dim);
-      font-size: 1.2rem;
-      cursor: pointer;
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
+      text-transform: uppercase;
       display: flex;
       align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
+      gap: 6px;
     }
-    .close-btn:hover {
-      background: rgba(239, 68, 68, 0.2);
-      border-color: #ef4444;
+    .vault-search-box {
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .vault-search-input {
+      width: 100%;
+      background: rgba(18, 24, 38, 0.9);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      color: #fff;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .vault-search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .vault-tree {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 6px;
+      user-select: none;
+    }
+    .vault-tree::-webkit-scrollbar {
+      width: 4px;
+    }
+    .vault-tree::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+
+    .tree-folder {
+      margin-bottom: 4px;
+    }
+    .tree-folder-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tree-folder-title:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+    }
+    .tree-folder-arrow {
+      font-size: 0.65rem;
+      transition: transform 0.18s;
+      width: 12px;
+      text-align: center;
+    }
+    .tree-folder.open > .tree-folder-title > .tree-folder-arrow {
+      transform: rotate(90deg);
+    }
+    .tree-folder-content {
+      display: none;
+      padding-left: 14px;
+      margin-top: 2px;
+    }
+    .tree-folder.open > .tree-folder-content {
+      display: block;
+    }
+
+    .tree-file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-bottom: 1px;
+    }
+    .tree-file-item:hover {
+      background: var(--bg-hover);
+      color: #fff;
+    }
+    .tree-file-item.active {
+      background: rgba(99, 102, 241, 0.22);
+      border: 1px solid var(--panel-border-bright);
+      color: #fff;
+      font-weight: 600;
+    }
+    .tree-file-name {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tree-badge {
+      font-size: 0.65rem;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-weight: 700;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    /* Center: 3D WebGL Canvas Container */
+    #center-viewport {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: radial-gradient(circle at center, #0c101c 0%, #07090e 100%);
+    }
+    #webgl-canvas-box {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    /* HUD Overlay Controls */
+    .hud-controls {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      display: flex;
+      gap: 8px;
+      z-index: 10;
+    }
+    .hud-stats-card {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      background: rgba(11, 15, 25, 0.85);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(14px);
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      display: flex;
+      gap: 16px;
+      color: var(--text-muted);
+      z-index: 10;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .hud-stats-card strong {
       color: #fff;
     }
 
-    .sidebar-content {
-      padding: 20px;
-      overflow-y: auto;
-      flex: 1;
-      font-size: 0.85rem;
-      line-height: 1.6;
-    }
-    .sidebar-content::-webkit-scrollbar {
-      width: 6px;
-    }
-    .sidebar-content::-webkit-scrollbar-thumb {
-      background: var(--panel-border);
-      border-radius: 3px;
-    }
-    .sidebar-section {
-      margin-bottom: 20px;
-    }
-    .sidebar-section-title {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      color: var(--accent);
-      letter-spacing: 0.08em;
-      margin-bottom: 8px;
+    .hud-perspective-badge {
+      position: absolute;
+      top: 14px;
+      right: 16px;
+      background: rgba(15, 21, 35, 0.88);
+      border: 1px solid var(--panel-border-bright);
+      backdrop-filter: blur(14px);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.74rem;
       font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      z-index: 10;
+      box-shadow: 0 0 16px var(--accent-glow);
     }
-    .sidebar-content pre {
-      background: rgba(7, 9, 16, 0.9);
-      padding: 14px;
-      border-radius: 10px;
-      overflow-x: auto;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+    /* Hover Tooltip */
+    #hover-tooltip {
+      position: absolute;
+      display: none;
+      pointer-events: none;
+      z-index: 1000;
+      background: rgba(13, 17, 28, 0.95);
+      border: 1px solid var(--panel-border-bright);
+      backdrop-filter: blur(14px);
+      padding: 6px 12px;
+      border-radius: 8px;
       font-size: 0.8rem;
-      color: #e2e8f0;
-      margin-top: 8px;
-      border: 1px solid var(--panel-border);
-      white-space: pre-wrap;
-      word-break: break-word;
+      font-weight: 600;
+      color: #fff;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.7);
+      white-space: nowrap;
+      transform: translate(14px, -50%);
     }
-    .conn-list {
-      list-style: none;
+
+    /* Right Panel: Obsidian Markdown Document Studio */
+    #doc-sidebar {
+      width: 420px;
+      background: rgba(12, 16, 26, 0.96);
+      backdrop-filter: blur(24px);
+      border-left: 1px solid var(--panel-border);
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      z-index: 20;
+      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), width 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      flex-shrink: 0;
     }
-    .conn-item {
-      padding: 8px 12px;
-      background: rgba(20, 24, 42, 0.7);
+    #doc-sidebar.collapsed {
+      transform: translateX(100%);
+      width: 0;
+      padding: 0;
+      overflow: hidden;
+      border-left: none;
+    }
+
+    .doc-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .doc-title-box {
+      flex: 1;
+      overflow: hidden;
+    }
+    .doc-breadcrumbs {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+    .doc-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.01em;
+      line-height: 1.3;
+    }
+    .doc-badge-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .doc-type-badge {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+    .doc-origin-badge {
+      font-size: 0.68rem;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      color: #a5b4fc;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .doc-content-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px 20px;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: #cbd5e1;
+      user-select: text;
+    }
+    .doc-content-body::-webkit-scrollbar {
+      width: 6px;
+    }
+    .doc-content-body::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+
+    /* Markdown Rich Styling */
+    .doc-content-body h1, .doc-content-body h2, .doc-content-body h3 {
+      color: #fff;
+      margin-top: 18px;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+    .doc-content-body h1 { font-size: 1.25rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 6px; }
+    .doc-content-body h2 { font-size: 1.05rem; }
+    .doc-content-body h3 { font-size: 0.92rem; }
+    .doc-content-body p { margin-bottom: 12px; }
+    .doc-content-body ul, .doc-content-body ol { margin-left: 20px; margin-bottom: 12px; }
+    .doc-content-body li { margin-bottom: 4px; }
+    .doc-content-body blockquote {
+      border-left: 3px solid var(--accent);
+      background: rgba(99, 102, 241, 0.08);
+      padding: 8px 14px;
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 14px;
+      color: #e2e8f0;
+    }
+    .doc-content-body code {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.82rem;
+      color: #38bdf8;
+    }
+    .doc-content-body pre {
+      background: #06080d;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 12px 14px;
+      overflow-x: auto;
+      margin-bottom: 14px;
+    }
+    .doc-content-body pre code {
+      background: transparent;
+      padding: 0;
+      color: #f1f5f9;
+      font-size: 0.8rem;
+    }
+    .meta-card {
+      background: rgba(18, 24, 38, 0.7);
       border: 1px solid var(--panel-border);
       border-radius: 8px;
-      font-size: 0.82rem;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 0.78rem;
+    }
+    .meta-row {
+      display: flex;
+      margin-bottom: 4px;
+      gap: 8px;
+    }
+    .meta-key {
+      color: var(--text-dim);
+      font-weight: 600;
+      min-width: 80px;
+    }
+    .meta-val {
+      color: #fff;
+    }
+
+    .connected-nodes-box {
+      margin-top: 20px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .connected-title {
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+    .node-pill-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .node-pill {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.74rem;
       cursor: pointer;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      transition: all 0.2s;
+      gap: 6px;
+      transition: all 0.15s;
     }
-    .conn-item:hover {
+    .node-pill:hover {
+      background: var(--accent);
       border-color: var(--accent);
-      background: rgba(35, 42, 75, 0.9);
-      transform: translateX(4px);
+      color: #fff;
+      box-shadow: 0 0 10px var(--accent-glow);
     }
 
     /* Cosmic Loading Overlay */
@@ -479,151 +648,152 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-
-    /* Fallback notice */
-    #fallback-msg {
-      display: none;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: var(--panel-bg);
-      border: 1px solid #ef4444;
-      padding: 24px;
-      border-radius: 12px;
-      text-align: center;
-      z-index: 100;
-    }
   </style>
 </head>
 <body>
   <div id="loader-overlay">
     <div class="loader-spinner"></div>
-    <div class="loader-title">🌌 Syncytium Cosmos</div>
-    <div class="loader-sub">Preparing 3D Knowledge Graph...</div>
+    <div class="loader-title">🌌 Syncytium Obsidian Studio</div>
+    <div class="loader-sub">Loading Universal Brain & 3D Knowledge Cosmos...</div>
   </div>
 
   <div id="hover-tooltip"></div>
 
+  <!-- Studio Header -->
   <header>
-    <div class="brand">
-      <span class="brand-icon">🧬</span>
-      <span>SyncytiumMD</span>
-      <span class="brand-badge">${projectName} 3D</span>
+    <div class="header-left">
+      <div class="brand-logo">
+        <span class="brand-icon">🧬</span>
+        <span>SyncytiumMD</span>
+      </div>
+      <span class="version-tag">${projectName} 0.1.8</span>
     </div>
 
-    <div class="controls">
-      <div class="search-box">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="search-input" class="search-input" placeholder="Search rules, tags, ADRs..." />
-      </div>
+    <!-- Multi-Tool Perspective Selector -->
+    <nav class="perspective-nav">
+      <button class="perspective-btn active" data-perspective="all" title="View entire multi-agent brain cosmos">
+        🌌 Universal Brain
+      </button>
+      <button class="perspective-btn" data-perspective="ide" title="Isolate Cursor, Windsurf, Trae IDE adapters">
+        🖥️ IDEs
+      </button>
+      <button class="perspective-btn" data-perspective="cli" title="Isolate Claude Code, Antigravity, OpenCode CLIs">
+        ⌨️ CLIs
+      </button>
+      <button class="perspective-btn" data-perspective="extension" title="Isolate GitHub Copilot & Cline / Roo Code extensions">
+        🧩 VSCode Extensions
+      </button>
+      <button class="perspective-btn" data-perspective="brain" title="Focus exclusively on canonical .syncytium/ source of truth">
+        📜 Core Vault (.syncytium)
+      </button>
+    </nav>
 
-      <div class="filter-pills">
-        <div class="pill active" data-type="rule">
-          <span class="pill-dot" style="background: var(--rule-color)"></span> Rules
-        </div>
-        <div class="pill active" data-type="tag">
-          <span class="pill-dot" style="background: var(--tag-color)"></span> Tags
-        </div>
-        <div class="pill active" data-type="decision">
-          <span class="pill-dot" style="background: var(--decision-color)"></span> ADRs
-        </div>
-        <div class="pill active" data-type="agent">
-          <span class="pill-dot" style="background: var(--agent-color)"></span> Agents
-        </div>
-        <div class="pill active" data-type="adapter">
-          <span class="pill-dot" style="background: var(--adapter-color)"></span> Adapters
-        </div>
-        <div class="pill active" data-type="file">
-          <span class="pill-dot" style="background: var(--file-color)"></span> Files
-        </div>
-      </div>
+    <div class="header-right">
+      <button class="tool-btn active" id="toggle-vault-btn" title="Toggle Obsidian File Explorer">📂 Vault</button>
+      <button class="tool-btn" id="compact-btn" title="Toggle Compact Mode">⚡ Compact</button>
+      <button class="tool-btn" id="reset-cam-btn" title="Reset View">🎯 Center</button>
+      <button class="tool-btn" id="auto-rotate-btn" title="Toggle Auto-Orbit">🔄 Orbit</button>
+      <button class="tool-btn active" id="toggle-doc-btn" title="Toggle Document Studio">📄 Inspector</button>
 
-      <button class="action-btn" id="compact-btn" title="Toggle Compact View (Hides File & Tag clutter)">⚡ Compact View</button>
-      <button class="action-btn" id="reset-cam-btn">🎯 Center</button>
-      <button class="action-btn" id="auto-rotate-btn">🔄 Orbit</button>
-
-      <div class="status-indicator">
+      <div class="status-live">
         <div class="pulse-dot"></div>
-        <span>Live 3D Sync</span>
+        <span>Live SSE</span>
       </div>
     </div>
   </header>
 
-  <div class="hud-help">
-    <span>🖱️ <strong>Left Click + Drag:</strong> Rotate 3D</span>
-    <span>🖱️ <strong>Right Click + Drag:</strong> Pan</span>
-    <span>📜 <strong>Scroll:</strong> Zoom</span>
-    <span>👆 <strong>Click Node:</strong> Focus & Inspect</span>
-  </div>
-
-  <div id="webgl-container"></div>
-
-  <div class="hud-stats">
-    <div>Nodes: <strong id="stat-nodes">0</strong></div>
-    <div>Connections: <strong id="stat-edges">0</strong></div>
-    <div>Rules: <strong id="stat-rules">0</strong></div>
-    <div>ADRs: <strong id="stat-adrs">0</strong></div>
-  </div>
-
-  <div class="legend">
-    <div class="legend-item"><span class="legend-dot" style="color: var(--root-color); background: var(--root-color)"></span> Project Brain Core</div>
-    <div class="legend-item"><span class="legend-dot" style="color: var(--rule-color); background: var(--rule-color)"></span> Canonical Rule</div>
-    <div class="legend-item"><span class="legend-dot" style="color: var(--tag-color); background: var(--tag-color)"></span> Tag Cluster</div>
-    <div class="legend-item"><span class="legend-dot" style="color: var(--decision-color); background: var(--decision-color)"></span> ADR Decision</div>
-    <div class="legend-item"><span class="legend-dot" style="color: var(--agent-color); background: var(--agent-color)"></span> Active AI Agent</div>
-    <div class="legend-item"><span class="legend-dot" style="color: var(--adapter-color); background: var(--adapter-color)"></span> Adapter Bridge</div>
-    <div class="legend-item"><span class="legend-dot" style="color: var(--file-color); background: var(--file-color)"></span> Bridge File</div>
-  </div>
-
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <div>
-        <div class="sidebar-title" id="side-title">Node Title</div>
-        <div class="sidebar-type" id="side-type">TYPE</div>
+  <!-- Studio Layout -->
+  <div id="studio-layout">
+    <!-- Left Panel: Obsidian Vault File Explorer -->
+    <aside id="vault-sidebar">
+      <div class="sidebar-header-box">
+        <span class="sidebar-heading">📁 OBSIDIAN VAULT EXPLORER</span>
+        <span id="vault-file-count" style="font-size: 0.7rem; color: var(--text-dim);">0 files</span>
       </div>
-      <button class="close-btn" id="close-side-btn">✕</button>
-    </div>
-    <div class="sidebar-content" id="side-content"></div>
-  </aside>
+      <div class="vault-search-box">
+        <input type="text" id="vault-search" class="vault-search-input" placeholder="Filter files in vault (rules, ADRs, bridges)..." />
+      </div>
+      <div class="vault-tree" id="vault-tree-root">
+        <!-- Built dynamically from graphData -->
+      </div>
+    </aside>
 
-  <div id="fallback-msg">WebGL could not be initialized in this browser.</div>
+    <!-- Center Viewport: 3D Three.js Canvas -->
+    <main id="center-viewport">
+      <div id="webgl-canvas-box"></div>
+
+      <div class="hud-perspective-badge" id="hud-perspective-badge">
+        <span>🌌 Perspective: Universal Brain</span>
+      </div>
+
+      <div class="hud-stats-card">
+        <div>Nodes: <strong id="stat-nodes">0</strong></div>
+        <div>Connections: <strong id="stat-edges">0</strong></div>
+        <div>Rules: <strong id="stat-rules">0</strong></div>
+        <div>ADRs: <strong id="stat-adrs">0</strong></div>
+      </div>
+    </main>
+
+    <!-- Right Panel: Obsidian Markdown Document Studio -->
+    <aside id="doc-sidebar">
+      <div class="doc-header">
+        <div class="doc-title-box">
+          <div class="doc-breadcrumbs" id="doc-breadcrumbs">
+            <span>.syncytium</span> <span>/</span> <span>architecture.md</span>
+          </div>
+          <div class="doc-title" id="doc-title">Select a node or file</div>
+          <div class="doc-badge-row">
+            <span class="doc-type-badge" id="doc-type-badge" style="background: var(--accent); color: #fff;">BRAIN</span>
+            <span class="doc-origin-badge" id="doc-origin-badge">Canonical Source of Truth</span>
+          </div>
+        </div>
+      </div>
+      <div class="doc-content-body" id="doc-content-body">
+        <p style="color: var(--text-muted); font-style: italic;">
+          Click any file in the left Obsidian Vault Explorer or click any node in the 3D Knowledge Galaxy to view its full Markdown guidelines, ADR context, and transpiled bridge links.
+        </p>
+      </div>
+    </aside>
+  </div>
 
   <script>
     const initialConfig = ${JSON.stringify(initialConfig || {})};
 
-    // Configuration & Color Palette
+    // Color Palette
     const COLOR_HEX = {
       root: 0x6366f1,
-      rule: 0x38bdf8,
+      rule: 0x22d3ee,
       tag: 0xfbbf24,
-      decision: 0xc084fc,
+      decision: 0xe879f9,
       agent: 0x34d399,
       adapter: 0xf43f5e,
-      file: 0xa3e635
+      file: 0x4ade80,
+      ide: 0x38bdf8,
+      cli: 0xfb923c,
+      extension: 0xa855f7
     };
 
     const RADIUS_MAP = {
-      root: 14,
+      root: 15,
       rule: 8,
       decision: 8,
       agent: 9,
-      adapter: 7,
+      adapter: 8,
       tag: 5,
       file: 5
     };
 
     let graphData = { nodes: [], edges: [] };
+    let currentPerspective = initialConfig.category || 'all';
     let compactMode = Boolean(initialConfig.compact);
     let activeFilters = new Set(['root', 'rule', 'decision', 'agent', 'adapter']);
     if (!compactMode && !initialConfig.excludeFiles) activeFilters.add('file');
     if (!compactMode && !initialConfig.excludeTags) activeFilters.add('tag');
 
-    let searchQuery = '';
     let selectedNode = null;
     let autoRotate = true;
 
-    // Physics Simulation Alpha (Decay & Sleep mode)
+    // Physics Simulation Alpha
     let simulationAlpha = 1.0;
     const MIN_ALPHA = 0.0035;
     let isPhysicsSleeping = false;
@@ -633,37 +803,40 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
       isPhysicsSleeping = false;
     }
 
-    // Geometry and Material Pooling (drastically reduces allocations)
+    // Geometry and Material Pooling
     const sharedSphereGeo = new THREE.SphereGeometry(1, 16, 16);
     const materialCache = new Map();
 
-    function getNodeMaterial(type) {
-      let mat = materialCache.get(type);
+    function getNodeMaterial(node) {
+      let key = node.type;
+      if (node.type === 'adapter' && node.metadata?.category) {
+        key = node.metadata.category;
+      }
+      let mat = materialCache.get(key);
       if (!mat) {
-        const color = COLOR_HEX[type] || 0x6366f1;
+        const color = COLOR_HEX[key] || COLOR_HEX[node.type] || 0x6366f1;
         mat = new THREE.MeshStandardMaterial({
           color: color,
           emissive: color,
-          emissiveIntensity: type === 'root' ? 0.65 : 0.28,
+          emissiveIntensity: node.type === 'root' ? 0.65 : 0.28,
           roughness: 0.35,
           metalness: 0.35
         });
-        materialCache.set(type, mat);
+        materialCache.set(key, mat);
       }
       return mat;
     }
 
-    // Three.js 3D Engine Variables
+    // Three.js Engine Variables
     let scene, camera, renderer;
     let nodeMeshMap = new Map();
     let edgeLineSegments;
     let starfieldMesh;
     let raycaster, mouse;
     let hoveredMesh = null;
-    let lastClientX = 0;
-    let lastClientY = 0;
+    let lastClientX = 0, lastClientY = 0;
 
-    // 3D Camera Spherical Coordinates
+    // 3D Spherical Orbit Camera
     let camRadius = 380;
     let camTheta = 0.5;
     let camPhi = 1.2;
@@ -673,28 +846,24 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
     // Mouse Interaction
     let isMouseDown = false;
     let mouseButton = 0;
-    let prevMouseX = 0;
-    let prevMouseY = 0;
+    let prevMouseX = 0, prevMouseY = 0;
 
-    // Camera fly-to target
+    // Smooth camera fly
     let isFlying = false;
     let flyTargetPos = new THREE.Vector3();
     let flyTargetLook = new THREE.Vector3();
 
     function initThree() {
-      const container = document.getElementById('webgl-container');
-      const width = window.innerWidth;
-      const height = window.innerHeight;
+      const container = document.getElementById('webgl-canvas-box');
+      const width = container.clientWidth || window.innerWidth;
+      const height = container.clientHeight || (window.innerHeight - 56);
 
-      // 1. Scene
       scene = new THREE.Scene();
       scene.fog = new THREE.FogExp2(0x07090e, 0.0012);
 
-      // 2. Camera
       camera = new THREE.PerspectiveCamera(55, width / height, 1, 3000);
       updateCameraPos();
 
-      // 3. Renderer with powerPreference: high-performance
       renderer = new THREE.WebGLRenderer({
         antialias: true,
         alpha: false,
@@ -705,7 +874,7 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
       renderer.setClearColor(0x07090e, 1);
       container.appendChild(renderer.domElement);
 
-      // 4. Lights
+      // Lighting
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
       scene.add(ambientLight);
 
@@ -717,30 +886,13 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
       dirLight2.position.set(-200, -200, -200);
       scene.add(dirLight2);
 
-      // 5. Starfield Background
       createStarfield();
 
-      // 6. Raycasting
       raycaster = new THREE.Raycaster();
       mouse = new THREE.Vector2();
 
-      // 7. Event Listeners
       window.addEventListener('resize', onWindowResize);
       setupControls(renderer.domElement);
-
-      // Setup Compact button state
-      syncCompactButtonState();
-    }
-
-    function syncCompactButtonState() {
-      const btn = document.getElementById('compact-btn');
-      if (btn) {
-        btn.classList.toggle('active', compactMode);
-      }
-      document.querySelectorAll('.filter-pills .pill').forEach(pill => {
-        const type = pill.getAttribute('data-type');
-        pill.classList.toggle('active', activeFilters.has(type));
-      });
     }
 
     function createStarfield() {
@@ -788,8 +940,9 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
       window.addEventListener('mousemove', e => {
         lastClientX = e.clientX;
         lastClientY = e.clientY;
-        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        const rect = dom.getBoundingClientRect();
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
         if (!isMouseDown) {
           handleHover();
@@ -802,16 +955,15 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
         prevMouseY = e.clientY;
 
         if (mouseButton === 0) {
-          // Left click: Orbit
+          // Orbit
           camTheta -= deltaX * 0.007;
           camPhi = Math.max(0.1, Math.min(Math.PI - 0.1, camPhi - deltaY * 0.007));
         } else if (mouseButton === 2) {
-          // Right click: Pan
+          // Pan
           const panSpeed = 0.4;
           const forward = new THREE.Vector3().subVectors(targetLookAt, camera.position).normalize();
           const side = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
           const up = new THREE.Vector3().crossVectors(side, forward).normalize();
-
           targetLookAt.addScaledVector(side, -deltaX * panSpeed);
           targetLookAt.addScaledVector(up, deltaY * panSpeed);
         }
@@ -830,7 +982,9 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
 
       dom.addEventListener('click', e => {
         raycaster.setFromCamera(mouse, camera);
-        const meshes = Array.from(nodeMeshMap.values()).map(entry => entry.sphereMesh);
+        const meshes = Array.from(nodeMeshMap.values())
+          .filter(entry => entry.group.visible)
+          .map(entry => entry.sphereMesh);
         const intersects = raycaster.intersectObjects(meshes);
 
         if (intersects.length > 0) {
@@ -869,7 +1023,7 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
         if (tooltip && node) {
           const colorHex = '#' + (COLOR_HEX[node.type] || 0x6366f1).toString(16).padStart(6, '0');
           const connCount = graphData.edges.filter(e => e.source === node.id || e.target === node.id).length;
-          tooltip.innerHTML = '<span>' + escapeHtml(node.label) + '</span><span class="tooltip-tag" style="background:' + colorHex + '; color:#000;">' + node.type + ' (' + connCount + ')</span>';
+          tooltip.innerHTML = '<span>' + escapeHtml(node.label) + '</span><span style="background:' + colorHex + '; color:#000; font-size:0.65rem; padding:2px 5px; border-radius:4px; margin-left:6px; font-weight:700;">' + node.type.toUpperCase() + ' (' + connCount + ')</span>';
           tooltip.style.left = lastClientX + 'px';
           tooltip.style.top = lastClientY + 'px';
           tooltip.style.display = 'block';
@@ -886,12 +1040,15 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
     }
 
     function onWindowResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
+      const container = document.getElementById('webgl-canvas-box');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      camera.aspect = width / height;
       camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setSize(width, height);
     }
 
-    // Stable 3D Force-Directed Simulation
+    // Force-Directed Physics Simulation
     function initPhysicsPositions() {
       const n = graphData.nodes.length;
       graphData.nodes.forEach((node, i) => {
@@ -912,7 +1069,6 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
       wakePhysics(1.0);
     }
 
-    // Step physics with strict bounds, alpha decay and sleeping
     function step3DPhysics() {
       if (simulationAlpha < MIN_ALPHA) {
         isPhysicsSleeping = true;
@@ -924,7 +1080,7 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
       const cutoff = 240;
       const cutoffSq = cutoff * cutoff;
 
-      // 1. Softened Repulsion with distance threshold cutoff
+      // Softened Repulsion with threshold cutoff
       for (let i = 0; i < nodes.length; i++) {
         const a = nodes[i];
         for (let j = i + 1; j < nodes.length; j++) {
@@ -950,7 +1106,7 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
         }
       }
 
-      // 2. Spring Attraction along Edges
+      // Spring Attraction
       const nodeMap = new Map(nodes.map(n => [n.id, n]));
       const springAlpha = 0.0024 * simulationAlpha;
       edges.forEach(edge => {
@@ -970,10 +1126,10 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
         const fz = dz * springForce;
 
         a.vx += fx; a.vy += fy; a.vz += fz;
-        b.vx -= fx; b.vy -= fy; b.vz -= fz;
+        b.vx -= fx; b.vy -= fy; b.vz += fz;
       });
 
-      // 3. Center Gravity & Velocity Clamping
+      // Damping & Center Gravity
       const maxSpeed = 1.8;
       nodes.forEach(node => {
         if (node.type === 'root') {
@@ -997,7 +1153,6 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
         node.y += node.vy;
         node.z += node.vz;
 
-        // Bounding sphere
         const curDist = Math.sqrt(node.x * node.x + node.y * node.y + node.z * node.z);
         if (curDist > 300) {
           const scale = 300 / curDist;
@@ -1007,12 +1162,10 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
         }
       });
 
-      // Cool simulation down gradually
       simulationAlpha *= 0.985;
       return true;
     }
 
-    // Build 3D Meshes from graphData with geometry/material pooling
     function build3DScene() {
       nodeMeshMap.forEach(entry => {
         scene.remove(entry.group);
@@ -1027,20 +1180,19 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
       initPhysicsPositions();
       const totalNodes = graphData.nodes.length;
 
-      // Create Meshes using shared unit geometry & cached materials
       graphData.nodes.forEach(node => {
         const radius = RADIUS_MAP[node.type] || 6;
         const color = COLOR_HEX[node.type] || 0xffffff;
 
         const group = new THREE.Group();
 
-        // 1. Pooled 3D Sphere Mesh
-        const sphereMesh = new THREE.Mesh(sharedSphereGeo, getNodeMaterial(node.type));
+        // Unit Sphere Mesh
+        const sphereMesh = new THREE.Mesh(sharedSphereGeo, getNodeMaterial(node));
         sphereMesh.scale.setScalar(radius);
         sphereMesh.userData = { node, radius };
         group.add(sphereMesh);
 
-        // 2. Extra Pulsing Ring for Root Core
+        // Core Pulse Ring
         if (node.type === 'root') {
           const ringGeo = new THREE.TorusGeometry(radius * 1.6, 0.8, 12, 48);
           const ringMat = new THREE.MeshBasicMaterial({ color: 0x818cf8, wireframe: true });
@@ -1050,7 +1202,7 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
           group.userData.ring = ringMesh;
         }
 
-        // 3. LOD Text Billboard Sprite Label
+        // LOD Sprite Labels
         let labelSprite = null;
         const isCoreNode = (node.type === 'root' || node.type === 'rule' || node.type === 'decision' || node.type === 'agent' || node.type === 'adapter');
         if (isCoreNode || totalNodes < 35) {
@@ -1074,7 +1226,7 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
       canvas.height = 64;
       const ctx = canvas.getContext('2d');
 
-      ctx.fillStyle = 'rgba(10, 14, 26, 0.78)';
+      ctx.fillStyle = 'rgba(10, 14, 26, 0.82)';
       ctx.roundRect ? ctx.roundRect(4, 4, 248, 56, 12) : ctx.rect(4, 4, 248, 56);
       ctx.fill();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
@@ -1144,7 +1296,7 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
         posAttr.setXYZ(idx + 1, b.x, b.y, b.z);
 
         const isHighlight = selectedNode && (selectedNode.id === a.id || selectedNode.id === b.id);
-        const col = isHighlight ? 0.9 : 0.25;
+        const col = isHighlight ? 0.95 : 0.25;
         colAttr.setXYZ(idx, col, col * 0.8, 1);
         colAttr.setXYZ(idx + 1, col, col * 0.8, 1);
 
@@ -1155,11 +1307,9 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
       colAttr.needsUpdate = true;
     }
 
-    // Animation Render Loop with Physics sleeping
     function animate() {
       requestAnimationFrame(animate);
 
-      // 1. Run Physics Step (only updates when active)
       const physicsActive = step3DPhysics();
       if (physicsActive) {
         nodeMeshMap.forEach(entry => {
@@ -1173,23 +1323,19 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
         updateEdgeLines();
       }
 
-      // 2. Pulse root ring (minimal overhead)
-      const rootEntry = nodeMeshMap.get('syncytium:root');
+      const rootEntry = nodeMeshMap.get('project-root');
       if (rootEntry && rootEntry.group.userData.ring) {
         rootEntry.group.userData.ring.rotation.z += 0.015;
       }
 
-      // 3. Starfield slow cosmic rotation
       if (starfieldMesh) {
         starfieldMesh.rotation.y += 0.0003;
       }
 
-      // 4. Auto-orbit camera if enabled
       if (autoRotate && !isMouseDown && !isFlying) {
         camTheta += 0.0015;
       }
 
-      // 5. Smooth camera interpolation
       if (isFlying) {
         camera.position.lerp(flyTargetPos, 0.06);
         currentLookAt.lerp(flyTargetLook, 0.06);
@@ -1210,79 +1356,314 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
       renderer.render(scene, camera);
     }
 
-    // Selection & Sidebar
-    function selectNode(node) {
+    // Node & Document Selection
+    async function selectNode(node) {
       selectedNode = node;
-      openSidebar(node);
-      wakePhysics(0.3);
+      wakePhysics(0.35);
 
+      // Focus camera in 3D
       flyTargetLook.set(node.x, node.y, node.z);
       const normal = new THREE.Vector3(node.x, node.y, node.z).normalize();
       if (normal.lengthSq() < 0.1) normal.set(0, 0.4, 1).normalize();
       flyTargetPos.copy(flyTargetLook).addScaledVector(normal, 120);
       isFlying = true;
+
+      // Update Obsidian File Explorer active state
+      document.querySelectorAll('.tree-file-item').forEach(el => {
+        el.classList.toggle('active', el.getAttribute('data-id') === node.id);
+      });
+
+      // Render in Obsidian Markdown Document Studio
+      await openDocumentStudio(node);
     }
 
-    function openSidebar(node) {
-      const sidebar = document.getElementById('sidebar');
-      const sideTitle = document.getElementById('side-title');
-      const sideType = document.getElementById('side-type');
-      const sideContent = document.getElementById('side-content');
+    async function openDocumentStudio(node) {
+      const docBreadcrumbs = document.getElementById('doc-breadcrumbs');
+      const docTitle = document.getElementById('doc-title');
+      const docTypeBadge = document.getElementById('doc-type-badge');
+      const docOriginBadge = document.getElementById('doc-origin-badge');
+      const docBody = document.getElementById('doc-content-body');
 
-      sideTitle.textContent = node.label;
-      sideType.textContent = node.type;
-      sideType.style.background = '#' + (COLOR_HEX[node.type] || 0x6366f1).toString(16).padStart(6, '0');
-      sideType.style.color = '#000';
+      // Expand right sidebar if collapsed
+      const sidebar = document.getElementById('doc-sidebar');
+      if (sidebar.classList.contains('collapsed')) {
+        sidebar.classList.remove('collapsed');
+        document.getElementById('toggle-doc-btn').classList.add('active');
+        onWindowResize();
+      }
+
+      const filePath = node.metadata?.path || node.label;
+      docBreadcrumbs.innerHTML = escapeHtml(filePath).split('/').join(' <span style="color: var(--text-dim)">/</span> ');
+      docTitle.textContent = node.label;
+
+      const typeColor = COLOR_HEX[node.type] || 0x6366f1;
+      docTypeBadge.textContent = node.type.toUpperCase();
+      docTypeBadge.style.background = '#' + typeColor.toString(16).padStart(6, '0');
+      docTypeBadge.style.color = '#000';
+
+      const isBrainMaster = node.metadata?.category === 'brain' || node.metadata?.category === 'rule' || node.metadata?.category === 'decision' || node.metadata?.category === 'architecture' || node.metadata?.category === 'agent';
+      docOriginBadge.textContent = isBrainMaster ? '🧠 Canonical Source of Truth (.syncytium)' : ('⚡ Transpiled from .syncytium/ (' + (node.metadata?.category || 'Bridge') + ')');
+      docOriginBadge.style.color = isBrainMaster ? '#a5b4fc' : '#4ade80';
 
       let html = '';
 
-      if (node.description) {
-        html += '<div class="sidebar-section"><div class="sidebar-section-title">Description</div><p>' + escapeHtml(node.description) + '</p></div>';
-      }
-
+      // Metadata card
       if (node.metadata) {
-        html += '<div class="sidebar-section"><div class="sidebar-section-title">Metadata</div>';
-        for (const [k, v] of Object.entries(node.metadata)) {
-          if (k === 'content') continue;
-          const val = typeof v === 'object' ? JSON.stringify(v) : String(v);
-          html += '<div><strong>' + k + ':</strong> ' + escapeHtml(val) + '</div>';
-        }
+        html += '<div class="meta-card">';
+        if (node.metadata.category) html += '<div class="meta-row"><span class="meta-key">Category:</span><span class="meta-val">' + escapeHtml(node.metadata.category.toUpperCase()) + '</span></div>';
+        if (node.metadata.path) html += '<div class="meta-row"><span class="meta-key">Path:</span><code style="color: #38bdf8;">' + escapeHtml(node.metadata.path) + '</code></div>';
+        if (node.metadata.globs) html += '<div class="meta-row"><span class="meta-key">Target Globs:</span><span class="meta-val">' + escapeHtml(node.metadata.globs.join(', ')) + '</span></div>';
+        if (node.metadata.tags) html += '<div class="meta-row"><span class="meta-key">Tags:</span><span class="meta-val">' + escapeHtml(node.metadata.tags.map(t => '#' + t).join(' ')) + '</span></div>';
+        if (node.metadata.status) html += '<div class="meta-row"><span class="meta-key">Status:</span><span class="meta-val">[' + escapeHtml(node.metadata.status.toUpperCase()) + ']</span></div>';
         html += '</div>';
-
-        if (node.metadata.content) {
-          html += '<div class="sidebar-section"><div class="sidebar-section-title">Content / Markdown</div><pre>' + escapeHtml(node.metadata.content) + '</pre></div>';
-        }
       }
 
-      // Connections
+      // Content preview: direct from metadata or fetch via /api/file
+      let content = node.metadata?.content;
+      if (!content && node.metadata?.path) {
+        try {
+          const res = await fetch('/api/file?path=' + encodeURIComponent(node.metadata.path));
+          if (res.ok) {
+            const data = await res.json();
+            content = data.content;
+          }
+        } catch {}
+      }
+
+      if (content) {
+        html += '<div>' + renderMarkdownToHtml(content) + '</div>';
+      } else if (node.description) {
+        html += '<p>' + escapeHtml(node.description) + '</p>';
+      }
+
+      // Connected Nodes section
       const connections = graphData.edges.filter(e => e.source === node.id || e.target === node.id);
       if (connections.length > 0) {
-        html += '<div class="sidebar-section"><div class="sidebar-section-title">Connected Nodes (' + connections.length + ')</div><ul class="conn-list">';
+        html += '<div class="connected-nodes-box"><div class="connected-title">Connected Brain Nodes (' + connections.length + ')</div><div class="node-pill-list">';
         const nodeMap = new Map(graphData.nodes.map(n => [n.id, n]));
         connections.forEach(edge => {
           const otherId = edge.source === node.id ? edge.target : edge.source;
           const other = nodeMap.get(otherId);
           if (other) {
-            html += '<li class="conn-item" onclick="focusNode(\\'' + other.id + '\\')"><span>' + escapeHtml(other.label) + '</span><span style="color: var(--text-dim)">' + other.type + '</span></li>';
+            html += '<div class="node-pill" onclick="selectNodeById(\\'' + other.id + '\\')"><span>' + escapeHtml(other.label) + '</span><span style="color: var(--text-dim); font-size: 0.65rem;">' + other.type + '</span></div>';
           }
         });
-        html += '</ul></div>';
+        html += '</div></div>';
       }
 
-      sideContent.innerHTML = html;
-      sidebar.classList.add('open');
+      docBody.innerHTML = html;
     }
 
-    window.focusNode = function(id) {
+    window.selectNodeById = function(id) {
       const node = graphData.nodes.find(n => n.id === id);
       if (node) {
         selectNode(node);
       }
     };
 
-    document.getElementById('close-side-btn').addEventListener('click', () => {
-      document.getElementById('sidebar').classList.remove('open');
-      selectedNode = null;
+    // Obsidian Vault Tree Generator
+    function buildVaultTree() {
+      const container = document.getElementById('vault-tree-root');
+      let html = '';
+
+      // 1. Central Brain (.syncytium/)
+      const brainRules = graphData.nodes.filter(n => n.type === 'rule');
+      const brainDecisions = graphData.nodes.filter(n => n.type === 'decision');
+
+      html += '<div class="tree-folder open">';
+      html += '  <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>🧠 .syncytium (Ortak Beyin)</span></div>';
+      html += '  <div class="tree-folder-content">';
+
+      // Rules folder
+      html += '    <div class="tree-folder open">';
+      html += '      <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>📁 rules/ (' + brainRules.length + ')</span></div>';
+      html += '      <div class="tree-folder-content">';
+      brainRules.forEach(rule => {
+        html += '        <div class="tree-file-item" data-id="' + rule.id + '" onclick="selectNodeById(\\'' + rule.id + '\\')">';
+        html += '          <span class="tree-file-name">📄 ' + escapeHtml(rule.label) + '</span>';
+        html += '          <span class="tree-badge" style="background: rgba(34, 211, 238, 0.2); color: #22d3ee;">RULE</span>';
+        html += '        </div>';
+      });
+      html += '      </div>';
+      html += '    </div>';
+
+      // Memory folder
+      html += '    <div class="tree-folder open">';
+      html += '      <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>📁 memory/ (ADRs & Lock)</span></div>';
+      html += '      <div class="tree-folder-content">';
+      brainDecisions.forEach(dec => {
+        html += '        <div class="tree-file-item" data-id="' + dec.id + '" onclick="selectNodeById(\\'' + dec.id + '\\')">';
+        html += '          <span class="tree-file-name">⚖️ ' + escapeHtml(dec.label) + '</span>';
+        html += '          <span class="tree-badge" style="background: rgba(232, 121, 249, 0.2); color: #e879f9;">ADR</span>';
+        html += '        </div>';
+      });
+      html += '      </div>';
+      html += '    </div>';
+
+      // System files
+      const archNode = graphData.nodes.find(n => n.id === 'doc:architecture');
+      if (archNode) {
+        html += '    <div class="tree-file-item" data-id="' + archNode.id + '" onclick="selectNodeById(\\'' + archNode.id + '\\')">';
+        html += '      <span class="tree-file-name">🏛️ architecture.md</span><span class="tree-badge" style="background: rgba(99, 102, 241, 0.2); color: #818cf8;">DOC</span>';
+        html += '    </div>';
+      }
+
+      const agentNode = graphData.nodes.find(n => n.type === 'agent');
+      if (agentNode) {
+        html += '    <div class="tree-file-item" data-id="' + agentNode.id + '" onclick="selectNodeById(\\'' + agentNode.id + '\\')">';
+        html += '      <span class="tree-file-name">🤝 HANDOFF.md</span><span class="tree-badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">HANDOFF</span>';
+        html += '    </div>';
+      }
+
+      html += '  </div>';
+      html += '</div>';
+
+      // 2. IDEs Folder
+      const ideAdapters = graphData.nodes.filter(n => n.type === 'adapter' && n.metadata?.category === 'ide');
+      if (ideAdapters.length > 0) {
+        html += '<div class="tree-folder open">';
+        html += '  <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>🖥️ IDEs Context (' + ideAdapters.length + ')</span></div>';
+        html += '  <div class="tree-folder-content">';
+        ideAdapters.forEach(adp => {
+          const bridgeFiles = graphData.edges.filter(e => e.source === adp.id && e.type === 'generates').map(e => e.target);
+          html += '    <div class="tree-folder open">';
+          html += '      <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>🔹 ' + escapeHtml(adp.label) + '</span></div>';
+          html += '      <div class="tree-folder-content">';
+          bridgeFiles.forEach(fileId => {
+            const fNode = graphData.nodes.find(n => n.id === fileId);
+            if (fNode) {
+              html += '        <div class="tree-file-item" data-id="' + fNode.id + '" onclick="selectNodeById(\\'' + fNode.id + '\\')">';
+              html += '          <span class="tree-file-name">⚡ ' + escapeHtml(fNode.label) + '</span><span class="tree-badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8;">IDE</span>';
+              html += '        </div>';
+            }
+          });
+          html += '      </div>';
+          html += '    </div>';
+        });
+        html += '  </div>';
+        html += '</div>';
+      }
+
+      // 3. CLIs Folder
+      const cliAdapters = graphData.nodes.filter(n => n.type === 'adapter' && (n.metadata?.category === 'cli' || n.metadata?.category === 'agent'));
+      if (cliAdapters.length > 0) {
+        html += '<div class="tree-folder open">';
+        html += '  <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>⌨️ CLIs Context (' + cliAdapters.length + ')</span></div>';
+        html += '  <div class="tree-folder-content">';
+        cliAdapters.forEach(adp => {
+          const bridgeFiles = graphData.edges.filter(e => e.source === adp.id && e.type === 'generates').map(e => e.target);
+          html += '    <div class="tree-folder open">';
+          html += '      <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>🔸 ' + escapeHtml(adp.label) + '</span></div>';
+          html += '      <div class="tree-folder-content">';
+          bridgeFiles.forEach(fileId => {
+            const fNode = graphData.nodes.find(n => n.id === fileId);
+            if (fNode) {
+              html += '        <div class="tree-file-item" data-id="' + fNode.id + '" onclick="selectNodeById(\\'' + fNode.id + '\\')">';
+              html += '          <span class="tree-file-name">⚡ ' + escapeHtml(fNode.label) + '</span><span class="tree-badge" style="background: rgba(251, 146, 60, 0.2); color: #fb923c;">CLI</span>';
+              html += '        </div>';
+            }
+          });
+          html += '      </div>';
+          html += '    </div>';
+        });
+        html += '  </div>';
+        html += '</div>';
+      }
+
+      // 4. VSCode Extensions Folder
+      const extAdapters = graphData.nodes.filter(n => n.type === 'adapter' && n.metadata?.category === 'extension');
+      if (extAdapters.length > 0) {
+        html += '<div class="tree-folder open">';
+        html += '  <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>🧩 VSCode Extensions (' + extAdapters.length + ')</span></div>';
+        html += '  <div class="tree-folder-content">';
+        extAdapters.forEach(adp => {
+          const bridgeFiles = graphData.edges.filter(e => e.source === adp.id && e.type === 'generates').map(e => e.target);
+          html += '    <div class="tree-folder open">';
+          html += '      <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>🟣 ' + escapeHtml(adp.label) + '</span></div>';
+          html += '      <div class="tree-folder-content">';
+          bridgeFiles.forEach(fileId => {
+            const fNode = graphData.nodes.find(n => n.id === fileId);
+            if (fNode) {
+              html += '        <div class="tree-file-item" data-id="' + fNode.id + '" onclick="selectNodeById(\\'' + fNode.id + '\\')">';
+              html += '          <span class="tree-file-name">⚡ ' + escapeHtml(fNode.label) + '</span><span class="tree-badge" style="background: rgba(168, 85, 247, 0.2); color: #a855f7;">EXT</span>';
+              html += '        </div>';
+            }
+          });
+          html += '      </div>';
+          html += '    </div>';
+        });
+        html += '  </div>';
+        html += '</div>';
+      }
+
+      container.innerHTML = html;
+      document.getElementById('vault-file-count').textContent = graphData.nodes.length + ' nodes';
+    }
+
+    window.toggleFolder = function(el) {
+      el.parentElement.classList.toggle('open');
+    };
+
+    // Filter tree via search
+    document.getElementById('vault-search').addEventListener('input', (e) => {
+      const q = e.target.value.trim().toLowerCase();
+      document.querySelectorAll('.tree-file-item').forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = (!q || text.includes(q)) ? 'flex' : 'none';
+      });
+    });
+
+    // Perspective Filter Switcher
+    document.querySelectorAll('.perspective-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        document.querySelectorAll('.perspective-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        currentPerspective = btn.getAttribute('data-perspective');
+        const badge = document.getElementById('hud-perspective-badge');
+        const titles = {
+          all: '🌌 Perspective: Universal Brain (All)',
+          ide: '🖥️ Perspective: IDEs Cosmos',
+          cli: '⌨️ Perspective: CLIs Cosmos',
+          extension: '🧩 Perspective: VSCode Extensions',
+          brain: '📜 Perspective: Central Brain Vault (.syncytium)'
+        };
+        badge.innerHTML = '<span>' + (titles[currentPerspective] || currentPerspective) + '</span>';
+
+        await fetchGraph();
+      });
+    });
+
+    // Toggle Sidebars
+    document.getElementById('toggle-vault-btn').addEventListener('click', (e) => {
+      const sidebar = document.getElementById('vault-sidebar');
+      sidebar.classList.toggle('collapsed');
+      e.target.classList.toggle('active', !sidebar.classList.contains('collapsed'));
+      setTimeout(onWindowResize, 300);
+    });
+
+    document.getElementById('toggle-doc-btn').addEventListener('click', (e) => {
+      const sidebar = document.getElementById('doc-sidebar');
+      sidebar.classList.toggle('collapsed');
+      e.target.classList.toggle('active', !sidebar.classList.contains('collapsed'));
+      setTimeout(onWindowResize, 300);
+    });
+
+    document.getElementById('compact-btn').addEventListener('click', (e) => {
+      compactMode = !compactMode;
+      e.target.classList.toggle('active', compactMode);
+      if (compactMode) {
+        activeFilters.delete('file');
+        activeFilters.delete('tag');
+      } else {
+        activeFilters.add('file');
+        activeFilters.add('tag');
+      }
+      nodeMeshMap.forEach(entry => {
+        entry.group.visible = activeFilters.has(entry.node.type);
+      });
+      rebuildEdgeLines();
+      wakePhysics(0.5);
     });
 
     document.getElementById('reset-cam-btn').addEventListener('click', () => {
@@ -1291,76 +1672,63 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
       camTheta = 0.5;
       camPhi = 1.2;
       isFlying = false;
-      wakePhysics(0.25);
+      wakePhysics(0.3);
     });
 
     document.getElementById('auto-rotate-btn').addEventListener('click', (e) => {
       autoRotate = !autoRotate;
-      e.target.style.background = autoRotate ? 'var(--accent)' : 'rgba(30, 35, 60, 0.8)';
+      e.target.classList.toggle('active', autoRotate);
     });
 
-    // Compact Mode Toggle Button
-    document.getElementById('compact-btn').addEventListener('click', () => {
-      compactMode = !compactMode;
-      if (compactMode) {
-        activeFilters.delete('file');
-        activeFilters.delete('tag');
-      } else {
-        activeFilters.add('file');
-        activeFilters.add('tag');
-      }
-      syncCompactButtonState();
-      nodeMeshMap.forEach(entry => {
-        entry.group.visible = activeFilters.has(entry.node.type);
-      });
-      rebuildEdgeLines();
-      wakePhysics(0.5);
-    });
+    // Simple, robust Markdown parser
+    function renderMarkdownToHtml(md) {
+      if (!md) return '';
+      let escaped = escapeHtml(md);
 
-    // Filter pills
-    document.querySelectorAll('.filter-pills .pill').forEach(pill => {
-      pill.addEventListener('click', () => {
-        const type = pill.getAttribute('data-type');
-        if (activeFilters.has(type)) {
-          activeFilters.delete(type);
-          pill.classList.remove('active');
-        } else {
-          activeFilters.add(type);
-          pill.classList.add('active');
-        }
-        nodeMeshMap.forEach(entry => {
-          entry.group.visible = activeFilters.has(entry.node.type);
-        });
-        rebuildEdgeLines();
-        wakePhysics(0.4);
-      });
-    });
+      // Fenced code blocks
+      escaped = escaped.replace(new RegExp('\\x60\\x60\\x60([^\\n]*)\\n([\\s\\S]*?)\\x60\\x60\\x60', 'g'), '<pre><code>$2</code></pre>');
 
-    // Search input
-    document.getElementById('search-input').addEventListener('input', (e) => {
-      searchQuery = e.target.value.trim().toLowerCase();
-      if (searchQuery) {
-        const match = graphData.nodes.find(n => activeFilters.has(n.type) && n.label.toLowerCase().includes(searchQuery));
-        if (match) {
-          flyTargetLook.set(match.x, match.y, match.z);
-          flyTargetPos.set(match.x, match.y, match.z + 140);
-          isFlying = true;
-          wakePhysics(0.3);
-        }
-      }
-    });
+      // Inline code
+      escaped = escaped.replace(new RegExp('\\x60([^\\x60]+)\\x60', 'g'), '<code>$1</code>');
 
-    function escapeHtml(str) {
-      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      // Headers
+      escaped = escaped.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+      escaped = escaped.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+      escaped = escaped.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+
+      // Blockquotes
+      escaped = escaped.replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>');
+
+      // Unordered lists
+      escaped = escaped.replace(/^[ \t]*-[ \t]+(.*$)/gm, '<li>$1</li>');
+
+      // Bold & Italic
+      escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      escaped = escaped.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+      // Horizontal rules
+      escaped = escaped.replace(/^---$/gm, '<hr style="border:none; border-top:1px solid rgba(255,255,255,0.08); margin:16px 0;" />');
+
+      // Line breaks
+      escaped = escaped.split('\n\n').join('<br><br>');
+
+      return escaped;
     }
 
-    // Data Fetching & SSE
+    function escapeHtml(str) {
+      return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Data Fetching
     async function fetchGraph() {
       try {
-        const res = await fetch('/api/graph');
+        let url = '/api/graph?category=' + encodeURIComponent(currentPerspective);
+        if (compactMode) url += '&compact=true';
+
+        const res = await fetch(url);
         const newData = await res.json();
 
-        // Preserve physics coordinates for existing nodes
+        // Preserve coordinates
         const oldPosMap = new Map(graphData.nodes.map(n => [n.id, { x: n.x, y: n.y, z: n.z, vx: n.vx, vy: n.vy, vz: n.vz }]));
         newData.nodes.forEach(n => {
           const old = oldPosMap.get(n.id);
@@ -1372,16 +1740,16 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
 
         graphData = newData;
         build3DScene();
+        buildVaultTree();
         updateHud();
 
-        // Smoothly dismiss loader overlay
         const loader = document.getElementById('loader-overlay');
         if (loader) {
           loader.style.opacity = '0';
           setTimeout(() => loader.remove(), 400);
         }
       } catch (e) {
-        console.error('Failed to load 3D graph data', e);
+        console.error('Failed to load graph', e);
         const loader = document.getElementById('loader-overlay');
         if (loader) loader.remove();
       }
@@ -1416,8 +1784,6 @@ export function renderGraphHtml(projectName: string, initialConfig?: { compact?:
         animate();
         setupSse();
       });
-    } else {
-      document.getElementById('fallback-msg').style.display = 'block';
     }
   </script>
 </body>

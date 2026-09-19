@@ -11,7 +11,7 @@ const engine = new SyncytiumEngine();
 program
   .name('syncytium')
   .description('Universal Context & Handoff Bridge for AI Coding Tools (IDEs, VSCode extensions, CLIs)')
-  .version('0.1.7');
+  .version('0.1.8');
 
 // INIT
 program
@@ -561,6 +561,7 @@ program
   .alias('ui')
   .description('Launch Obsidian-style interactive visual Knowledge Graph and project brain in browser')
   .option('-p, --port <number>', 'Local server port (default: 3737)', '3737')
+  .option('--category <type>', 'Filter perspective: ide, cli, extension, brain, or all', 'all')
   .option('-c, --compact', 'Start in compact view (collapses/hides individual file nodes and tag clutter)', false)
   .option('--no-files', 'Hide generated AI tool file nodes', false)
   .option('--no-tags', 'Hide tag category nodes', false)
@@ -568,7 +569,10 @@ program
   .action(async (options) => {
     try {
       const portNum = parseInt(options.port, 10) || 3737;
-      console.log(pc.bold(pc.cyan('\n🧠 Syncytium Knowledge Graph UI')));
+      console.log(pc.bold(pc.cyan('\n🧠 Syncytium Knowledge Graph & Obsidian Studio UI')));
+      if (options.category && options.category !== 'all') {
+        console.log(pc.magenta(`🎯 Filtered perspective: [${options.category.toUpperCase()}]`));
+      }
       if (options.compact) {
         console.log(pc.yellow('⚡ Compact mode enabled (files & tags collapsed).'));
       }
@@ -579,7 +583,8 @@ program
         open: options.open !== false,
         compact: options.compact === true,
         excludeFiles: options.files === false,
-        excludeTags: options.tags === false
+        excludeTags: options.tags === false,
+        category: options.category
       });
 
       console.log(pc.green(`✨ Visual Knowledge Graph running at: ${pc.bold(pc.underline(ui.url))}`));

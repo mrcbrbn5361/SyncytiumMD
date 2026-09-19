@@ -380,21 +380,52 @@ describe('SyncytiumMD Test Suite', () => {
     }
   });
 
-  test('engine.startUiServer starts local server and exposes /api/graph and UI', async () => {
+  test('engine.getKnowledgeGraph supports category filtering (ide, cli, extension, brain)', async () => {
+    const ideGraph = await engine.getKnowledgeGraph({ category: 'ide' });
+    assert.ok(ideGraph.nodes.some(n => n.type === 'adapter' && n.metadata?.category === 'ide'));
+    assert.equal(ideGraph.nodes.some(n => n.type === 'adapter' && n.metadata?.category === 'cli'), false);
+
+    const cliGraph = await engine.getKnowledgeGraph({ category: 'cli' });
+    assert.ok(cliGraph.nodes.some(n => n.type === 'adapter' && n.metadata?.category === 'cli'));
+    assert.equal(cliGraph.nodes.some(n => n.type === 'adapter' && n.metadata?.category === 'ide'), false);
+
+    const brainGraph = await engine.getKnowledgeGraph({ category: 'brain' });
+    assert.ok(brainGraph.nodes.some(n => n.type === 'rule'));
+    assert.equal(brainGraph.nodes.some(n => n.type === 'adapter'), false);
+  });
+
+  test('engine.startUiServer starts local server and exposes /api/graph, /api/file and Obsidian Studio UI', async () => {
     const ui = await engine.startUiServer({ port: 3899, open: false });
     assert.equal(ui.port, 3899);
     assert.ok(ui.url.includes('3899'));
 
     try {
-      const res = await fetch(`http://localhost:3899/api/graph`);
+      // /api/graph
+      const res = await fetch(`http://localhost:3899/api/graph?category=ide`);
       assert.equal(res.status, 200);
       const data = (await res.json()) as any;
-      assert.ok(data.nodes.length >= 5);
+      assert.ok(data.nodes.length >= 3);
+      assert.ok(data.nodes.some((n: any) => n.metadata?.category === 'ide'));
 
+      // /api/file
+      const fileRes = await fetch(`http://localhost:3899/api/file?path=.syncytium/architecture.md`);
+      assert.equal(fileRes.status, 200);
+      const fileData = (await fileRes.json()) as any;
+      assert.equal(fileData.path, '.syncytium/architecture.md');
+      assert.ok(fileData.content.includes('# System Architecture'));
+
+      // /api/file security check (path traversal)
+      const badRes = await fetch(`http://localhost:3899/api/file?path=../../etc/passwd`);
+      assert.equal(badRes.status, 403);
+
+      // UI HTML
       const htmlRes = await fetch(`http://localhost:3899/`);
       assert.equal(htmlRes.status, 200);
       const html = await htmlRes.text();
-      assert.ok(html.includes('SyncytiumMD Knowledge Graph'));
+      assert.ok(html.includes('SyncytiumMD'));
+      assert.ok(html.includes('Syncytium Obsidian Studio'));
+      assert.ok(html.includes('vault-sidebar'));
+      assert.ok(html.includes('doc-sidebar'));
     } finally {
       await ui.close();
     }

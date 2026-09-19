@@ -862,10 +862,12 @@ ${content.trim()}
     compact?: boolean;
     excludeFiles?: boolean;
     excludeTags?: boolean;
+    category?: 'all' | 'ide' | 'cli' | 'extension' | 'brain' | string;
   }): Promise<KnowledgeGraph> {
     const isCompact = options?.compact ?? false;
     const hideFiles = options?.excludeFiles ?? isCompact;
     const hideTags = options?.excludeTags ?? isCompact;
+    const filterCategory = options?.category && options.category !== 'all' ? options.category : null;
 
     const config = await this.storage.loadConfig().catch(() => ({ projectName: path.basename(this.storage.rootDir), enabledAdapters: [] }));
     const rules = await this.storage.loadRules().catch(() => []);
@@ -893,11 +895,17 @@ ${content.trim()}
       label: config.projectName || path.basename(this.storage.rootDir),
       type: 'root',
       group: 'project',
-      description: 'Central Project Brain and Memory Core'
+      description: 'Central Project Brain and Memory Core (.syncytium/)',
+      metadata: {
+        path: '.syncytium/syncytium.config.json',
+        category: 'brain'
+      }
     });
 
-    // 2. Rules & Tags
+    // 2. Rules & Tags (unless user filtered exclusively for a non-brain perspective that hides rules)
+    const includeRules = !filterCategory || filterCategory === 'brain' || filterCategory === 'all';
     const tagsSet = new Set<string>();
+
     for (const rule of rules) {
       const ruleId = `rule:${rule.id}`;
       nodes.push({
@@ -905,12 +913,16 @@ ${content.trim()}
         label: rule.title,
         type: 'rule',
         group: 'rules',
-        description: rule.description || `Rule ${rule.id}`,
+        description: rule.description || `Canonical rule: ${rule.id}`,
         metadata: {
+          id: rule.id,
+          title: rule.title,
           alwaysApply: rule.alwaysApply ?? true,
           globs: rule.globs,
           tags: rule.tags,
-          content: rule.content
+          content: rule.content,
+          path: `.syncytium/rules/${rule.id}.md`,
+          category: 'rule'
         }
       });
 
@@ -944,7 +956,10 @@ ${content.trim()}
           label: `#${tag}`,
           type: 'tag',
           group: 'tags',
-          description: `Tag category: ${tag}`
+          description: `Tag category: ${tag}`,
+          metadata: {
+            category: 'tag'
+          }
         });
       }
     }
@@ -959,10 +974,15 @@ ${content.trim()}
         group: 'decisions',
         description: d.context,
         metadata: {
+          id: d.id,
+          title: d.title,
           status: d.status,
           date: d.date,
+          context: d.context,
           decision: d.decision,
-          consequences: d.consequences
+          consequences: d.consequences,
+          path: '.syncytium/memory/decisions.md',
+          category: 'decision'
         }
       });
 
@@ -984,7 +1004,9 @@ ${content.trim()}
         group: 'architecture',
         description: 'High-level system design and architectural guidelines',
         metadata: {
-          content: architecture
+          content: architecture,
+          path: '.syncytium/architecture.md',
+          category: 'architecture'
         }
       });
       edges.push({
@@ -1011,7 +1033,9 @@ ${content.trim()}
           completedWork: handoff.completedWork,
           touchedFiles: handoff.touchedFiles,
           notes: handoff.contextNotes,
-          lastUpdated: handoff.lastUpdated
+          lastUpdated: handoff.lastUpdated,
+          path: '.syncytium/HANDOFF.md',
+          category: 'agent'
         }
       });
 
@@ -1029,7 +1053,10 @@ ${content.trim()}
           label: `Agent: ${handoff.nextAgent}`,
           type: 'agent',
           group: 'agents',
-          description: 'Designated Next Agent for Handoff'
+          description: 'Designated Next Agent for Handoff',
+          metadata: {
+            category: 'agent'
+          }
         });
 
         edges.push({
@@ -1041,56 +1068,72 @@ ${content.trim()}
       }
     }
 
-    // 6. Adapters & Bridge Files
+    // 6. Adapters & Bridge Files (categorized by IDE, CLI, Extension)
     const enabledAdapters = config.enabledAdapters || [];
     const filesSet = new Set<string>();
 
-    for (const adapterId of enabledAdapters) {
-      const adapter = this.registry.get(adapterId);
-      if (!adapter) continue;
+    if (filterCategory !== 'brain') {
+      for (const adapterId of enabledAdapters) {
+        const adapter = this.registry.get(adapterId);
+        if (!adapter) continue;
 
-      const adpNodeId = `adapter:${adapter.id}`;
-      nodes.push({
-        id: adpNodeId,
-        label: adapter.name,
-        type: 'adapter',
-        group: 'adapters',
-        description: adapter.description,
-        metadata: {
-          targetFiles: adapter.defaultTargetFiles
+        // Apply category filter if specified
+        if (filterCategory) {
+          if (filterCategory === 'ide' && adapter.category !== 'ide') continue;
+          if (filterCategory === 'cli' && adapter.category !== 'cli' && adapter.category !== 'agent') continue;
+          if (filterCategory === 'extension' && adapter.category !== 'extension') continue;
         }
-      });
 
-      edges.push({
-        source: rootId,
-        target: adpNodeId,
-        label: 'bridges_to',
-        type: 'contains'
-      });
+        const adpNodeId = `adapter:${adapter.id}`;
+        nodes.push({
+          id: adpNodeId,
+          label: adapter.name,
+          type: 'adapter',
+          group: 'adapters',
+          description: adapter.description,
+          metadata: {
+            category: adapter.category,
+            targetFiles: adapter.defaultTargetFiles
+          }
+        });
 
-      if (!hideFiles) {
-        for (const targetFile of adapter.defaultTargetFiles) {
-          const fileNodeId = `file:${targetFile}`;
-          if (!filesSet.has(targetFile)) {
-            filesSet.add(targetFile);
-            nodes.push({
-              id: fileNodeId,
-              label: targetFile,
-              type: 'file',
-              group: 'files',
-              description: `Generated AI context file: ${targetFile}`
+        edges.push({
+          source: rootId,
+          target: adpNodeId,
+          label: 'bridges_to',
+          type: 'contains'
+        });
+
+        if (!hideFiles) {
+          for (const targetFile of adapter.defaultTargetFiles) {
+            const fileNodeId = `file:${targetFile}`;
+            if (!filesSet.has(targetFile)) {
+              filesSet.add(targetFile);
+              nodes.push({
+                id: fileNodeId,
+                label: targetFile,
+                type: 'file',
+                group: 'files',
+                description: `Generated ${adapter.category.toUpperCase()} context file: ${targetFile}`,
+                metadata: {
+                  adapterId: adapter.id,
+                  adapterName: adapter.name,
+                  category: adapter.category,
+                  path: targetFile
+                }
+              });
+            }
+
+            edges.push({
+              source: adpNodeId,
+              target: fileNodeId,
+              label: 'generates',
+              type: 'generates'
             });
           }
-
-          edges.push({
-            source: adpNodeId,
-            target: fileNodeId,
-            label: 'generates',
-            type: 'generates'
-          });
+        } else {
+          adapter.defaultTargetFiles.forEach(f => filesSet.add(f));
         }
-      } else {
-        adapter.defaultTargetFiles.forEach(f => filesSet.add(f));
       }
     }
 
@@ -1113,6 +1156,7 @@ ${content.trim()}
     compact?: boolean;
     excludeFiles?: boolean;
     excludeTags?: boolean;
+    category?: string;
   }): Promise<{
     port: number;
     url: string;
@@ -1150,12 +1194,44 @@ ${content.trim()}
           const compact = parsedUrl.searchParams.get('compact') === 'true' || (options?.compact ?? false);
           const excludeFiles = parsedUrl.searchParams.get('noFiles') === 'true' || (options?.excludeFiles ?? compact);
           const excludeTags = parsedUrl.searchParams.get('noTags') === 'true' || (options?.excludeTags ?? compact);
-          const graph = await this.getKnowledgeGraph({ compact, excludeFiles, excludeTags });
+          const category = parsedUrl.searchParams.get('category') || options?.category || 'all';
+          const graph = await this.getKnowledgeGraph({ compact, excludeFiles, excludeTags, category });
           res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify(graph));
         } catch (err: any) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+      }
+
+      if (parsedUrl.pathname === '/api/file') {
+        const targetPath = parsedUrl.searchParams.get('path');
+        if (!targetPath) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing path parameter' }));
+          return;
+        }
+
+        const normalizedInput = targetPath.replace(/\\/g, '/').replace(/^\/+/, '');
+        const fullPath = path.resolve(this.storage.rootDir, normalizedInput);
+        const resolvedRoot = path.resolve(this.storage.rootDir);
+
+        if (!fullPath.startsWith(resolvedRoot + path.sep) && fullPath !== resolvedRoot) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Access denied outside workspace root' }));
+          return;
+        }
+
+        const normalizedRelPath = path.relative(resolvedRoot, fullPath).replace(/\\/g, '/');
+
+        try {
+          const content = await fs.readFile(fullPath, 'utf-8');
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ path: normalizedRelPath, content }));
+        } catch (err: any) {
+          res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ error: `File not found: ${normalizedRelPath}`, detail: err.message }));
         }
         return;
       }
@@ -1185,7 +1261,8 @@ ${content.trim()}
         const html = renderGraphHtml(config.projectName || 'Syncytium Project', {
           compact: options?.compact ?? false,
           excludeFiles: options?.excludeFiles ?? false,
-          excludeTags: options?.excludeTags ?? false
+          excludeTags: options?.excludeTags ?? false,
+          category: options?.category ?? 'all'
         });
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(html);
