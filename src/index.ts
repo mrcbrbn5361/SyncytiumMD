@@ -13,3 +13,4 @@ export * from './adapters/builtin/windsurf.js';
 export * from './adapters/builtin/trae.js';
 export * from './adapters/builtin/opencode.js';
 export * from './adapters/builtin/generic.js';
+export * from './mcp/server.js';

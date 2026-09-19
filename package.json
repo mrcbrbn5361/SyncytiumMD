@@ -1,6 +1,6 @@
 {
   "name": "syncytium-md",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Universal Context & Handoff Bridge for AI Coding Tools (IDEs, VSCode extensions, CLIs, and MCP)",
   "type": "module",
   "main": "./dist/index.js",

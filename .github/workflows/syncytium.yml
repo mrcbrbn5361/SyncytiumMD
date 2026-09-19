@@ -1,0 +1,29 @@
+name: SyncytiumMD Verification
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  verify:
+    name: Lint & Context Drift Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Syncytium
+        run: npm install -g syncytium-md
+
+      - name: Validate Rules (Lint)
+        run: syncytium lint
+
+      - name: Verify Zero Context Drift (Diff)
+        run: syncytium diff

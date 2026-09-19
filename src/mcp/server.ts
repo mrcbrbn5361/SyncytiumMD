@@ -112,6 +112,35 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
             type: 'object',
             properties: {}
           }
+        },
+        {
+          name: 'syncytium_get_history',
+          description: 'Get past multi-agent handoff audit trail, past goals, and completed task milestones.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              limit: {
+                type: 'number',
+                description: 'Number of past handoff events to fetch (default: 5)'
+              }
+            }
+          }
+        },
+        {
+          name: 'syncytium_lint',
+          description: 'Validate canonical rules, frontmatter schema, and structure in .syncytium/.',
+          inputSchema: {
+            type: 'object',
+            properties: {}
+          }
+        },
+        {
+          name: 'syncytium_diff',
+          description: 'Check context drift between .syncytium/ source of truth and target bridge files.',
+          inputSchema: {
+            type: 'object',
+            properties: {}
+          }
         }
       ]
     };
@@ -214,6 +243,43 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
             {
               type: 'text',
               text: `Synchronized ${result.count} bridge files:\n${result.paths.join('\n')}`
+            }
+          ]
+        };
+      }
+
+      if (name === 'syncytium_get_history') {
+        const limit = typeof args.limit === 'number' ? args.limit : 5;
+        const history = await engine.getHandoffHistory(limit);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(history, null, 2)
+            }
+          ]
+        };
+      }
+
+      if (name === 'syncytium_lint') {
+        const report = await engine.lint();
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(report, null, 2)
+            }
+          ]
+        };
+      }
+
+      if (name === 'syncytium_diff') {
+        const diffReport = await engine.diff();
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(diffReport, null, 2)
             }
           ]
         };

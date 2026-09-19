@@ -117,6 +117,21 @@ npx syncytium hook install --auto-sync
 ```
 `.git/hooks/pre-commit` kancasını kurarak projedeki bağlam kaymalarını (context drift) engeller.
 
+### 10. GitHub Actions CI Üreticisi (`ci`)
+```bash
+npx syncytium ci
+```
+Pull Request'lerde bağlam kaymasını (`syncytium diff`) ve kural geçerliliğini (`syncytium lint`) otomatik denetleyen `.github/workflows/syncytium.yml` iş akışını tek tıkla kurar.
+
+### 11. Seçici Hariç Tutma (`.syncytiumignore`)
+Projenizin kök dizininde bir `.syncytiumignore` dosyası oluşturarak belirli köprü dosyalarının veya kuralların üretilmesini engelleyebilirsiniz:
+```text
+# Belirli dosyaların üretilmesini engelle
+.traerules
+.windsurfrules
+*.spec.md
+```
+
 ---
 
 ## 🤝 Çoklu Ajan Devir Teslimi (Handoff Protokolü)
@@ -142,7 +157,7 @@ Cursor'ı açtığınızda `.cursor/rules/syncytium-handoff.mdc` veya Claude Cod
 
 ## 🤖 Model Context Protocol (MCP) Sunucusu
 
-SyncytiumMD dahili bir MCP sunucusu içerir. Böylece MCP destekleyen araçlar (Cursor, Claude Desktop, Cline, Antigravity) terminale gitmeden doğrudan çalışma anında (runtime) hafızaya erişebilir.
+SyncytiumMD dahili bir MCP sunucusu içerir. Böylece MCP destekleyen araçlar (Cursor, Claude Desktop, Cline, Antigravity) terminale gitmeden doğrudan çalışma anında (runtime) hafızaya erişebilir ve araçları otonom olarak çalıştırabilir.
 
 ### MCP Yapılandırması (Cursor, Claude Desktop veya Antigravity için)
 ```json
@@ -156,11 +171,14 @@ SyncytiumMD dahili bir MCP sunucusu içerir. Böylece MCP destekleyen araçlar (
 }
 ```
 
-### Sunulan MCP Tool'ları:
+### Sunulan Otonom MCP Tool'ları:
 - `syncytium_get_context`: Proje kurallarını, mimarisini, ADR kararlarını ve aktif durumu sorgular.
 - `syncytium_handoff`: Bir ajanın görevini tamamlayıp bayrağı sonrakine devretmesini sağlar.
 - `syncytium_record_decision`: Alınan yeni bir mimari kararı (`ADR`) hafızaya kaydeder ve dağıtır.
 - `syncytium_sync`: Dosyaları anında yeniden senkronize eder.
+- `syncytium_get_history`: Geçmiş görev tamamlanmalarını ve devir teslim zaman çizelgesini inceler.
+- `syncytium_lint`: Kuralları ve şema bütünlüğünü çalışma anında denetler.
+- `syncytium_diff`: `.syncytium/` ile hedef köprü dosyaları arasındaki kaymayı tespit eder.
 
 ---
 

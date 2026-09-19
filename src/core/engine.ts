@@ -3,6 +3,7 @@ import path from 'node:path';
 import chokidar from 'chokidar';
 import pc from 'picocolors';
 import matter from 'gray-matter';
+import { CI_WORKFLOW_TEMPLATE } from './templates.js';
 import { SyncytiumStorage } from './storage.js';
 import { AdapterRegistry } from '../adapters/registry.js';
 import type {
@@ -28,11 +29,55 @@ export class SyncytiumEngine {
     this.registry = new AdapterRegistry();
   }
 
-  async init(projectName?: string): Promise<void> {
+  async detectStack(): Promise<'typescript' | 'python' | 'go' | 'rust' | 'generic'> {
+    const root = this.storage.rootDir;
+    try {
+      await fs.access(path.join(root, 'package.json'));
+      return 'typescript';
+    } catch {}
+
+    try {
+      await fs.access(path.join(root, 'pyproject.toml'));
+      return 'python';
+    } catch {}
+    try {
+      await fs.access(path.join(root, 'requirements.txt'));
+      return 'python';
+    } catch {}
+
+    try {
+      await fs.access(path.join(root, 'go.mod'));
+      return 'go';
+    } catch {}
+
+    try {
+      await fs.access(path.join(root, 'Cargo.toml'));
+      return 'rust';
+    } catch {}
+
+    return 'generic';
+  }
+
+  async init(projectName?: string, stack?: string): Promise<void> {
     if (await this.storage.exists()) {
       throw new Error('.syncytium/ already exists in this directory.');
     }
-    await this.storage.init(projectName);
+    const targetStack = stack || await this.detectStack();
+    await this.storage.init(projectName, targetStack);
+  }
+
+  private filterIgnoredFiles<T extends { relativePath: string }>(files: T[], ignores: string[]): T[] {
+    if (ignores.length === 0) return files;
+    return files.filter(file => {
+      const rel = file.relativePath.replace(/\\/g, '/');
+      return !ignores.some(pat => {
+        const cleanPat = pat.replace(/\\/g, '/');
+        if (cleanPat.startsWith('*')) {
+          return rel.endsWith(cleanPat.slice(1));
+        }
+        return rel === cleanPat || rel.endsWith(`/${cleanPat}`) || rel.includes(cleanPat);
+      });
+    });
   }
 
   async sync(adapterFilter?: string[]): Promise<{
@@ -57,7 +102,10 @@ export class SyncytiumEngine {
       : config.enabledAdapters;
 
     const { files } = await this.registry.generateAll(context, targets);
-    const writtenPaths = await this.registry.writeFiles(this.storage.rootDir, files);
+    const ignores = await this.storage.loadIgnorePatterns();
+    const filteredFiles = this.filterIgnoredFiles(files, ignores);
+
+    const writtenPaths = await this.registry.writeFiles(this.storage.rootDir, filteredFiles);
 
     const elapsedMs = Math.round(performance.now() - startTime);
 
@@ -84,13 +132,16 @@ export class SyncytiumEngine {
       : config.enabledAdapters;
 
     const { files } = await this.registry.generateAll(context, targets);
+    const ignores = await this.storage.loadIgnorePatterns();
+    const filteredFiles = this.filterIgnoredFiles(files, ignores);
+
     const items: FileDiffItem[] = [];
 
     let identical = 0;
     let modified = 0;
     let missingOnDisk = 0;
 
-    for (const genFile of files) {
+    for (const genFile of filteredFiles) {
       const diskPath = path.join(this.storage.rootDir, genFile.relativePath);
       try {
         const diskContent = await fs.readFile(diskPath, 'utf-8');
@@ -655,6 +706,28 @@ ${content.trim()}
     } catch {
       return { success: false, hookPath };
     }
+  }
+
+  async installCiWorkflow(options?: { overwrite?: boolean }): Promise<{ success: boolean; path: string }> {
+    const workflowsDir = path.join(this.storage.rootDir, '.github', 'workflows');
+    await fs.mkdir(workflowsDir, { recursive: true });
+    const targetPath = path.join(workflowsDir, 'syncytium.yml');
+
+    if (!options?.overwrite) {
+      try {
+        await fs.access(targetPath);
+        throw new Error(`CI workflow already exists at .github/workflows/syncytium.yml (use --force to overwrite)`);
+      } catch (e: any) {
+        if (!e.message.includes('already exists')) {
+          // File does not exist, proceed
+        } else {
+          throw e;
+        }
+      }
+    }
+
+    await fs.writeFile(targetPath, CI_WORKFLOW_TEMPLATE, 'utf-8');
+    return { success: true, path: targetPath };
   }
 
   watch(onSync?: (paths: string[]) => void): () => Promise<void> {

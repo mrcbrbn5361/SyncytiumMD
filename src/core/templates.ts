@@ -125,3 +125,145 @@ export const BANNER_TEXT = `<!--
   Source of truth: .syncytium/
 -->
 `;
+
+export const CI_WORKFLOW_TEMPLATE = `name: SyncytiumMD Verification
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  verify:
+    name: Lint & Context Drift Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Syncytium
+        run: npm install -g syncytium-md
+
+      - name: Validate Rules (Lint)
+        run: syncytium lint
+
+      - name: Verify Zero Context Drift (Diff)
+        run: syncytium diff
+`;
+
+export const TYPESCRIPT_RULES: CanonicalRule[] = [
+  ...INITIAL_RULES,
+  {
+    id: 'typescript-strictness',
+    title: 'TypeScript Strict Mode & Types',
+    description: 'Enforce strict TypeScript compiler options and clean type definitions',
+    globs: ['**/*.ts', '**/*.tsx'],
+    alwaysApply: false,
+    tags: ['typescript', 'typing'],
+    content: `## TypeScript Guidelines
+- Enable and adhere to \`strict: true\` in tsconfig.
+- Avoid using \`any\`; prefer \`unknown\`, generic type parameters, or explicit interfaces.
+- Define explicit return types for public exported functions and API boundaries.
+- Leverage Discriminated Unions for state management and error returns.`
+  }
+];
+
+export const PYTHON_RULES: CanonicalRule[] = [
+  {
+    id: 'code-style',
+    title: 'Python Code Style (PEP 8 & Modern Standards)',
+    description: 'Enforce PEP 8, Black formatting, and modern typing standards',
+    alwaysApply: true,
+    tags: ['python', 'pep8', 'style'],
+    content: `## Python Code Style Guidelines
+- Strictly adhere to PEP 8 standards with 4-space indentation.
+- Always include type hints (PEP 484) on function signatures.
+- Prefer Python 3.10+ modern syntax (e.g. \`int | None\` instead of \`Optional[int]\`).
+- Keep modules focused with explicit \`__all__\` exports where applicable.`
+  },
+  {
+    id: 'testing-standards',
+    title: 'Python Testing (pytest)',
+    description: 'Testing guidelines for pytest suites',
+    globs: ['tests/**/*.py', '**/*_test.py', 'test_*.py'],
+    alwaysApply: false,
+    tags: ['test', 'pytest'],
+    content: `## Testing Guidelines (pytest)
+- Structure tests using pytest fixtures and test functions prefixed with \`test_\`.
+- Use \`pytest.mark.parametrize\` for boundary and edge-case testing.
+- Never make live network requests in unit tests; use pytest-mock or responses.`
+  },
+  {
+    id: 'security',
+    title: 'Security & Sanitization',
+    description: 'Safe python coding and environment variable practices',
+    alwaysApply: true,
+    tags: ['security', 'python'],
+    content: `## Python Security Guidelines
+- Load credentials via \`os.environ\` or \`pydantic-settings\`; never hardcode secrets.
+- Avoid \`eval()\`, \`exec()\`, or unsafe \`yaml.load()\` (always use \`safe_load\`).
+- Sanitize SQL queries with parameterized ORM bindings.`
+  }
+];
+
+export const GO_RULES: CanonicalRule[] = [
+  {
+    id: 'code-style',
+    title: 'Go Idiomatic Standards',
+    description: 'Idiomatic Go style and error handling practices',
+    alwaysApply: true,
+    tags: ['go', 'golang', 'style'],
+    content: `## Go Style Guidelines
+- Follow standard Go formatting (\`gofmt\` / \`goimports\`).
+- Explicit error handling: check errors immediately, do not ignore \`err\`.
+- Keep package APIs minimal and package names concise and lowercase.
+- Use context.Context as the first argument in long-running or network functions.`
+  },
+  {
+    id: 'testing-standards',
+    title: 'Go Testing Standards',
+    description: 'Unit and table-driven testing in Go',
+    globs: ['**/*_test.go'],
+    alwaysApply: false,
+    tags: ['test', 'go'],
+    content: `## Go Testing Guidelines
+- Use table-driven tests with \`t.Run()\` subtests.
+- Clean up resources with \`t.Cleanup()\`.
+- Verify race conditions using \`go test -race ./...\`.`
+  },
+  {
+    id: 'security',
+    title: 'Security & Concurrency',
+    description: 'Safe concurrency and credential handling in Go',
+    alwaysApply: true,
+    tags: ['security', 'concurrency'],
+    content: `## Go Security & Safety
+- Guard concurrent state with sync.Mutex, sync.RWMutex, or channels.
+- Avoid goroutine leaks by always respecting context cancellation.`
+  }
+];
+
+export function getRulesForStack(stack: string = 'generic'): CanonicalRule[] {
+  switch (stack.toLowerCase()) {
+    case 'typescript':
+    case 'ts':
+    case 'node':
+    case 'javascript':
+    case 'js':
+      return TYPESCRIPT_RULES;
+    case 'python':
+    case 'py':
+      return PYTHON_RULES;
+    case 'go':
+    case 'golang':
+      return GO_RULES;
+    default:
+      return INITIAL_RULES;
+  }
+}

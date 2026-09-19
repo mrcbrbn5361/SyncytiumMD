@@ -117,6 +117,21 @@ npx syncytium hook install --auto-sync
 ```
 Installs a pre-commit hook in `.git/hooks/pre-commit` to prevent repository context drift.
 
+### 10. GitHub Actions CI Generator (`ci`)
+```bash
+npx syncytium ci
+```
+Installs a production-ready GitHub Actions workflow at `.github/workflows/syncytium.yml` to automatically verify zero context drift (`syncytium diff`) and lint rules on pull requests.
+
+### 11. Selective Ignoring (`.syncytiumignore`)
+Create a `.syncytiumignore` file in your repository root to prevent Syncytium from writing specific target files:
+```text
+# Ignore specific generated files
+.traerules
+.windsurfrules
+*.spec.md
+```
+
 ---
 
 ## 🤝 Multi-Agent Handoff Protocol
@@ -142,7 +157,7 @@ When you open Cursor, `.cursor/rules/syncytium-handoff.mdc` immediately displays
 
 ## 🤖 Model Context Protocol (MCP) Server
 
-SyncytiumMD includes a built-in MCP server, allowing agents to read and write state directly during runtime.
+SyncytiumMD includes a built-in MCP server, allowing agents to read, inspect, and write state directly during runtime.
 
 ### Add to MCP Config (Cursor, Claude Desktop, Antigravity)
 ```json
@@ -156,11 +171,14 @@ SyncytiumMD includes a built-in MCP server, allowing agents to read and write st
 }
 ```
 
-### Exposed MCP Tools:
+### Exposed Autonomous MCP Tools:
 - `syncytium_get_context`: Query rules, architecture, ADR decisions, or handoff.
 - `syncytium_handoff`: Complete turns and pass the baton to the next agent.
 - `syncytium_record_decision`: Save an Architectural Decision Record (ADR).
 - `syncytium_sync`: Trigger full project synchronization.
+- `syncytium_get_history`: Inspect multi-agent task completion and goal history.
+- `syncytium_lint`: Validate canonical rules and context schema in runtime.
+- `syncytium_diff`: Verify context drift between `.syncytium/` and target bridge files.
 
 ---
 

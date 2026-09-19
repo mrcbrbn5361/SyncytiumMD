@@ -14,7 +14,8 @@ import {
   INITIAL_RULES,
   INITIAL_ARCHITECTURE,
   INITIAL_DECISIONS,
-  INITIAL_HANDOFF
+  INITIAL_HANDOFF,
+  getRulesForStack
 } from './templates.js';
 
 export class SyncytiumStorage {
@@ -54,6 +55,22 @@ export class SyncytiumStorage {
     return path.join(this.memoryDir, 'handoff-history.json');
   }
 
+  get ignorePath(): string {
+    return path.join(this.rootDir, '.syncytiumignore');
+  }
+
+  async loadIgnorePatterns(): Promise<string[]> {
+    try {
+      const content = await fs.readFile(this.ignorePath, 'utf-8');
+      return content
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0 && !line.startsWith('#'));
+    } catch {
+      return [];
+    }
+  }
+
   async exists(): Promise<boolean> {
     try {
       await fs.access(this.syncytiumDir);
@@ -63,7 +80,7 @@ export class SyncytiumStorage {
     }
   }
 
-  async init(projectName?: string): Promise<void> {
+  async init(projectName?: string, stack: string = 'generic'): Promise<void> {
     await fs.mkdir(this.syncytiumDir, { recursive: true });
     await fs.mkdir(this.rulesDir, { recursive: true });
     await fs.mkdir(this.memoryDir, { recursive: true });
@@ -75,8 +92,9 @@ export class SyncytiumStorage {
     };
     await fs.writeFile(this.configPath, JSON.stringify(config, null, 2), 'utf-8');
 
-    // Rules
-    for (const rule of INITIAL_RULES) {
+    // Rules tailored to project technology stack
+    const initialRules = getRulesForStack(stack);
+    for (const rule of initialRules) {
       const filePath = path.join(this.rulesDir, `${rule.id}.md`);
       const fileContent = matter.stringify(rule.content, {
         id: rule.id,

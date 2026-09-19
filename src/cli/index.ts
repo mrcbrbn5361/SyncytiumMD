@@ -9,17 +9,19 @@ const engine = new SyncytiumEngine();
 program
   .name('syncytium')
   .description('Universal Context & Handoff Bridge for AI Coding Tools (IDEs, VSCode extensions, CLIs)')
-  .version('0.1.3');
+  .version('0.1.4');
 
 // INIT
 program
   .command('init [projectName]')
   .description('Initialize .syncytium/ single source of truth in the current directory')
-  .action(async (projectName) => {
+  .option('--template <stack>', 'Technology stack template: typescript, python, go, rust, or generic')
+  .action(async (projectName, options) => {
     try {
       console.log(pc.cyan('🧬 Initializing SyncytiumMD workspace...'));
-      await engine.init(projectName);
-      console.log(pc.green('✨ Successfully initialized .syncytium/'));
+      const stack = options.template || await engine.detectStack();
+      await engine.init(projectName, stack);
+      console.log(pc.green(`✨ Successfully initialized .syncytium/ with [${pc.bold(stack.toUpperCase())}] standards.`));
       console.log(pc.dim('Generated rules, architecture, decisions and HANDOFF.md'));
       console.log(pc.yellow('\nNext step: Run `syncytium sync` to generate bridge files for all AI tools.'));
     } catch (err: any) {
@@ -391,6 +393,24 @@ program
       }
     } catch (err: any) {
       console.error(pc.red(`❌ Hook management failed: ${err.message}`));
+      process.exit(1);
+    }
+  });
+
+// CI
+program
+  .command('ci [action]')
+  .description('Generate GitHub Actions CI workflow to verify context drift & lint rules on PRs')
+  .option('-f, --force', 'Overwrite existing CI workflow file if it exists', false)
+  .action(async (action = 'install', options) => {
+    try {
+      console.log(pc.cyan('🐙 Generating Syncytium GitHub Actions CI workflow...'));
+      const res = await engine.installCiWorkflow({ overwrite: options.force });
+      console.log(pc.green('✨ GitHub Actions CI workflow installed successfully!'));
+      console.log(pc.dim(`Workflow location: ${res.path}`));
+      console.log(pc.yellow('\nYour CI will now automatically check for context drift (`syncytium diff`) and lint rules on every pull request!'));
+    } catch (err: any) {
+      console.error(pc.red(`❌ CI installation failed: ${err.message}`));
       process.exit(1);
     }
   });

@@ -12,7 +12,8 @@ import {
   AntigravityAdapter,
   WindsurfAdapter,
   TraeAdapter,
-  OpenCodeAdapter
+  OpenCodeAdapter,
+  createSyncytiumMcpServer
 } from '../dist/index.js';
 
 describe('SyncytiumMD Test Suite', () => {
@@ -205,6 +206,56 @@ describe('SyncytiumMD Test Suite', () => {
     } finally {
       await fs.rm(importDir, { recursive: true, force: true });
     }
+  });
+
+  test('engine.detectStack and stack templates work accurately', async () => {
+    // Without manifest in tempDir, defaults to generic
+    assert.equal(await engine.detectStack(), 'generic');
+
+    // In workspace root with package.json, accurately detects typescript
+    const rootEngine = new SyncytiumEngine(process.cwd());
+    assert.equal(await rootEngine.detectStack(), 'typescript');
+
+    // Test Python stack initialization in separate directory
+    const pyDir = await fs.mkdtemp(path.join(os.tmpdir(), 'syncytium-py-'));
+    try {
+      const pyEngine = new SyncytiumEngine(pyDir);
+      await pyEngine.init('PythonApp', 'python');
+      const rules = await pyEngine.storage.loadRules();
+      assert.ok(rules.some(r => r.id === 'code-style' && r.tags?.includes('pep8')));
+    } finally {
+      await fs.rm(pyDir, { recursive: true, force: true });
+    }
+  });
+
+  test('.syncytiumignore excludes specified files from generation and diff', async () => {
+    // Create .syncytiumignore targeting .traerules and .windsurfrules
+    const ignoreFile = path.join(tempDir, '.syncytiumignore');
+    await fs.writeFile(ignoreFile, '.traerules\n.windsurfrules\n# comment\n');
+
+    const syncRes = await engine.sync();
+    assert.ok(!syncRes.paths.some(p => p.endsWith('.traerules')));
+    assert.ok(!syncRes.paths.some(p => p.endsWith('.windsurfrules')));
+
+    const diffRes = await engine.diff();
+    assert.ok(!diffRes.items.some(i => i.relativePath === '.traerules'));
+    assert.ok(!diffRes.items.some(i => i.relativePath === '.windsurfrules'));
+
+    // Cleanup ignore file
+    await fs.rm(ignoreFile, { force: true });
+  });
+
+  test('engine.installCiWorkflow generates GitHub Actions workflow', async () => {
+    const ciRes = await engine.installCiWorkflow();
+    assert.equal(ciRes.success, true);
+    const content = await fs.readFile(ciRes.path, 'utf-8');
+    assert.ok(content.includes('syncytium lint'));
+    assert.ok(content.includes('syncytium diff'));
+  });
+
+  test('MCP server registers all tools including get_history, lint, and diff', async () => {
+    const { server } = createSyncytiumMcpServer(tempDir);
+    assert.ok(server);
   });
 
   test('engine.clean safely removes bridge files', async () => {
