@@ -134,6 +134,29 @@ Yalnızca Syncytium tarafından üretilen hedef dosyaları güvenle kaldırır; 
 
 ---
 
+## ❓ Sıkça Sorulan Sorular (FAQ)
+
+### SyncytiumMD, elle `.cursorrules` veya `CLAUDE.md` yazmaktan nasıl farklıdır?
+Elle ayrı ayrı kural dosyası yazmak **bağlam kopukluğuna (context drift)** neden olur. Cursor kurallarını güncellediğinizde Claude Code veya Copilot bundan haberdar olmaz. SyncytiumMD, `.syncytium/` içinde tek bir doğruluk kaynağı sunar ve kuralları tüm araçların kendi yerel formatına otomatik olarak derler.
+
+### Çoklu Ajan Devir Teslimi (Handoff) Nasıl Çalışır?
+Araçlar arasında geçiş yaparken (örneğin Antigravity'de plan yapıp Cursor'da kod yazmaya geçerken):
+```bash
+npx syncytium handoff --from Antigravity --to Cursor --goal "Auth controller'ı yaz"
+```
+komutunu çalıştırmanız yeterlidir. `HANDOFF.md` güncellenir ve hemen `.cursor/rules/syncytium-handoff.mdc` ile `CLAUDE.md` dosyalarına yansıtılır. Hedef aracı açtığınızda güncel hedefi ve sıradaki görevleri hazır bulursunuz.
+
+### SyncytiumMD'yi bir MCP (Model Context Protocol) sunucusu olarak kullanabilir miyim?
+Evet. SyncytiumMD yerleşik bir MCP sunucusu (`syncytium-mcp`) ile gelir. Cursor, Claude Desktop ve Antigravity gibi araçlar doğrudan çalışma anında (runtime) `syncytium_get_context`, `syncytium_handoff` ve `syncytium_record_decision` gibi araçları çağırabilir.
+
+### SyncytiumMD Git repomu kirletir mi?
+Hayır. Commit atmadan önce `npx syncytium clean` çalıştırarak türetilen dosyaları saniyeler içinde silebilirsiniz. İsterseniz takım arkadaşlarınızın da faydalanması için reponuzda bırakabilirsiniz.
+
+### Kendi özel veya şirket içi AI araçlarımı ekleyebilir miyim?
+Evet. `.syncytium/syncytium.config.json` içine özel bir adaptör tanımı ekleyerek istediğiniz dosya yoluna derleme yapabilirsiniz.
+
+---
+
 ## 🛠️ Geliştirme ve Test
 
 ```bash
@@ -150,4 +173,5 @@ npm test
 ---
 
 ## 📄 Lisans
-MIT Lisansı © 2026 SyncytiumMD Ekibi
+MIT Lisansı © 2026 Miraç Birben & SyncytiumMD Ekibi
+

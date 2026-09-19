@@ -31,9 +31,21 @@
     "mcp",
     "model-context-protocol",
     "markdown-bridge",
-    "agent-handoff"
+    "agent-handoff",
+    "cursorrules",
+    "claude-md",
+    "ai-agents",
+    "context-engineering"
   ],
-  "author": "SyncytiumMD Team",
+  "author": "Miraç Birben",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mrcbrbn5361/SyncytiumMD.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mrcbrbn5361/SyncytiumMD/issues"
+  },
+  "homepage": "https://github.com/mrcbrbn5361/SyncytiumMD#readme",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.6.1",

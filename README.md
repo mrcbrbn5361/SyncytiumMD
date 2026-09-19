@@ -134,6 +134,29 @@ Safely removes generated bridge files (`CLAUDE.md`, `.cursorrules`, etc.) while 
 
 ---
 
+## ❓ Frequently Asked Questions (FAQ)
+
+### How does SyncytiumMD compare to manually writing `.cursorrules` or `CLAUDE.md`?
+Manually writing separate rule files leads to **context drift**: updating a guideline in Cursor's `.cursor/rules` means Claude Code and Copilot miss the update. SyncytiumMD provides a single source of truth in `.syncytium/` and transpiles your rules into each agent's native format automatically.
+
+### How does Multi-Agent Handoff work?
+When switching between tools (e.g. from Google Antigravity planner to Cursor coding assistant), run:
+```bash
+npx syncytium handoff --from Antigravity --to Cursor --goal "Write auth controller"
+```
+SyncytiumMD updates `HANDOFF.md` and immediately updates `.cursor/rules/syncytium-handoff.mdc` and `CLAUDE.md`. When you open the target tool, it already knows the active objective and pending tasks.
+
+### Can I run SyncytiumMD as a Model Context Protocol (MCP) server?
+Yes. SyncytiumMD ships with an official MCP server executable (`syncytium-mcp`). Agents like Claude Desktop, Cursor, and Antigravity can dynamically call tools (`syncytium_get_context`, `syncytium_handoff`, `syncytium_record_decision`) to inspect rules and log handoff state at runtime.
+
+### Does SyncytiumMD clutter my Git repository?
+Not at all. You can run `npx syncytium clean` anytime to remove generated files before committing, or commit them so your entire team benefits from unified rules across any IDE they prefer.
+
+### Can I add custom or proprietary AI tools?
+Yes. Simply specify a custom adapter in `.syncytium/syncytium.config.json` with your target file and template configuration.
+
+---
+
 ## 🛠️ Development & Testing
 
 ```bash
@@ -150,4 +173,5 @@ npm test
 ---
 
 ## 📄 License
-MIT License © 2026 SyncytiumMD Team
+MIT License © 2026 Miraç Birben & SyncytiumMD Team
+
