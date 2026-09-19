@@ -77,6 +77,18 @@ npx syncytium watch
 ```
 `.syncytium/` altındaki herhangi bir kuralı, mimari notu veya devir teslim bilgisini güncellediğiniz an, tüm bağlı IDE ve CLI araçlarının dosyaları milisaniyeler içinde eşitlenir.
 
+### 4. Sağlık & Teşhis Aracı (`doctor`)
+```bash
+npx syncytium doctor
+```
+`.syncytium/` dizin yapısını, yapılandırma dosyasının geçerliliğini, kuralları, ADR hafızasını, aktif devir teslim (handoff) bayrağını ve türetilen köprü dosyalarının tutarlılığını kapsamlı şekilde denetler.
+
+### 5. Bağlam Kayması Tespiti (`diff`)
+```bash
+npx syncytium diff
+```
+Disk üzerindeki köprü dosyalarını `.syncytium/` ana kaynağıyla karşılaştırır; senkronize olmayan, eksik veya değiştirilmiş dosyaları anında listeler.
+
 ---
 
 ## 🤝 Çoklu Ajan Devir Teslimi (Handoff Protokolü)
