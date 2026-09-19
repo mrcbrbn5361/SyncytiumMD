@@ -666,7 +666,7 @@ export function renderGraphHtml(
         <span class="brand-icon">🧬</span>
         <span>SyncytiumMD</span>
       </div>
-      <span class="version-tag">${projectName} 0.1.8</span>
+      <span class="version-tag">${projectName} 0.1.9</span>
     </div>
 
     <!-- Multi-Tool Perspective Selector -->
@@ -1703,14 +1703,14 @@ export function renderGraphHtml(
       escaped = escaped.replace(/^[ \t]*-[ \t]+(.*$)/gm, '<li>$1</li>');
 
       // Bold & Italic
-      escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-      escaped = escaped.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+      escaped = escaped.replace(new RegExp('\\\\*\\\\*(.*?)\\\\*\\\\*', 'g'), '<strong>$1</strong>');
+      escaped = escaped.replace(new RegExp('\\\\*([^*]+)\\\\*', 'g'), '<em>$1</em>');
 
       // Horizontal rules
       escaped = escaped.replace(/^---$/gm, '<hr style="border:none; border-top:1px solid rgba(255,255,255,0.08); margin:16px 0;" />');
 
       // Line breaks
-      escaped = escaped.split('\n\n').join('<br><br>');
+      escaped = escaped.replace(new RegExp('\\\\n\\\\n', 'g'), '<br><br>');
 
       return escaped;
     }
