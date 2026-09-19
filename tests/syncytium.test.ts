@@ -111,6 +111,34 @@ describe('SyncytiumMD Test Suite', () => {
     assert.ok(claudeFile.includes('[ADR-002] Use Fastify over Express'));
   });
 
+  test('engine.diff detects modified files, missing files, and synchronized state', async () => {
+    // Simulate drift: modify CLAUDE.md and delete a file
+    const claudePath = path.join(tempDir, 'CLAUDE.md');
+    await fs.writeFile(claudePath, '# Modified outdated content');
+
+    const diffBefore = await engine.diff();
+    assert.equal(diffBefore.hasDrift, true);
+    assert.ok(diffBefore.summary.modified >= 1);
+
+    // After sync: all files should be identical
+    await engine.sync();
+    const diffAfter = await engine.diff();
+    assert.equal(diffAfter.hasDrift, false);
+    assert.ok(diffAfter.summary.identical > 0);
+    assert.equal(diffAfter.summary.missingOnDisk, 0);
+    assert.equal(diffAfter.summary.modified, 0);
+  });
+
+  test('engine.doctor performs comprehensive health check', async () => {
+    const report = await engine.doctor();
+    assert.ok(['healthy', 'warning'].includes(report.overallStatus));
+    assert.ok(report.checks.length >= 5);
+    assert.equal(report.stats.rulesCount >= 3, true);
+    assert.equal(report.stats.enabledAdaptersCount >= 8, true);
+    assert.ok(report.checks.some(c => c.name.includes('Root Directory') && c.status === 'ok'));
+    assert.ok(report.checks.some(c => c.name.includes('Live Agent Handoff') && c.status === 'ok'));
+  });
+
   test('engine.clean safely removes bridge files', async () => {
     const cleaned = await engine.clean();
     assert.ok(cleaned.length > 0);

@@ -76,3 +76,39 @@ export const SyncytiumConfigSchema = z.object({
 });
 
 export type SyncytiumConfig = z.infer<typeof SyncytiumConfigSchema>;
+
+export interface DoctorCheckItem {
+  name: string;
+  status: 'ok' | 'warn' | 'error';
+  message: string;
+  detail?: string;
+}
+
+export interface DoctorReport {
+  overallStatus: 'healthy' | 'warning' | 'unhealthy';
+  checks: DoctorCheckItem[];
+  stats: {
+    rulesCount: number;
+    decisionsCount: number;
+    enabledAdaptersCount: number;
+    activeHandoffGoal: string;
+    activeAgent: string;
+  };
+}
+
+export interface FileDiffItem {
+  relativePath: string;
+  status: 'identical' | 'modified' | 'missing_on_disk' | 'unmanaged';
+  driftSummary?: string;
+}
+
+export interface DiffReport {
+  hasDrift: boolean;
+  items: FileDiffItem[];
+  summary: {
+    identical: number;
+    modified: number;
+    missingOnDisk: number;
+  };
+}
+

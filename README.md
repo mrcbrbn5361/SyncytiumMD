@@ -77,6 +77,18 @@ npx syncytium watch
 ```
 Any modification made to rules, architecture, or handoff inside `.syncytium/` is instantly synchronized across all connected IDEs and CLIs.
 
+### 4. Health & Diagnostics (`doctor`)
+```bash
+npx syncytium doctor
+```
+Runs a comprehensive health check verifying `.syncytium/` structure, config validity, canonical rules, ADR memory, active handoff baton, and bridge file consistency.
+
+### 5. Context Drift Detection (`diff`)
+```bash
+npx syncytium diff
+```
+Compares target bridge files on disk with the canonical `.syncytium/` source of truth to detect unsynced or modified files.
+
 ---
 
 ## 🤝 Multi-Agent Handoff Protocol

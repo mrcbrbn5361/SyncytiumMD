@@ -8,7 +8,7 @@ const engine = new SyncytiumEngine();
 program
   .name('syncytium')
   .description('Universal Context & Handoff Bridge for AI Coding Tools (IDEs, VSCode extensions, CLIs)')
-  .version('0.1.0');
+  .version('0.1.2');
 
 // INIT
 program
@@ -36,12 +36,85 @@ program
     try {
       console.log(pc.cyan('🔄 Synchronizing context across AI targets...'));
       const result = await engine.sync(options.target);
-      console.log(pc.green(`✅ Successfully generated ${result.count} bridge files:`));
+      console.log(pc.green(`⚡ Generated ${result.count} bridge files in ${result.elapsedMs}ms (${result.rulesCount} rules, ${result.decisionsCount} ADR):`));
       for (const p of result.paths) {
         console.log(`  ${pc.dim('•')} ${pc.white(p)}`);
       }
     } catch (err: any) {
       console.error(pc.red(`❌ Sync failed: ${err.message}`));
+      process.exit(1);
+    }
+  });
+
+// DOCTOR
+program
+  .command('doctor')
+  .description('Run comprehensive health check on Syncytium workspace and bridge files')
+  .action(async () => {
+    try {
+      console.log(pc.bold(pc.cyan('\n🩺 Syncytium Doctor - Health & Diagnostics:')));
+      console.log(pc.dim('──────────────────────────────────────────────────────────────────────────'));
+
+      const report = await engine.doctor();
+
+      for (const check of report.checks) {
+        let icon = pc.green('✅');
+        if (check.status === 'warn') icon = pc.yellow('⚠️');
+        if (check.status === 'error') icon = pc.red('❌');
+
+        console.log(`${icon} ${pc.bold(check.name)}: ${check.message}`);
+        if (check.detail) {
+          console.log(`   ${pc.dim('↳ ' + check.detail)}`);
+        }
+      }
+
+      console.log(pc.dim('──────────────────────────────────────────────────────────────────────────'));
+
+      if (report.overallStatus === 'healthy') {
+        console.log(pc.bold(pc.green('🎉 All checks passed! Your Syncytium bridge is fully operational.')));
+      } else if (report.overallStatus === 'warning') {
+        console.log(pc.bold(pc.yellow('⚠️ Workspace has warnings. Run `syncytium sync` to resolve discrepancies.')));
+      } else {
+        console.log(pc.bold(pc.red('❌ Workspace requires initialization or fix. Run `syncytium init`.')));
+      }
+      console.log('');
+    } catch (err: any) {
+      console.error(pc.red(`❌ Doctor check failed: ${err.message}`));
+      process.exit(1);
+    }
+  });
+
+// DIFF
+program
+  .command('diff')
+  .description('Inspect differences (context drift) between .syncytium/ and generated tool files')
+  .option('-t, --target <adapters...>', 'Specific adapter targets to inspect')
+  .action(async (options) => {
+    try {
+      console.log(pc.cyan('🔍 Inspecting context drift between .syncytium/ and bridge files...'));
+      const diffResult = await engine.diff(options.target);
+
+      console.log(pc.dim('──────────────────────────────────────────────────────────────────────────'));
+      for (const item of diffResult.items) {
+        if (item.status === 'identical') {
+          console.log(`  ${pc.green('✓ In Sync:    ')} ${item.relativePath}`);
+        } else if (item.status === 'modified') {
+          console.log(`  ${pc.yellow('⚠ Modified:   ')} ${item.relativePath} ${pc.dim('(' + (item.driftSummary || '') + ')')}`);
+        } else {
+          console.log(`  ${pc.red('✗ Missing:    ')} ${item.relativePath}`);
+        }
+      }
+      console.log(pc.dim('──────────────────────────────────────────────────────────────────────────'));
+
+      const s = diffResult.summary;
+      console.log(`Summary: ${pc.green(s.identical + ' in sync')}, ${pc.yellow(s.modified + ' modified')}, ${pc.red(s.missingOnDisk + ' missing')}`);
+
+      if (diffResult.hasDrift) {
+        console.log(pc.yellow('Tip: Run `syncytium sync` to synchronize all modified or missing files.'));
+      }
+      console.log('');
+    } catch (err: any) {
+      console.error(pc.red(`❌ Diff inspection failed: ${err.message}`));
       process.exit(1);
     }
   });
@@ -57,7 +130,7 @@ program
 
       // Perform initial sync
       const initResult = await engine.sync();
-      console.log(pc.green(`Initial sync complete (${initResult.count} files). Watching...`));
+      console.log(pc.green(`Initial sync complete (${initResult.count} files in ${initResult.elapsedMs}ms). Watching...`));
 
       engine.watch((paths) => {
         const time = new Date().toLocaleTimeString();
