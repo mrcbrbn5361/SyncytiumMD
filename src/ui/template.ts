@@ -4,16 +4,17 @@ export function renderGraphHtml(projectName: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🧠 SyncytiumMD Knowledge Graph - ${projectName}</title>
+  <title>🧠 SyncytiumMD Knowledge Graph 3D - ${projectName}</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
     :root {
-      --bg: #0f111a;
-      --panel-bg: rgba(22, 25, 38, 0.85);
-      --panel-border: #2a2e45;
-      --text-main: #f1f5f9;
+      --bg: #07090e;
+      --panel-bg: rgba(13, 16, 26, 0.82);
+      --panel-border: rgba(99, 102, 241, 0.2);
+      --text-main: #f8fafc;
       --text-dim: #94a3b8;
       --accent: #6366f1;
-      --accent-hover: #818cf8;
+      --accent-glow: rgba(99, 102, 241, 0.4);
       --rule-color: #38bdf8;
       --tag-color: #fbbf24;
       --decision-color: #c084fc;
@@ -34,68 +35,86 @@ export function renderGraphHtml(projectName: string): string {
       user-select: none;
     }
 
-    /* Top Navbar */
+    /* 3D WebGL Canvas Container */
+    #webgl-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+    }
+
+    /* Top Futuristic Navbar */
     header {
       position: absolute;
       top: 0;
       left: 0;
       right: 0;
-      height: 56px;
+      height: 60px;
       background: var(--panel-bg);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--panel-border);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 20px;
+      padding: 0 24px;
       z-index: 10;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
     }
 
     .brand {
       display: flex;
       align-items: center;
       gap: 12px;
-      font-weight: 700;
-      font-size: 1.05rem;
+      font-weight: 800;
+      font-size: 1.1rem;
       letter-spacing: -0.02em;
     }
+    .brand-icon {
+      font-size: 1.3rem;
+      filter: drop-shadow(0 0 8px var(--accent));
+    }
     .brand-badge {
-      background: linear-gradient(135deg, #6366f1, #a855f7);
-      padding: 4px 8px;
+      background: linear-gradient(135deg, #4f46e5, #9333ea);
+      padding: 4px 10px;
       border-radius: 6px;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
     .controls {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 14px;
     }
 
     .search-box {
       position: relative;
     }
     .search-input {
-      background: #181b2a;
+      background: rgba(18, 22, 38, 0.9);
       border: 1px solid var(--panel-border);
-      border-radius: 8px;
+      border-radius: 20px;
       color: #fff;
-      padding: 6px 12px 6px 30px;
+      padding: 7px 14px 7px 34px;
       font-size: 0.85rem;
       outline: none;
       width: 220px;
-      transition: all 0.2s;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .search-input:focus {
       border-color: var(--accent);
       width: 280px;
-      box-shadow: 0 0 12px rgba(99, 102, 241, 0.3);
+      box-shadow: 0 0 16px var(--accent-glow);
     }
     .search-icon {
       position: absolute;
-      left: 10px;
+      left: 12px;
       top: 50%;
       transform: translateY(-50%);
       color: var(--text-dim);
@@ -107,26 +126,53 @@ export function renderGraphHtml(projectName: string): string {
       gap: 6px;
     }
     .pill {
-      background: #181b2a;
+      background: rgba(20, 25, 45, 0.7);
       border: 1px solid var(--panel-border);
       color: var(--text-dim);
-      padding: 4px 10px;
+      padding: 5px 12px;
       border-radius: 20px;
       font-size: 0.75rem;
+      font-weight: 600;
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
       transition: all 0.2s;
+    }
+    .pill:hover {
+      background: rgba(35, 42, 70, 0.9);
+      color: #fff;
     }
     .pill.active {
       color: #fff;
       border-color: currentColor;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
     }
     .pill-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
+    }
+
+    .action-btn {
+      background: rgba(30, 35, 60, 0.8);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      padding: 5px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .action-btn:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      box-shadow: 0 0 12px var(--accent-glow);
     }
 
     .status-indicator {
@@ -135,10 +181,11 @@ export function renderGraphHtml(projectName: string): string {
       gap: 6px;
       font-size: 0.75rem;
       color: var(--agent-color);
-      background: rgba(52, 211, 153, 0.1);
-      padding: 4px 10px;
+      background: rgba(16, 185, 129, 0.12);
+      padding: 5px 12px;
       border-radius: 20px;
-      border: 1px solid rgba(52, 211, 153, 0.2);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      font-weight: 600;
     }
     .pulse-dot {
       width: 6px;
@@ -146,164 +193,77 @@ export function renderGraphHtml(projectName: string): string {
       border-radius: 50%;
       background: var(--agent-color);
       box-shadow: 0 0 8px var(--agent-color);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.6; }
     }
 
-    /* Main Graph Canvas */
-    #graph-canvas {
-      width: 100vw;
-      height: 100vh;
-      display: block;
-      cursor: grab;
-    }
-    #graph-canvas:active {
-      cursor: grabbing;
-    }
-
-    /* Sidebar Details Drawer */
-    .sidebar {
+    /* Floating HUD Instructions */
+    .hud-help {
       position: absolute;
-      top: 68px;
-      right: 16px;
-      bottom: 16px;
-      width: 380px;
+      top: 76px;
+      left: 24px;
       background: var(--panel-bg);
-      backdrop-filter: blur(16px);
+      backdrop-filter: blur(14px);
       border: 1px solid var(--panel-border);
-      border-radius: 12px;
-      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
-      display: flex;
-      flex-direction: column;
-      transform: translateX(410px);
-      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      z-index: 20;
-      user-select: text;
-    }
-    .sidebar.open {
-      transform: translateX(0);
-    }
-
-    .sidebar-header {
-      padding: 16px;
-      border-bottom: 1px solid var(--panel-border);
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-    }
-    .sidebar-title {
-      font-size: 1.1rem;
-      font-weight: 700;
-      line-height: 1.3;
-    }
-    .sidebar-type {
-      display: inline-block;
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      padding: 2px 8px;
-      border-radius: 4px;
-      margin-top: 4px;
-      font-weight: 600;
-    }
-    .close-btn {
-      background: none;
-      border: none;
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 0.72rem;
       color: var(--text-dim);
-      font-size: 1.2rem;
-      cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 6px;
+      z-index: 5;
+      display: flex;
+      gap: 14px;
+      pointer-events: none;
     }
-    .close-btn:hover {
-      background: #2a2e45;
-      color: #fff;
+    .hud-help span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .hud-help strong {
+      color: var(--text-main);
     }
 
-    .sidebar-content {
-      padding: 16px;
-      overflow-y: auto;
-      flex: 1;
-      font-size: 0.85rem;
-      line-height: 1.6;
-    }
-    .sidebar-content pre {
-      background: #141724;
-      padding: 12px;
-      border-radius: 8px;
-      overflow-x: auto;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.8rem;
-      color: #cbd5e1;
-      margin-top: 8px;
-      border: 1px solid var(--panel-border);
-    }
-    .sidebar-section {
-      margin-bottom: 16px;
-    }
-    .sidebar-section-title {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      letter-spacing: 0.05em;
-      margin-bottom: 6px;
-      font-weight: 600;
-    }
-    .conn-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .conn-item {
-      padding: 6px 10px;
-      background: #181b2a;
-      border: 1px solid var(--panel-border);
-      border-radius: 6px;
-      font-size: 0.8rem;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      transition: all 0.2s;
-    }
-    .conn-item:hover {
-      border-color: var(--accent);
-      background: #202438;
-    }
-
-    /* Bottom Info overlay */
+    /* Bottom Stats & Legend */
     .hud-stats {
       position: absolute;
-      bottom: 20px;
-      left: 20px;
+      bottom: 24px;
+      left: 24px;
       background: var(--panel-bg);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(14px);
       border: 1px solid var(--panel-border);
-      padding: 8px 16px;
-      border-radius: 10px;
+      padding: 10px 18px;
+      border-radius: 12px;
       font-size: 0.8rem;
       display: flex;
-      gap: 16px;
+      gap: 18px;
       color: var(--text-dim);
       pointer-events: none;
       z-index: 5;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
     }
     .hud-stats strong {
       color: var(--text-main);
+      font-size: 0.9rem;
     }
 
     .legend {
       position: absolute;
-      bottom: 20px;
-      right: 20px;
+      bottom: 24px;
+      right: 24px;
       background: var(--panel-bg);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(14px);
       border: 1px solid var(--panel-border);
-      padding: 10px 14px;
-      border-radius: 10px;
+      padding: 12px 16px;
+      border-radius: 12px;
       font-size: 0.75rem;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 7px;
       z-index: 5;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
     }
     .legend-item {
       display: flex;
@@ -314,14 +274,160 @@ export function renderGraphHtml(projectName: string): string {
       width: 10px;
       height: 10px;
       border-radius: 50%;
+      box-shadow: 0 0 6px currentColor;
+    }
+
+    /* Sidebar Glassmorphism Drawer */
+    .sidebar {
+      position: absolute;
+      top: 76px;
+      right: 24px;
+      bottom: 24px;
+      width: 400px;
+      background: rgba(13, 16, 28, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      transform: translateX(440px);
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 20;
+      user-select: text;
+    }
+    .sidebar.open {
+      transform: translateX(0);
+    }
+
+    .sidebar-header {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .sidebar-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+    .sidebar-type {
+      display: inline-block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-top: 6px;
+      font-weight: 700;
+    }
+    .close-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--panel-border);
+      color: var(--text-dim);
+      font-size: 1.2rem;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .close-btn:hover {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: #ef4444;
+      color: #fff;
+    }
+
+    .sidebar-content {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+    .sidebar-content::-webkit-scrollbar {
+      width: 6px;
+    }
+    .sidebar-content::-webkit-scrollbar-thumb {
+      background: var(--panel-border);
+      border-radius: 3px;
+    }
+    .sidebar-section {
+      margin-bottom: 20px;
+    }
+    .sidebar-section-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: var(--accent);
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .sidebar-content pre {
+      background: rgba(7, 9, 16, 0.9);
+      padding: 14px;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.8rem;
+      color: #e2e8f0;
+      margin-top: 8px;
+      border: 1px solid var(--panel-border);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .conn-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .conn-item {
+      padding: 8px 12px;
+      background: rgba(20, 24, 42, 0.7);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s;
+    }
+    .conn-item:hover {
+      border-color: var(--accent);
+      background: rgba(35, 42, 75, 0.9);
+      transform: translateX(4px);
+    }
+
+    /* Fallback notice */
+    #fallback-msg {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--panel-bg);
+      border: 1px solid #ef4444;
+      padding: 24px;
+      border-radius: 12px;
+      text-align: center;
+      z-index: 100;
     }
   </style>
 </head>
 <body>
   <header>
     <div class="brand">
-      <span>🧬 SyncytiumMD</span>
-      <span class="brand-badge">${projectName}</span>
+      <span class="brand-icon">🧬</span>
+      <span>SyncytiumMD</span>
+      <span class="brand-badge">${projectName} 3D</span>
     </div>
 
     <div class="controls">
@@ -351,30 +457,40 @@ export function renderGraphHtml(projectName: string): string {
         </div>
       </div>
 
+      <button class="action-btn" id="reset-cam-btn">🎯 Center</button>
+      <button class="action-btn" id="auto-rotate-btn">🔄 Orbit</button>
+
       <div class="status-indicator">
         <div class="pulse-dot"></div>
-        <span>Live Sync Active</span>
+        <span>Live 3D Sync</span>
       </div>
     </div>
   </header>
 
-  <canvas id="graph-canvas"></canvas>
+  <div class="hud-help">
+    <span>🖱️ <strong>Left Click + Drag:</strong> Rotate 3D</span>
+    <span>🖱️ <strong>Right Click + Drag:</strong> Pan</span>
+    <span>📜 <strong>Scroll:</strong> Zoom</span>
+    <span>👆 <strong>Click Node:</strong> Focus & Inspect</span>
+  </div>
 
-  <div class="hud-stats" id="hud-stats">
+  <div id="webgl-container"></div>
+
+  <div class="hud-stats">
     <div>Nodes: <strong id="stat-nodes">0</strong></div>
-    <div>Edges: <strong id="stat-edges">0</strong></div>
+    <div>Connections: <strong id="stat-edges">0</strong></div>
     <div>Rules: <strong id="stat-rules">0</strong></div>
     <div>ADRs: <strong id="stat-adrs">0</strong></div>
   </div>
 
   <div class="legend">
-    <div class="legend-item"><span class="legend-dot" style="background: var(--root-color)"></span> Project Root</div>
-    <div class="legend-item"><span class="legend-dot" style="background: var(--rule-color)"></span> Canonical Rule</div>
-    <div class="legend-item"><span class="legend-dot" style="background: var(--tag-color)"></span> Tag</div>
-    <div class="legend-item"><span class="legend-dot" style="background: var(--decision-color)"></span> ADR Decision</div>
-    <div class="legend-item"><span class="legend-dot" style="background: var(--agent-color)"></span> AI Agent / Session</div>
-    <div class="legend-item"><span class="legend-dot" style="background: var(--adapter-color)"></span> Adapter Bridge</div>
-    <div class="legend-item"><span class="legend-dot" style="background: var(--file-color)"></span> Bridge File</div>
+    <div class="legend-item"><span class="legend-dot" style="color: var(--root-color); background: var(--root-color)"></span> Project Brain Core</div>
+    <div class="legend-item"><span class="legend-dot" style="color: var(--rule-color); background: var(--rule-color)"></span> Canonical Rule</div>
+    <div class="legend-item"><span class="legend-dot" style="color: var(--tag-color); background: var(--tag-color)"></span> Tag Cluster</div>
+    <div class="legend-item"><span class="legend-dot" style="color: var(--decision-color); background: var(--decision-color)"></span> ADR Decision</div>
+    <div class="legend-item"><span class="legend-dot" style="color: var(--agent-color); background: var(--agent-color)"></span> Active AI Agent</div>
+    <div class="legend-item"><span class="legend-dot" style="color: var(--adapter-color); background: var(--adapter-color)"></span> Adapter Bridge</div>
+    <div class="legend-item"><span class="legend-dot" style="color: var(--file-color); background: var(--file-color)"></span> Bridge File</div>
   </div>
 
   <aside class="sidebar" id="sidebar">
@@ -385,127 +501,287 @@ export function renderGraphHtml(projectName: string): string {
       </div>
       <button class="close-btn" id="close-side-btn">✕</button>
     </div>
-    <div class="sidebar-content" id="side-content">
-      <!-- Dynamic details rendered here -->
-    </div>
+    <div class="sidebar-content" id="side-content"></div>
   </aside>
 
-  <script>
-    const canvas = document.getElementById('graph-canvas');
-    const ctx = canvas.getContext('2d');
-    const sidebar = document.getElementById('sidebar');
-    const sideTitle = document.getElementById('side-title');
-    const sideType = document.getElementById('side-type');
-    const sideContent = document.getElementById('side-content');
-    const closeSideBtn = document.getElementById('close-side-btn');
-    const searchInput = document.getElementById('search-input');
+  <div id="fallback-msg">WebGL could not be initialized in this browser.</div>
 
-    const COLOR_MAP = {
-      root: '#6366f1',
-      rule: '#38bdf8',
-      tag: '#fbbf24',
-      decision: '#c084fc',
-      agent: '#34d399',
-      adapter: '#f43f5e',
-      file: '#a3e635'
+  <script>
+    // Configuration & Color Palette
+    const COLOR_HEX = {
+      root: 0x6366f1,
+      rule: 0x38bdf8,
+      tag: 0xfbbf24,
+      decision: 0xc084fc,
+      agent: 0x34d399,
+      adapter: 0xf43f5e,
+      file: 0xa3e635
     };
 
     const RADIUS_MAP = {
-      root: 18,
-      rule: 12,
-      decision: 11,
-      agent: 13,
-      adapter: 10,
-      tag: 8,
-      file: 7
+      root: 14,
+      rule: 8,
+      decision: 8,
+      agent: 9,
+      adapter: 7,
+      tag: 5,
+      file: 5
     };
 
     let graphData = { nodes: [], edges: [] };
     let activeFilters = new Set(['root', 'rule', 'tag', 'decision', 'agent', 'adapter', 'file']);
     let searchQuery = '';
     let selectedNode = null;
+    let autoRotate = true;
 
-    // Viewport Transform (Pan & Zoom)
-    let zoom = 1;
-    let panX = window.innerWidth / 2;
-    let panY = window.innerHeight / 2;
-    let isDragging = false;
-    let dragStartX = 0;
-    let dragStartY = 0;
-    let draggedNode = null;
+    // Three.js 3D Engine Variables
+    let scene, camera, renderer;
+    let nodeMeshMap = new Map();
+    let edgeLineSegments;
+    let starfieldMesh;
+    let raycaster, mouse;
+    let hoveredMesh = null;
 
-    function resize() {
-      canvas.width = window.innerWidth * window.devicePixelRatio;
-      canvas.height = window.innerHeight * window.devicePixelRatio;
-      canvas.style.width = window.innerWidth + 'px';
-      canvas.style.height = window.innerHeight + 'px';
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    // 3D Camera Spherical Coordinates
+    let camRadius = 380;
+    let camTheta = 0.5;
+    let camPhi = 1.2;
+    let targetLookAt = new THREE.Vector3(0, 0, 0);
+    let currentLookAt = new THREE.Vector3(0, 0, 0);
+
+    // Mouse Interaction
+    let isMouseDown = false;
+    let mouseButton = 0;
+    let prevMouseX = 0;
+    let prevMouseY = 0;
+
+    // Camera fly-to target
+    let isFlying = false;
+    let flyTargetPos = new THREE.Vector3();
+    let flyTargetLook = new THREE.Vector3();
+
+    function initThree() {
+      const container = document.getElementById('webgl-container');
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      // 1. Scene
+      scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x07090e, 0.0012);
+
+      // 2. Camera
+      camera = new THREE.PerspectiveCamera(55, width / height, 1, 3000);
+      updateCameraPos();
+
+      // 3. Renderer with antialiasing
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setClearColor(0x07090e, 1);
+      container.appendChild(renderer.domElement);
+
+      // 4. Lights
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+      scene.add(ambientLight);
+
+      const dirLight1 = new THREE.DirectionalLight(0x6366f1, 0.8);
+      dirLight1.position.set(200, 300, 200);
+      scene.add(dirLight1);
+
+      const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.5);
+      dirLight2.position.set(-200, -200, -200);
+      scene.add(dirLight2);
+
+      // 5. Starfield Background
+      createStarfield();
+
+      // 6. Raycasting
+      raycaster = new THREE.Raycaster();
+      mouse = new THREE.Vector2();
+
+      // 7. Event Listeners
+      window.addEventListener('resize', onWindowResize);
+      setupControls(renderer.domElement);
     }
-    window.addEventListener('resize', resize);
-    resize();
 
-    // Fetch initial graph data
-    async function fetchGraph() {
-      try {
-        const res = await fetch('/api/graph');
-        graphData = await res.json();
-        initPhysics();
-        updateHud();
-      } catch (e) {
-        console.error('Failed to load graph data', e);
+    function createStarfield() {
+      const starCount = 1400;
+      const starGeo = new THREE.BufferGeometry();
+      const positions = new Float32Array(starCount * 3);
+
+      for (let i = 0; i < starCount * 3; i += 3) {
+        positions[i] = (Math.random() - 0.5) * 2400;
+        positions[i + 1] = (Math.random() - 0.5) * 2400;
+        positions[i + 2] = (Math.random() - 0.5) * 2400;
       }
+
+      starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const starMat = new THREE.PointsMaterial({
+        color: 0x94a3b8,
+        size: 2,
+        transparent: true,
+        opacity: 0.6
+      });
+      starfieldMesh = new THREE.Points(starGeo, starMat);
+      scene.add(starfieldMesh);
     }
 
-    function updateHud() {
-      document.getElementById('stat-nodes').textContent = graphData.nodes.length;
-      document.getElementById('stat-edges').textContent = graphData.edges.length;
-      document.getElementById('stat-rules').textContent = graphData.stats?.rulesCount || 0;
-      document.getElementById('stat-adrs').textContent = graphData.stats?.decisionsCount || 0;
+    function updateCameraPos() {
+      if (isFlying) return;
+      camera.position.x = currentLookAt.x + camRadius * Math.sin(camPhi) * Math.sin(camTheta);
+      camera.position.y = currentLookAt.y + camRadius * Math.cos(camPhi);
+      camera.position.z = currentLookAt.z + camRadius * Math.sin(camPhi) * Math.cos(camTheta);
+      camera.lookAt(currentLookAt);
     }
 
-    // Initialize node positions with radial distribution
-    function initPhysics() {
-      const n = graphData.nodes.length;
-      graphData.nodes.forEach((node, i) => {
-        if (node.x === undefined) {
-          const angle = (i / n) * Math.PI * 2;
-          const radius = node.type === 'root' ? 0 : 80 + Math.random() * 250;
-          node.x = Math.cos(angle) * radius;
-          node.y = Math.sin(angle) * radius;
-          node.vx = 0;
-          node.vy = 0;
+    function setupControls(dom) {
+      dom.addEventListener('contextmenu', e => e.preventDefault());
+
+      dom.addEventListener('mousedown', e => {
+        isMouseDown = true;
+        mouseButton = e.button;
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+        isFlying = false;
+      });
+
+      window.addEventListener('mousemove', e => {
+        // Raycasting for hover
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+        if (!isMouseDown) {
+          handleHover();
+          return;
+        }
+
+        const deltaX = e.clientX - prevMouseX;
+        const deltaY = e.clientY - prevMouseY;
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+
+        if (mouseButton === 0) {
+          // Left click: Orbit
+          camTheta -= deltaX * 0.007;
+          camPhi = Math.max(0.1, Math.min(Math.PI - 0.1, camPhi - deltaY * 0.007));
+        } else if (mouseButton === 2) {
+          // Right click: Pan
+          const panSpeed = 0.4;
+          const forward = new THREE.Vector3().subVectors(targetLookAt, camera.position).normalize();
+          const side = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
+          const up = new THREE.Vector3().crossVectors(side, forward).normalize();
+
+          targetLookAt.addScaledVector(side, -deltaX * panSpeed);
+          targetLookAt.addScaledVector(up, deltaY * panSpeed);
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        isMouseDown = false;
+      });
+
+      dom.addEventListener('wheel', e => {
+        e.preventDefault();
+        camRadius *= (e.deltaY > 0 ? 1.1 : 0.9);
+        camRadius = Math.max(60, Math.min(1200, camRadius));
+        isFlying = false;
+      }, { passive: false });
+
+      dom.addEventListener('click', e => {
+        // Only trigger click if not dragged significantly
+        raycaster.setFromCamera(mouse, camera);
+        const meshes = Array.from(nodeMeshMap.values()).map(entry => entry.sphereMesh);
+        const intersects = raycaster.intersectObjects(meshes);
+
+        if (intersects.length > 0) {
+          const clickedMesh = intersects[0].object;
+          const node = clickedMesh.userData.node;
+          if (node) {
+            selectNode(node);
+          }
         }
       });
     }
 
-    // Force-directed simulation step
-    function stepPhysics() {
+    function handleHover() {
+      raycaster.setFromCamera(mouse, camera);
+      const meshes = Array.from(nodeMeshMap.values()).map(entry => entry.sphereMesh);
+      const intersects = raycaster.intersectObjects(meshes);
+
+      if (intersects.length > 0) {
+        const hit = intersects[0].object;
+        if (hoveredMesh !== hit) {
+          if (hoveredMesh && hoveredMesh !== selectedNode?.mesh) {
+            hoveredMesh.scale.set(1, 1, 1);
+          }
+          hoveredMesh = hit;
+          hoveredMesh.scale.set(1.3, 1.3, 1.3);
+          document.body.style.cursor = 'pointer';
+        }
+      } else {
+        if (hoveredMesh && hoveredMesh !== selectedNode?.mesh) {
+          hoveredMesh.scale.set(1, 1, 1);
+        }
+        hoveredMesh = null;
+        document.body.style.cursor = 'default';
+      }
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Stable 3D Force-Directed Simulation
+    function initPhysicsPositions() {
+      const n = graphData.nodes.length;
+      graphData.nodes.forEach((node, i) => {
+        if (node.x === undefined) {
+          if (node.type === 'root') {
+            node.x = 0; node.y = 0; node.z = 0;
+          } else {
+            const phi = Math.acos(-1 + (2 * i) / n);
+            const theta = Math.sqrt(n * Math.PI) * phi;
+            const rad = 70 + Math.random() * 110;
+            node.x = rad * Math.cos(theta) * Math.sin(phi);
+            node.y = rad * Math.sin(theta) * Math.sin(phi);
+            node.z = rad * Math.cos(phi);
+          }
+          node.vx = 0; node.vy = 0; node.vz = 0;
+        }
+      });
+    }
+
+    // Step physics with strict bounds and velocity damping (never NaN or fly away!)
+    function step3DPhysics() {
       const nodes = graphData.nodes.filter(n => activeFilters.has(n.type));
       const edges = graphData.edges;
 
-      // 1. Repulsion between all nodes
+      // 1. Softened Repulsion between all nodes
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
           const a = nodes[i];
           const b = nodes[j];
           const dx = b.x - a.x;
           const dy = b.y - a.y;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const minDist = (RADIUS_MAP[a.type] || 10) + (RADIUS_MAP[b.type] || 10) + 40;
+          const dz = b.z - a.z;
+          const distSq = dx * dx + dy * dy + dz * dz + 400; // Softening factor prevents explosion
+          const dist = Math.sqrt(distSq);
 
-          if (dist < 350) {
-            const force = (350 - dist) / dist * 0.08;
-            const fx = dx * force;
-            const fy = dy * force;
-            a.vx -= fx;
-            a.vy -= fy;
-            b.vx += fx;
-            b.vy += fy;
+          if (dist < 280) {
+            const repForce = (280 - dist) / dist * 0.025;
+            const fx = dx * repForce;
+            const fy = dy * repForce;
+            const fz = dz * repForce;
+
+            a.vx -= fx; a.vy -= fy; a.vz -= fz;
+            b.vx += fx; b.vy += fy; b.vz += fz;
           }
         }
       }
 
-      // 2. Spring attraction along edges
+      // 2. Spring Attraction along Edges
       const nodeMap = new Map(nodes.map(n => [n.id, n]));
       edges.forEach(edge => {
         const a = nodeMap.get(edge.source);
@@ -514,178 +790,291 @@ export function renderGraphHtml(projectName: string): string {
 
         const dx = b.x - a.x;
         const dy = b.y - a.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const targetDist = 70;
-        const force = (dist - targetDist) * 0.005;
+        const dz = b.z - a.z;
+        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+        const targetDist = 65;
+        const springForce = (dist - targetDist) * 0.002;
 
-        const fx = dx * force;
-        const fy = dy * force;
-        a.vx += fx;
-        a.vy += fy;
-        b.vx += fx;
-        b.vy += fy;
+        const fx = dx * springForce;
+        const fy = dy * springForce;
+        const fz = dz * springForce;
+
+        a.vx += fx; a.vy += fy; a.vz += fz;
+        b.vx -= fx; b.vy -= fy; b.vz -= fz;
       });
 
-      // 3. Center gravity
+      // 3. Center Gravity & Velocity Clamping
+      const maxSpeed = 1.8;
       nodes.forEach(node => {
-        node.vx -= node.x * 0.001;
-        node.vy -= node.y * 0.001;
+        if (node.type === 'root') {
+          // Keep root pinned at center
+          node.x = 0; node.y = 0; node.z = 0;
+          return;
+        }
 
-        // Apply friction
+        // Pull toward center
+        node.vx -= node.x * 0.0012;
+        node.vy -= node.y * 0.0012;
+        node.vz -= node.z * 0.0012;
+
+        // Friction damping
         node.vx *= 0.88;
         node.vy *= 0.88;
+        node.vz *= 0.88;
 
-        if (node !== draggedNode) {
-          node.x += node.vx;
-          node.y += node.vy;
+        // Clamp max speed
+        node.vx = Math.max(-maxSpeed, Math.min(maxSpeed, node.vx));
+        node.vy = Math.max(-maxSpeed, Math.min(maxSpeed, node.vy));
+        node.vz = Math.max(-maxSpeed, Math.min(maxSpeed, node.vz));
+
+        node.x += node.vx;
+        node.y += node.vy;
+        node.z += node.vz;
+
+        // Sphere bounding box: prevent flying off screen
+        const curDist = Math.sqrt(node.x * node.x + node.y * node.y + node.z * node.z);
+        if (curDist > 300) {
+          const scale = 300 / curDist;
+          node.x *= scale;
+          node.y *= scale;
+          node.z *= scale;
         }
       });
     }
 
-    // Render loop
-    function render() {
-      stepPhysics();
-
-      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-      ctx.save();
-      ctx.translate(panX, panY);
-      ctx.scale(zoom, zoom);
-
-      const visibleNodes = new Set(graphData.nodes.filter(n => activeFilters.has(n.type)).map(n => n.id));
-      const nodeMap = new Map(graphData.nodes.map(n => [n.id, n]));
-
-      // Draw Edges
-      graphData.edges.forEach(edge => {
-        if (!visibleNodes.has(edge.source) || !visibleNodes.has(edge.target)) return;
-        const src = nodeMap.get(edge.source);
-        const tgt = nodeMap.get(edge.target);
-        if (!src || !tgt) return;
-
-        ctx.beginPath();
-        ctx.moveTo(src.x, src.y);
-        ctx.lineTo(tgt.x, tgt.y);
-
-        const isHighlight = selectedNode && (selectedNode.id === src.id || selectedNode.id === tgt.id);
-        ctx.strokeStyle = isHighlight ? 'rgba(99, 102, 241, 0.7)' : 'rgba(148, 163, 184, 0.15)';
-        ctx.lineWidth = isHighlight ? 2 : 1;
-        ctx.stroke();
+    // Build 3D Meshes from graphData
+    function build3DScene() {
+      // Clear old node meshes
+      nodeMeshMap.forEach(entry => {
+        scene.remove(entry.group);
       });
+      nodeMeshMap.clear();
 
-      // Draw Nodes
+      if (edgeLineSegments) {
+        scene.remove(edgeLineSegments);
+        edgeLineSegments.geometry.dispose();
+      }
+
+      initPhysicsPositions();
+
+      // Create Meshes for each Node
       graphData.nodes.forEach(node => {
-        if (!activeFilters.has(node.type)) return;
+        const radius = RADIUS_MAP[node.type] || 6;
+        const color = COLOR_HEX[node.type] || 0xffffff;
 
-        const r = RADIUS_MAP[node.type] || 10;
-        const color = COLOR_MAP[node.type] || '#fff';
-        const matchesSearch = searchQuery && node.label.toLowerCase().includes(searchQuery);
-        const isSelected = selectedNode && selectedNode.id === node.id;
+        const group = new THREE.Group();
 
-        // Glow on hover/selection
-        if (isSelected || matchesSearch) {
-          ctx.beginPath();
-          ctx.arc(node.x, node.y, r + 6, 0, Math.PI * 2);
-          ctx.fillStyle = isSelected ? 'rgba(99, 102, 241, 0.35)' : 'rgba(251, 191, 36, 0.3)';
-          ctx.fill();
+        // 1. 3D Sphere with emissive glow
+        const sphereGeo = new THREE.SphereGeometry(radius, 24, 24);
+        const sphereMat = new THREE.MeshStandardMaterial({
+          color: color,
+          emissive: color,
+          emissiveIntensity: node.type === 'root' ? 0.6 : 0.25,
+          roughness: 0.3,
+          metalness: 0.4
+        });
+        const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
+        sphereMesh.userData = { node };
+        group.add(sphereMesh);
+
+        // 2. Extra Pulsing Ring for Root Core
+        if (node.type === 'root') {
+          const ringGeo = new THREE.TorusGeometry(radius * 1.6, 0.8, 16, 64);
+          const ringMat = new THREE.MeshBasicMaterial({ color: 0x818cf8, wireframe: true });
+          const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+          ringMesh.rotation.x = Math.PI / 2.5;
+          group.add(ringMesh);
+          group.userData.ring = ringMesh;
         }
 
-        // Main node circle
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = color;
-        ctx.fill();
+        // 3. Text Billboard Sprite Label
+        const labelSprite = createTextSprite(node.label, color);
+        labelSprite.position.set(0, radius + 7, 0);
+        group.add(labelSprite);
 
-        // Outline
-        ctx.strokeStyle = isSelected ? '#fff' : 'rgba(255, 255, 255, 0.3)';
-        ctx.lineWidth = isSelected ? 2.5 : 1;
-        ctx.stroke();
+        group.position.set(node.x, node.y, node.z);
+        scene.add(group);
 
-        // Label
-        if (zoom > 0.6 || isSelected || matchesSearch || node.type === 'root') {
-          ctx.fillStyle = isSelected ? '#fff' : '#cbd5e1';
-          ctx.font = isSelected ? 'bold 11px sans-serif' : '10px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText(node.label, node.x, node.y + r + 13);
+        nodeMeshMap.set(node.id, { group, sphereMesh, labelSprite, node });
+      });
+
+      // Create LineSegments for Edges
+      rebuildEdgeLines();
+    }
+
+    function createTextSprite(text, colorHex) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = 'rgba(10, 14, 26, 0.75)';
+      ctx.roundRect ? ctx.roundRect(4, 4, 248, 56, 12) : ctx.rect(4, 4, 248, 56);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.font = 'bold 22px sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text.length > 20 ? text.substring(0, 19) + '…' : text, 128, 32);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.minFilter = THREE.LinearFilter;
+      const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.95 });
+      const sprite = new THREE.Sprite(spriteMat);
+      sprite.scale.set(30, 7.5, 1);
+      return sprite;
+    }
+
+    function rebuildEdgeLines() {
+      if (edgeLineSegments) {
+        scene.remove(edgeLineSegments);
+      }
+
+      const visibleNodeIds = new Set(graphData.nodes.filter(n => activeFilters.has(n.type)).map(n => n.id));
+      const validEdges = graphData.edges.filter(e => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
+      const positions = new Float32Array(validEdges.length * 6);
+      const colors = new Float32Array(validEdges.length * 6);
+
+      const edgeGeo = new THREE.BufferGeometry();
+      edgeGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      edgeGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      const edgeMat = new THREE.LineBasicMaterial({
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.35,
+        blending: THREE.AdditiveBlending
+      });
+
+      edgeLineSegments = new THREE.LineSegments(edgeGeo, edgeMat);
+      scene.add(edgeLineSegments);
+    }
+
+    function updateEdgeLines() {
+      if (!edgeLineSegments) return;
+      const visibleNodeIds = new Set(graphData.nodes.filter(n => activeFilters.has(n.type)).map(n => n.id));
+      const validEdges = graphData.edges.filter(e => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
+
+      const posAttr = edgeLineSegments.geometry.attributes.position;
+      const colAttr = edgeLineSegments.geometry.attributes.color;
+      if (!posAttr || posAttr.count !== validEdges.length * 2) {
+        rebuildEdgeLines();
+        return;
+      }
+
+      const nodeMap = new Map(graphData.nodes.map(n => [n.id, n]));
+      let idx = 0;
+
+      validEdges.forEach(edge => {
+        const a = nodeMap.get(edge.source);
+        const b = nodeMap.get(edge.target);
+        if (!a || !b) return;
+
+        posAttr.setXYZ(idx, a.x, a.y, a.z);
+        posAttr.setXYZ(idx + 1, b.x, b.y, b.z);
+
+        const isHighlight = selectedNode && (selectedNode.id === a.id || selectedNode.id === b.id);
+        const col = isHighlight ? 0.9 : 0.25;
+        colAttr.setXYZ(idx, col, col * 0.8, 1);
+        colAttr.setXYZ(idx + 1, col, col * 0.8, 1);
+
+        idx += 2;
+      });
+
+      posAttr.needsUpdate = true;
+      colAttr.needsUpdate = true;
+    }
+
+    // Animation Render Loop
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Run Physics Step
+      step3DPhysics();
+
+      // Sync 3D Mesh positions
+      nodeMeshMap.forEach(entry => {
+        const node = entry.node;
+        const visible = activeFilters.has(node.type);
+        entry.group.visible = visible;
+
+        if (visible) {
+          entry.group.position.set(node.x, node.y, node.z);
+
+          // Pulse root ring
+          if (entry.group.userData.ring) {
+            entry.group.userData.ring.rotation.z += 0.015;
+          }
+
+          // Highlight search matches
+          if (searchQuery && node.label.toLowerCase().includes(searchQuery)) {
+            entry.sphereMesh.scale.set(1.4, 1.4, 1.4);
+          } else if (entry.sphereMesh !== hoveredMesh && (!selectedNode || selectedNode.id !== node.id)) {
+            entry.sphereMesh.scale.set(1, 1, 1);
+          }
         }
       });
 
-      ctx.restore();
-      requestAnimationFrame(render);
-    }
+      updateEdgeLines();
 
-    // Interaction handlers
-    function getNodeAt(x, y) {
-      const worldX = (x - panX) / zoom;
-      const worldY = (y - panY) / zoom;
+      // Starfield slow cosmic rotation
+      if (starfieldMesh) {
+        starfieldMesh.rotation.y += 0.0003;
+      }
 
-      for (let i = graphData.nodes.length - 1; i >= 0; i--) {
-        const node = graphData.nodes[i];
-        if (!activeFilters.has(node.type)) continue;
-        const r = RADIUS_MAP[node.type] || 10;
-        const dx = worldX - node.x;
-        const dy = worldY - node.y;
-        if (dx * dx + dy * dy <= (r + 4) * (r + 4)) {
-          return node;
+      // Auto-orbit camera if enabled
+      if (autoRotate && !isMouseDown && !isFlying) {
+        camTheta += 0.0015;
+      }
+
+      // Smooth camera interpolation
+      if (isFlying) {
+        camera.position.lerp(flyTargetPos, 0.06);
+        currentLookAt.lerp(flyTargetLook, 0.06);
+        camera.lookAt(currentLookAt);
+
+        if (camera.position.distanceTo(flyTargetPos) < 2) {
+          isFlying = false;
+          // Sync spherical coordinates after fly
+          const offset = new THREE.Vector3().subVectors(camera.position, currentLookAt);
+          camRadius = offset.length();
+          camPhi = Math.acos(Math.max(-1, Math.min(1, offset.y / camRadius)));
+          camTheta = Math.atan2(offset.x, offset.z);
         }
+      } else {
+        currentLookAt.lerp(targetLookAt, 0.08);
+        updateCameraPos();
       }
-      return null;
+
+      renderer.render(scene, camera);
     }
 
-    canvas.addEventListener('mousedown', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
+    // Selection & Sidebar
+    function selectNode(node) {
+      selectedNode = node;
+      openSidebar(node);
 
-      const hit = getNodeAt(mouseX, mouseY);
-      if (hit) {
-        draggedNode = hit;
-        selectedNode = hit;
-        openSidebar(hit);
-      } else {
-        isDragging = true;
-        dragStartX = mouseX - panX;
-        dragStartY = mouseY - panY;
-      }
-    });
+      // Smooth fly-to camera focus
+      flyTargetLook.set(node.x, node.y, node.z);
+      const normal = new THREE.Vector3(node.x, node.y, node.z).normalize();
+      if (normal.lengthSq() < 0.1) normal.set(0, 0.4, 1).normalize();
+      flyTargetPos.copy(flyTargetLook).addScaledVector(normal, 120);
+      isFlying = true;
+    }
 
-    window.addEventListener('mousemove', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-
-      if (draggedNode) {
-        draggedNode.x = (mouseX - panX) / zoom;
-        draggedNode.y = (mouseY - panY) / zoom;
-        draggedNode.vx = 0;
-        draggedNode.vy = 0;
-      } else if (isDragging) {
-        panX = mouseX - dragStartX;
-        panY = mouseY - dragStartY;
-      }
-    });
-
-    window.addEventListener('mouseup', () => {
-      draggedNode = null;
-      isDragging = false;
-    });
-
-    canvas.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-      const rect = canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-
-      panX = mouseX - (mouseX - panX) * zoomFactor;
-      panY = mouseY - (mouseY - panY) * zoomFactor;
-      zoom *= zoomFactor;
-      zoom = Math.max(0.2, Math.min(zoom, 4));
-    });
-
-    // Sidebar rendering
     function openSidebar(node) {
+      const sidebar = document.getElementById('sidebar');
+      const sideTitle = document.getElementById('side-title');
+      const sideType = document.getElementById('side-type');
+      const sideContent = document.getElementById('side-content');
+
       sideTitle.textContent = node.label;
       sideType.textContent = node.type;
-      sideType.style.background = COLOR_MAP[node.type];
+      sideType.style.background = '#' + (COLOR_HEX[node.type] || 0x6366f1).toString(16).padStart(6, '0');
       sideType.style.color = '#000';
 
       let html = '';
@@ -708,10 +1097,10 @@ export function renderGraphHtml(projectName: string): string {
         }
       }
 
-      // Connected nodes
+      // Connections
       const connections = graphData.edges.filter(e => e.source === node.id || e.target === node.id);
       if (connections.length > 0) {
-        html += '<div class="sidebar-section"><div class="sidebar-section-title">Connections (' + connections.length + ')</div><ul class="conn-list">';
+        html += '<div class="sidebar-section"><div class="sidebar-section-title">Connected Nodes (' + connections.length + ')</div><ul class="conn-list">';
         const nodeMap = new Map(graphData.nodes.map(n => [n.id, n]));
         connections.forEach(edge => {
           const otherId = edge.source === node.id ? edge.target : edge.source;
@@ -730,19 +1119,29 @@ export function renderGraphHtml(projectName: string): string {
     window.focusNode = function(id) {
       const node = graphData.nodes.find(n => n.id === id);
       if (node) {
-        selectedNode = node;
-        openSidebar(node);
-        panX = window.innerWidth / 2 - node.x * zoom;
-        panY = window.innerHeight / 2 - node.y * zoom;
+        selectNode(node);
       }
     };
 
-    closeSideBtn.addEventListener('click', () => {
-      sidebar.classList.remove('open');
+    document.getElementById('close-side-btn').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.remove('open');
       selectedNode = null;
     });
 
-    // Filter pills toggle
+    document.getElementById('reset-cam-btn').addEventListener('click', () => {
+      targetLookAt.set(0, 0, 0);
+      camRadius = 380;
+      camTheta = 0.5;
+      camPhi = 1.2;
+      isFlying = false;
+    });
+
+    document.getElementById('auto-rotate-btn').addEventListener('click', (e) => {
+      autoRotate = !autoRotate;
+      e.target.style.background = autoRotate ? 'var(--accent)' : 'rgba(30, 35, 60, 0.8)';
+    });
+
+    // Filter pills
     document.querySelectorAll('.filter-pills .pill').forEach(pill => {
       pill.addEventListener('click', () => {
         const type = pill.getAttribute('data-type');
@@ -753,19 +1152,58 @@ export function renderGraphHtml(projectName: string): string {
           activeFilters.add(type);
           pill.classList.add('active');
         }
+        rebuildEdgeLines();
       });
     });
 
-    // Search filter
-    searchInput.addEventListener('input', (e) => {
+    // Search input
+    document.getElementById('search-input').addEventListener('input', (e) => {
       searchQuery = e.target.value.trim().toLowerCase();
+      if (searchQuery) {
+        const match = graphData.nodes.find(n => activeFilters.has(n.type) && n.label.toLowerCase().includes(searchQuery));
+        if (match) {
+          flyTargetLook.set(match.x, match.y, match.z);
+          flyTargetPos.set(match.x, match.y, match.z + 140);
+          isFlying = true;
+        }
+      }
     });
 
     function escapeHtml(str) {
       return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    // SSE Live Reload listener
+    // Data Fetching & SSE
+    async function fetchGraph() {
+      try {
+        const res = await fetch('/api/graph');
+        const newData = await res.json();
+
+        // Preserve physics coordinates for existing nodes
+        const oldPosMap = new Map(graphData.nodes.map(n => [n.id, { x: n.x, y: n.y, z: n.z, vx: n.vx, vy: n.vy, vz: n.vz }]));
+        newData.nodes.forEach(n => {
+          const old = oldPosMap.get(n.id);
+          if (old) {
+            n.x = old.x; n.y = old.y; n.z = old.z;
+            n.vx = old.vx; n.vy = old.vy; n.vz = old.vz;
+          }
+        });
+
+        graphData = newData;
+        build3DScene();
+        updateHud();
+      } catch (e) {
+        console.error('Failed to load 3D graph data', e);
+      }
+    }
+
+    function updateHud() {
+      document.getElementById('stat-nodes').textContent = graphData.nodes.length;
+      document.getElementById('stat-edges').textContent = graphData.edges.length;
+      document.getElementById('stat-rules').textContent = graphData.stats?.rulesCount || 0;
+      document.getElementById('stat-adrs').textContent = graphData.stats?.decisionsCount || 0;
+    }
+
     function setupSse() {
       const es = new EventSource('/api/events');
       es.onmessage = (event) => {
@@ -782,10 +1220,15 @@ export function renderGraphHtml(projectName: string): string {
     }
 
     // Bootstrap
-    fetchGraph().then(() => {
-      requestAnimationFrame(render);
-      setupSse();
-    });
+    if (window.THREE) {
+      initThree();
+      fetchGraph().then(() => {
+        animate();
+        setupSse();
+      });
+    } else {
+      document.getElementById('fallback-msg').style.display = 'block';
+    }
   </script>
 </body>
 </html>`;

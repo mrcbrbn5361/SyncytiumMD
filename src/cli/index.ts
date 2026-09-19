@@ -11,7 +11,7 @@ const engine = new SyncytiumEngine();
 program
   .name('syncytium')
   .description('Universal Context & Handoff Bridge for AI Coding Tools (IDEs, VSCode extensions, CLIs)')
-  .version('0.1.6');
+  .version('0.1.7');
 
 // INIT
 program
