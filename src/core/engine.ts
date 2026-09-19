@@ -17,7 +17,9 @@ import type {
   LintReport,
   LintIssue,
   ImportReport,
-  ImportItem
+  ImportItem,
+  SyncytiumLock,
+  CanonicalRule
 } from './types.js';
 
 export class SyncytiumEngine {
@@ -517,9 +519,10 @@ ${content.trim()}
     };
   }
 
-  async lint(): Promise<LintReport> {
+  async lint(options?: { fix?: boolean }): Promise<LintReport> {
     const issues: LintIssue[] = [];
     let totalChecked = 0;
+    let fixedCount = 0;
 
     const exists = await this.storage.exists();
     if (!exists) {
@@ -528,7 +531,7 @@ ${content.trim()}
         type: 'error',
         message: '.syncytium/ directory does not exist. Run `syncytium init` first.'
       });
-      return { valid: false, issues, totalChecked: 0 };
+      return { valid: false, issues, totalChecked: 0, fixedCount: 0 };
     }
 
     // 1. Lint rules
@@ -536,26 +539,42 @@ ${content.trim()}
       const files = await fs.readdir(this.storage.rulesDir);
       for (const file of files) {
         totalChecked++;
-        const filePath = `.syncytium/rules/${file}`;
-        if (!file.endsWith('.md')) {
+        let currentFileName = file;
+        const filePath = `.syncytium/rules/${currentFileName}`;
+
+        if (!currentFileName.endsWith('.md')) {
           issues.push({
             file: filePath,
             type: 'warning',
-            message: `Rule file should have .md extension, found: ${file}`
+            message: `Rule file should have .md extension, found: ${currentFileName}`
           });
           continue;
         }
 
-        const baseName = path.basename(file, '.md');
+        let baseName = path.basename(currentFileName, '.md');
         if (!/^[a-z0-9-]+$/.test(baseName)) {
-          issues.push({
-            file: filePath,
-            type: 'warning',
-            message: `Rule filename "${file}" should follow kebab-case (e.g. "code-style.md").`
-          });
+          if (options?.fix) {
+            const kebab = baseName
+              .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+              .toLowerCase()
+              .replace(/[^a-z0-9-]+/g, '-');
+            const newFileName = `${kebab}.md`;
+            const oldPath = path.join(this.storage.rulesDir, currentFileName);
+            const newPath = path.join(this.storage.rulesDir, newFileName);
+            await fs.rename(oldPath, newPath);
+            currentFileName = newFileName;
+            baseName = kebab;
+            fixedCount++;
+          } else {
+            issues.push({
+              file: filePath,
+              type: 'warning',
+              message: `Rule filename "${file}" should follow kebab-case (e.g. "code-style.md").`
+            });
+          }
         }
 
-        const fullPath = path.join(this.storage.rulesDir, file);
+        const fullPath = path.join(this.storage.rulesDir, currentFileName);
         const raw = await fs.readFile(fullPath, 'utf-8');
         if (!raw.trim()) {
           issues.push({
@@ -568,6 +587,18 @@ ${content.trim()}
 
         try {
           const parsed = matter(raw);
+          if (options?.fix && (!parsed.data.id || !parsed.data.title)) {
+            const healedData = {
+              id: parsed.data.id || baseName.toLowerCase(),
+              title: parsed.data.title || baseName.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+              alwaysApply: parsed.data.alwaysApply ?? true,
+              ...parsed.data
+            };
+            const healedContent = matter.stringify(parsed.content.trim(), healedData);
+            await fs.writeFile(fullPath, healedContent, 'utf-8');
+            fixedCount++;
+          }
+
           if (parsed.data.globs && !Array.isArray(parsed.data.globs)) {
             issues.push({
               file: filePath,
@@ -647,7 +678,8 @@ ${content.trim()}
     return {
       valid: !hasErrors,
       issues,
-      totalChecked
+      totalChecked,
+      fixedCount
     };
   }
 
@@ -730,6 +762,96 @@ ${content.trim()}
     return { success: true, path: targetPath };
   }
 
+  async acquireLock(agent: string, goal?: string, leaseMinutes: number = 30): Promise<{ acquired: boolean; lock: SyncytiumLock; message?: string }> {
+    const current = await this.storage.loadLock();
+    const now = Date.now();
+
+    if (current.locked && current.expiresAt) {
+      const expires = new Date(current.expiresAt).getTime();
+      if (now < expires && current.agent && current.agent !== agent) {
+        return {
+          acquired: false,
+          lock: current,
+          message: `Workspace is currently locked by '${current.agent}' until ${current.expiresAt}. Use --force to override if necessary.`
+        };
+      }
+    }
+
+    const nowDate = new Date(now);
+    const expiresDate = new Date(now + leaseMinutes * 60 * 1000);
+    const newLock: SyncytiumLock = {
+      locked: true,
+      agent,
+      goal: goal || current.goal || '',
+      acquiredAt: nowDate.toISOString(),
+      expiresAt: expiresDate.toISOString()
+    };
+
+    await this.storage.saveLock(newLock);
+    return {
+      acquired: true,
+      lock: newLock,
+      message: `Lock acquired by '${agent}' for ${leaseMinutes} minutes (expires at ${newLock.expiresAt}).`
+    };
+  }
+
+  async releaseLock(agent?: string, force: boolean = false): Promise<{ released: boolean; lock: SyncytiumLock; message?: string }> {
+    const current = await this.storage.loadLock();
+    if (!current.locked) {
+      return {
+        released: true,
+        lock: current,
+        message: 'Workspace is not locked.'
+      };
+    }
+
+    const now = Date.now();
+    const isExpired = current.expiresAt ? new Date(current.expiresAt).getTime() <= now : false;
+
+    if (!force && !isExpired && agent && current.agent && current.agent !== agent) {
+      return {
+        released: false,
+        lock: current,
+        message: `Cannot release lock held by '${current.agent}' without --force.`
+      };
+    }
+
+    const unlocked: SyncytiumLock = { locked: false };
+    await this.storage.saveLock(unlocked);
+    return {
+      released: true,
+      lock: unlocked,
+      message: 'Workspace lock released successfully.'
+    };
+  }
+
+  async getLockStatus(): Promise<SyncytiumLock & { isExpired?: boolean }> {
+    const lock = await this.storage.loadLock();
+    if (lock.locked && lock.expiresAt) {
+      const isExpired = new Date(lock.expiresAt).getTime() <= Date.now();
+      return { ...lock, isExpired };
+    }
+    return { ...lock, isExpired: false };
+  }
+
+  async listRules(query?: string): Promise<CanonicalRule[]> {
+    const rules = await this.storage.loadRules();
+    if (!query || !query.trim()) {
+      return rules;
+    }
+
+    const q = query.toLowerCase().trim();
+    return rules.filter(r => {
+      return (
+        r.id.toLowerCase().includes(q) ||
+        r.title.toLowerCase().includes(q) ||
+        (r.description && r.description.toLowerCase().includes(q)) ||
+        (r.tags && r.tags.some(t => t.toLowerCase().includes(q))) ||
+        r.content.toLowerCase().includes(q)
+      );
+    });
+  }
+
   watch(onSync?: (paths: string[]) => void): () => Promise<void> {
     const watcher = chokidar.watch(this.storage.syncytiumDir, {
       ignoreInitial: true,
@@ -764,3 +886,4 @@ ${content.trim()}
     };
   }
 }
+

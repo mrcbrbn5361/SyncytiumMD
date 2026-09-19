@@ -104,6 +104,9 @@ Displays an ASCII visual history of all agent baton passes, completed tasks, and
 ### 8. Rule & Context Linter (`lint`)
 ```bash
 npx syncytium lint
+
+# Automatically rename files to kebab-case and heal missing frontmatter IDs/titles:
+npx syncytium lint --fix
 ```
 Validates rule naming standards (kebab-case), YAML frontmatter schema, empty files, and context integrity before committing.
 
@@ -132,12 +135,41 @@ Create a `.syncytiumignore` file in your repository root to prevent Syncytium fr
 *.spec.md
 ```
 
+### 12. Canonical Rules Catalog (`rules`)
+```bash
+# List all canonical rules registered in .syncytium/rules/
+npx syncytium rules
+
+# Search rules matching a keyword, title, or tag
+npx syncytium rules typescript
+```
+
+### 13. Multi-Agent Collision Lock (`lock`)
+Prevents multiple autonomous agents or developers from working on conflicting goals simultaneously with lease-based locks:
+```bash
+# Acquire lease lock for 45 minutes
+npx syncytium lock acquire --agent Cursor --goal "Refactoring auth endpoints" --lease 45
+
+# Check current lock state
+npx syncytium lock status
+
+# Release lock upon completion
+npx syncytium lock release --agent Cursor
+```
+
 ---
 
 ## 🤝 Multi-Agent Handoff Protocol
 
-Pass context and tasks seamlessly across tools:
+Pass context and tasks seamlessly across tools. You can run it via flags or with the interactive wizard:
 
+### Interactive Guided Wizard:
+```bash
+npx syncytium handoff -i
+```
+Prompts for finishing agent, next agent, status, goal, completed tasks, and context notes directly in your terminal.
+
+### Command-Line Execution:
 ```bash
 # Antigravity planned the architecture, now handing off to Cursor for inline coding:
 npx syncytium handoff \

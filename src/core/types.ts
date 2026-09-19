@@ -137,6 +137,7 @@ export interface LintReport {
   valid: boolean;
   issues: LintIssue[];
   totalChecked: number;
+  fixedCount?: number;
 }
 
 export interface ImportItem {
@@ -149,6 +150,14 @@ export interface ImportItem {
 export interface ImportReport {
   importedCount: number;
   items: ImportItem[];
+}
+
+export interface SyncytiumLock {
+  locked: boolean;
+  agent?: string;
+  goal?: string;
+  acquiredAt?: string;
+  expiresAt?: string;
 }
 
 

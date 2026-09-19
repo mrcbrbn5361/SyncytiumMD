@@ -104,6 +104,9 @@ Ajanlar arasında tamamlanan hedefleri, sıradaki görevleri ve devir teslim ge�
 ### 8. Kural ve Bağlam Linter'ı (`lint`)
 ```bash
 npx syncytium lint
+
+# Kural isimlerini otomatik kebab-case'e dönüştür ve eksik frontmatter başlık/ID'lerini onar:
+npx syncytium lint --fix
 ```
 Kural dosyalarının isimlendirme standartlarını (kebab-case), YAML frontmatter şemasını ve içerik bütünlüğünü commit öncesi denetler.
 
@@ -132,12 +135,41 @@ Projenizin kök dizininde bir `.syncytiumignore` dosyası oluşturarak belirli k
 *.spec.md
 ```
 
+### 12. Kanonik Kural Kataloğu ve Arama (`rules`)
+```bash
+# .syncytium/rules/ altındaki tüm kuralları listele
+npx syncytium rules
+
+# Başlık, açıklama veya etikete göre kural ara
+npx syncytium rules typescript
+```
+
+### 13. Çoklu Ajan Çakışma Kilidi (`lock`)
+Birden fazla yapay zeka ajanının veya geliştiricinin aynı anda çakışan işler yapmasını süreli kilit (lease-based lock) mekanizmasıyla önler:
+```bash
+# 45 dakikalık kilit al
+npx syncytium lock acquire --agent Cursor --goal "Kimlik doğrulama modülü refaktörü" --lease 45
+
+# Kilit durumunu kontrol et
+npx syncytium lock status
+
+# İş bitince kilidi aç
+npx syncytium lock release --agent Cursor
+```
+
 ---
 
 ## 🤝 Çoklu Ajan Devir Teslimi (Handoff Protokolü)
 
-Farklı araçlar arasında geçiş yaparken bağlamı (context) asla kaybetmeyin:
+Farklı araçlar arasında geçiş yaparken bağlamı (context) asla kaybetmeyin. Bayrak devrini parametrelerle ya da interaktif sihirbazla yönetebilirsiniz:
 
+### İnteraktif Terminal Sihirbazı:
+```bash
+npx syncytium handoff -i
+```
+Terminal üzerinden soru-cevap şeklinde bitiren ajanı, sıradaki ajanı, durumu, hedefi ve tavsiye notlarını pratikçe girmenizi sağlar.
+
+### Komut Satırı ile Hızlı Devir:
 ```bash
 # Antigravity ile plan yaptınız, Cursor'a inline kodlama devrediyorsunuz:
 npx syncytium handoff \

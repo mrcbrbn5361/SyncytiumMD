@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import pc from 'picocolors';
+import readline from 'node:readline/promises';
+import { stdin as input, stdout as output } from 'node:process';
 import { SyncytiumEngine } from '../core/engine.js';
 
 const program = new Command();
@@ -9,7 +11,7 @@ const engine = new SyncytiumEngine();
 program
   .name('syncytium')
   .description('Universal Context & Handoff Bridge for AI Coding Tools (IDEs, VSCode extensions, CLIs)')
-  .version('0.1.4');
+  .version('0.1.5');
 
 // INIT
 program
@@ -152,6 +154,7 @@ program
 program
   .command('handoff')
   .description('Pass the baton to the next AI agent or update active task state')
+  .option('-i, --interactive', 'Run interactive guided wizard in terminal', false)
   .option('--from <agent>', 'Name of currently finishing agent (e.g. Antigravity, Cursor, Human)')
   .option('--to <agent>', 'Name of next designated agent (e.g. Claude Code, Cline, Cursor)')
   .option('-g, --goal <goal>', 'Primary objective / goal')
@@ -162,16 +165,61 @@ program
   .option('-n, --notes <notes>', 'Contextual guidance or warnings for next agent')
   .action(async (options) => {
     try {
-      console.log(pc.cyan('🤝 Updating Syncytium Handoff...'));
+      let fromAgent = options.from;
+      let toAgent = options.to;
+      let status = options.status;
+      let goal = options.goal;
+      let completed = options.done;
+      let pending = options.task;
+      let touchedFiles = options.file;
+      let notes = options.notes;
+
+      if (options.interactive) {
+        const current = await engine.storage.loadHandoff();
+        console.log(pc.bold(pc.cyan('\n🤝 Interactive Syncytium Handoff Wizard')));
+        console.log(pc.dim('Press [Enter] to accept the current/default value shown in brackets.\n'));
+
+        const rl = readline.createInterface({ input, output });
+        try {
+          const fromInput = (await rl.question(`Active finishing agent [${pc.yellow(current.activeAgent)}]: `)).trim();
+          if (fromInput) fromAgent = fromInput;
+
+          const toInput = (await rl.question(`Next designated agent [${pc.magenta(current.nextAgent || 'Any')}]: `)).trim();
+          if (toInput) toAgent = toInput;
+
+          const statusInput = (await rl.question(`Handoff status (in_progress/ready_for_review/blocked/completed) [${pc.blue(current.status)}]: `)).trim();
+          if (statusInput) status = statusInput;
+
+          const goalInput = (await rl.question(`Primary Goal [${current.goal}]: `)).trim();
+          if (goalInput) goal = goalInput;
+
+          const doneInput = (await rl.question(`Completed tasks (comma-separated, leave blank to skip): `)).trim();
+          if (doneInput) {
+            completed = doneInput.split(',').map(s => s.trim()).filter(Boolean);
+          }
+
+          const pendingInput = (await rl.question(`Pending tasks for next agent (comma-separated, leave blank to keep existing): `)).trim();
+          if (pendingInput) {
+            pending = pendingInput.split(',').map(s => s.trim()).filter(Boolean);
+          }
+
+          const notesInput = (await rl.question(`Context & advice notes for next agent [${current.contextNotes || 'None'}]: `)).trim();
+          if (notesInput) notes = notesInput;
+        } finally {
+          rl.close();
+        }
+      }
+
+      console.log(pc.cyan('\n🤝 Updating Syncytium Handoff...'));
       const handoff = await engine.handoff({
-        activeAgent: options.from,
-        nextAgent: options.to,
-        status: options.status,
-        goal: options.goal,
-        completed: options.done,
-        pending: options.task,
-        touchedFiles: options.file,
-        notes: options.notes,
+        activeAgent: fromAgent,
+        nextAgent: toAgent,
+        status: status,
+        goal: goal,
+        completed: completed,
+        pending: pending,
+        touchedFiles: touchedFiles,
+        notes: notes,
         autoSync: true
       });
 
@@ -336,10 +384,15 @@ program
 program
   .command('lint')
   .description('Validate canonical rules, frontmatter schema, and structure in .syncytium/')
-  .action(async () => {
+  .option('--fix', 'Automatically heal missing frontmatter titles/IDs and kebab-case rule filenames', false)
+  .action(async (options) => {
     try {
       console.log(pc.cyan('🔍 Linting Syncytium canonical rules and context...'));
-      const report = await engine.lint();
+      const report = await engine.lint({ fix: options.fix });
+
+      if (report.fixedCount && report.fixedCount > 0) {
+        console.log(pc.green(`🔧 Automatically healed and fixed ${report.fixedCount} issue(s)!`));
+      }
 
       if (report.issues.length === 0) {
         console.log(pc.green(`✅ All ${report.totalChecked} checked files are valid and follow best practices!`));
@@ -360,6 +413,93 @@ program
       }
     } catch (err: any) {
       console.error(pc.red(`❌ Lint failed: ${err.message}`));
+      process.exit(1);
+    }
+  });
+
+// LOCK
+program
+  .command('lock [action]')
+  .description('Manage multi-agent lock to prevent concurrent collisions (actions: acquire, release, status)')
+  .option('-a, --agent <name>', 'Agent name (e.g. Cursor, Claude, Antigravity)')
+  .option('-g, --goal <goal>', 'Goal or task agent is working on')
+  .option('-l, --lease <minutes>', 'Lock lease duration in minutes (default: 30)', '30')
+  .option('-f, --force', 'Force release or acquire override', false)
+  .action(async (action = 'status', options) => {
+    try {
+      if (action === 'acquire') {
+        const agent = options.agent || 'UnknownAgent';
+        const lease = parseInt(options.lease, 10) || 30;
+        const res = await engine.acquireLock(agent, options.goal, lease);
+        if (res.acquired) {
+          console.log(pc.green(`🔒 ${res.message}`));
+        } else {
+          console.error(pc.red(`🚫 Failed to acquire lock: ${res.message}`));
+          process.exit(1);
+        }
+      } else if (action === 'release') {
+        const res = await engine.releaseLock(options.agent, options.force);
+        if (res.released) {
+          console.log(pc.green(`🔓 ${res.message}`));
+        } else {
+          console.error(pc.red(`🚫 Failed to release lock: ${res.message}`));
+          process.exit(1);
+        }
+      } else if (action === 'status') {
+        const lock = await engine.getLockStatus();
+        console.log(pc.bold(pc.cyan('\n🔒 Syncytium Multi-Agent Lock Status:')));
+        console.log(pc.dim('──────────────────────────────────────────────────────────────────────────'));
+        if (!lock.locked) {
+          console.log(`  State: ${pc.green('UNLOCKED')} (No agent currently holds the workspace lease)`);
+        } else {
+          const expiredNotice = lock.isExpired ? pc.red(' (EXPIRED)') : '';
+          console.log(`  State:       ${pc.yellow('LOCKED')}${expiredNotice}`);
+          console.log(`  Agent:       ${pc.bold(pc.yellow(lock.agent || 'Unknown'))}`);
+          if (lock.goal) {
+            console.log(`  Goal:        ${lock.goal}`);
+          }
+          console.log(`  Acquired At: ${pc.dim(lock.acquiredAt || '')}`);
+          console.log(`  Expires At:  ${pc.magenta(lock.expiresAt || '')}`);
+        }
+        console.log(pc.dim('──────────────────────────────────────────────────────────────────────────\n'));
+      } else {
+        console.error(pc.red(`Unknown lock action "${action}". Available actions: acquire, release, status`));
+        process.exit(1);
+      }
+    } catch (err: any) {
+      console.error(pc.red(`❌ Lock management failed: ${err.message}`));
+      process.exit(1);
+    }
+  });
+
+// RULES
+program
+  .command('rules [query]')
+  .description('Catalog and search canonical rules in .syncytium/rules/')
+  .action(async (query) => {
+    try {
+      const rules = await engine.listRules(query);
+      if (rules.length === 0) {
+        console.log(pc.yellow(query ? `No canonical rules found matching "${query}".` : 'No canonical rules found.'));
+        return;
+      }
+
+      console.log(pc.bold(pc.cyan(`\n📚 Syncytium Canonical Rules (${rules.length}):`)));
+      console.log(pc.dim('──────────────────────────────────────────────────────────────────────────'));
+      for (const r of rules) {
+        const applyBadge = r.alwaysApply ? pc.green('[always-apply]') : pc.dim('[glob-based]');
+        const tagStr = r.tags && r.tags.length > 0 ? pc.dim(`(${r.tags.join(', ')})`) : '';
+        console.log(`  ${pc.bold(pc.white(r.id.padEnd(24)))} ${applyBadge} ${pc.bold(r.title)} ${tagStr}`);
+        if (r.description) {
+          console.log(`    ${pc.dim(r.description)}`);
+        }
+        if (r.globs && r.globs.length > 0) {
+          console.log(`    ${pc.dim('Globs: ' + r.globs.join(', '))}`);
+        }
+      }
+      console.log(pc.dim('──────────────────────────────────────────────────────────────────────────\n'));
+    } catch (err: any) {
+      console.error(pc.red(`❌ Failed to list rules: ${err.message}`));
       process.exit(1);
     }
   });
@@ -416,3 +556,4 @@ program
   });
 
 program.parse();
+

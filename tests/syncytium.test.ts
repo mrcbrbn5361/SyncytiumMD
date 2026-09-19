@@ -258,6 +258,81 @@ describe('SyncytiumMD Test Suite', () => {
     assert.ok(server);
   });
 
+  test('multi-agent lock prevents concurrent collisions with lease expiration', async () => {
+    // Initial status: unlocked
+    const initial = await engine.getLockStatus();
+    assert.equal(initial.locked, false);
+
+    // Acquire lock by Cursor
+    const acq1 = await engine.acquireLock('Cursor', 'Refactoring auth module', 60);
+    assert.equal(acq1.acquired, true);
+    assert.equal(acq1.lock.agent, 'Cursor');
+
+    // Status check
+    const status1 = await engine.getLockStatus();
+    assert.equal(status1.locked, true);
+    assert.equal(status1.agent, 'Cursor');
+    assert.equal(status1.isExpired, false);
+
+    // Another agent (Claude) attempts to acquire without force -> rejected
+    const acq2 = await engine.acquireLock('Claude', 'Fixing CSS', 30);
+    assert.equal(acq2.acquired, false);
+    assert.ok(acq2.message?.includes('currently locked by \'Cursor\''));
+
+    // Claude attempts to release Cursor's lock without force -> rejected
+    const rel1 = await engine.releaseLock('Claude', false);
+    assert.equal(rel1.released, false);
+
+    // Cursor releases its own lock -> success
+    const rel2 = await engine.releaseLock('Cursor', false);
+    assert.equal(rel2.released, true);
+
+    const status2 = await engine.getLockStatus();
+    assert.equal(status2.locked, false);
+
+    // Acquire and force release
+    await engine.acquireLock('AgentX', 'Experiment', 10);
+    const relForce = await engine.releaseLock('AgentY', true);
+    assert.equal(relForce.released, true);
+    const status3 = await engine.getLockStatus();
+    assert.equal(status3.locked, false);
+  });
+
+  test('engine.lint({ fix: true }) auto-renames files to kebab-case and heals frontmatter', async () => {
+    const brokenRulePath = path.join(tempDir, '.syncytium', 'rules', 'BadFileName.md');
+    await fs.writeFile(brokenRulePath, '# Non-compliant body without frontmatter\nSome content.');
+
+    // Lint without fix detects issues
+    const lintBefore = await engine.lint({ fix: false });
+    assert.ok(lintBefore.issues.some(i => i.message.includes('kebab-case')));
+
+    // Lint with fix repairs it
+    const lintAfter = await engine.lint({ fix: true });
+    assert.ok(lintAfter.fixedCount && lintAfter.fixedCount > 0);
+
+    // Verify file was renamed to kebab-case
+    await assert.rejects(fs.access(brokenRulePath));
+    const fixedRulePath = path.join(tempDir, '.syncytium', 'rules', 'bad-file-name.md');
+    const fixedContent = await fs.readFile(fixedRulePath, 'utf-8');
+    assert.ok(fixedContent.includes('id: bad-file-name'));
+    assert.ok(fixedContent.includes('title: Bad File Name'));
+
+    // Cleanup
+    await fs.rm(fixedRulePath, { force: true });
+  });
+
+  test('engine.listRules searches canonical rules catalog', async () => {
+    const allRules = await engine.listRules();
+    assert.ok(allRules.length >= 3);
+
+    const filtered = await engine.listRules('style');
+    assert.ok(filtered.length >= 1);
+    assert.ok(filtered.some(r => r.id === 'code-style'));
+
+    const nonExistent = await engine.listRules('nonexistentquery12345');
+    assert.equal(nonExistent.length, 0);
+  });
+
   test('engine.clean safely removes bridge files', async () => {
     const cleaned = await engine.clean();
     assert.ok(cleaned.length > 0);

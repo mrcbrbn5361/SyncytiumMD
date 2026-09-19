@@ -7,7 +7,8 @@ import type {
   MemoryDecision,
   HandoffState,
   SyncytiumConfig,
-  HandoffHistoryEntry
+  HandoffHistoryEntry,
+  SyncytiumLock
 } from './types.js';
 import {
   DEFAULT_CONFIG,
@@ -57,6 +58,10 @@ export class SyncytiumStorage {
 
   get ignorePath(): string {
     return path.join(this.rootDir, '.syncytiumignore');
+  }
+
+  get lockPath(): string {
+    return path.join(this.memoryDir, 'lock.json');
   }
 
   async loadIgnorePatterns(): Promise<string[]> {
@@ -305,5 +310,19 @@ ${handoff.contextNotes || 'No specific notes provided.'}
   async saveArchitecture(content: string): Promise<void> {
     await fs.mkdir(this.syncytiumDir, { recursive: true });
     await fs.writeFile(this.architecturePath, content.trim() + '\n', 'utf-8');
+  }
+
+  async loadLock(): Promise<SyncytiumLock> {
+    try {
+      const data = await fs.readFile(this.lockPath, 'utf-8');
+      return JSON.parse(data) as SyncytiumLock;
+    } catch {
+      return { locked: false };
+    }
+  }
+
+  async saveLock(lock: SyncytiumLock): Promise<void> {
+    await fs.mkdir(this.memoryDir, { recursive: true });
+    await fs.writeFile(this.lockPath, JSON.stringify(lock, null, 2), 'utf-8');
   }
 }
