@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "projectName": "SyncytiumMD",
+  "enabledAdapters": [
+    "cursor",
+    "claude",
+    "copilot",
+    "cline",
+    "antigravity",
+    "windsurf",
+    "trae",
+    "opencode"
+  ],
+  "options": {
+    "addSyncytiumBanner": true,
+    "preserveCustomSections": true
+  }
+}
