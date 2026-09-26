@@ -127,6 +127,47 @@ async function waitForCdn(version, { attempts = 20, baseDelayMs = 1000 } = {}) {
   return false;
 }
 
+/** Reads the version literal from src/version.ts, the other copy of it. */
+function readVersionLiteral() {
+  const source = readFileSync(path.join(projectRoot, 'src', 'version.ts'), 'utf-8');
+  return /export const VERSION = '([^']*)'/.exec(source)?.[1];
+}
+
+/**
+ * Refuses to publish unless the tree is clean and both version copies agree.
+ *
+ * This exists because of a real incident: during the 0.2.0 release, an external
+ * process rewrote package.json and src/version.ts to 0.2.9 while the release
+ * was in flight. A unit test caught it, but only after the damage - had it run
+ * between the bump and the publish, a wrong version would have shipped. A
+ * release must go out from a known commit, not from whatever is on disk now.
+ */
+function assertPublishableState(version) {
+  const problems = [];
+
+  const status = runCaptured('git status --porcelain');
+  const dirty = status.split('\n').filter(Boolean);
+  if (dirty.length > 0) {
+    problems.push(
+      `the working tree has ${dirty.length} uncommitted change(s):\n    ` +
+        dirty.slice(0, 10).join('\n    ') +
+        '\n  Commit (or stash) them, then re-run. A release must ship a known commit.'
+    );
+  }
+
+  const literal = readVersionLiteral();
+  if (literal !== version) {
+    problems.push(
+      `version mismatch: package.json says ${version} but src/version.ts says ${literal}.\n` +
+        '  One of them was edited outside this script. Use --bump, or fix both by hand.'
+    );
+  }
+
+  if (problems.length > 0) {
+    throw new Error(`Refusing to publish:\n\n  - ${problems.join('\n\n  - ')}\n`);
+  }
+}
+
 async function main() {
   const pkg = readPkg();
   if (bump) bumpVersion(bump);
@@ -149,6 +190,20 @@ async function main() {
 
   // ---- 2. Publish --------------------------------------------------------
   console.log(bold('\n2/4  Publish'));
+  if (bump) {
+    // --bump intentionally dirties the tree, so only the version-pairing
+    // check is meaningful here; the caller still has to commit before the
+    // tag makes sense.
+    const literal = readVersionLiteral();
+    if (literal !== version) {
+      throw new Error(
+        `Refusing to publish: package.json says ${version} but src/version.ts says ${literal}.`
+      );
+    }
+    console.log(yellow('  note: --bump touched package.json and src/version.ts; commit them.'));
+  } else {
+    assertPublishableState(version);
+  }
   const existing = runCaptured(`npm view ${PKG_NAME}@${version} version`);
   if (existing.trim() === version) {
     console.log(yellow(`  v${version} is already on the registry; skipping publish.`));
