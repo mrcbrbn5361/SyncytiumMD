@@ -57,11 +57,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck
-        run: npm run typecheck
-
+      # Build must come first: the test suite imports ../dist/index.js, so
+      # `tsc --noEmit` over tests/ needs the emitted type declarations to exist.
       - name: Build
         run: npm run build
+
+      - name: Typecheck
+        run: npm run typecheck
 
       - name: Test
         run: npm test

@@ -178,9 +178,12 @@ async function main() {
 
   // ---- 1. Verify ---------------------------------------------------------
   console.log(bold('1/4  Verify'));
-  // `prepublishOnly` only runs `build`, so typecheck and tests must be explicit.
-  run('npm run typecheck');
+  // Build first, not last: the test suite imports ../dist/index.js, so
+  // `tsc --noEmit` over tests/ cannot resolve the types until the build has
+  // emitted dist/index.d.ts. Running typecheck first only worked on machines
+  // that happened to have a stale dist/ lying around.
   run('npm run build');
+  run('npm run typecheck');
   run('npm test');
 
   if (dryRun) {
