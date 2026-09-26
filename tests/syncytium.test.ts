@@ -1114,8 +1114,14 @@ describe('SyncytiumMD v0.2.0 — full test suite', () => {
           path.join(dir, '.syncytium', 'rules', 'bad-file-name.md'),
           '---\nid: bad-file-name\ntitle: A\n---\n\nkeep me\n'
         );
+        // `BadFileName` slugifies to `bad-file-name`, which is genuinely
+        // occupied above — a real collision on every filesystem. (An earlier
+        // revision used `Bad_File_Name`, whose slug is `bad_file_name`, so the
+        // test asserted a collision that never existed; it only passed on
+        // Windows because the case-insensitive `fs.access` matched the file
+        // against itself.)
         await fs.writeFile(
-          path.join(dir, '.syncytium', 'rules', 'Bad_File_Name.md'),
+          path.join(dir, '.syncytium', 'rules', 'BadFileName.md'),
           '---\nid: x\ntitle: B\n---\n\ncollide\n'
         );
         const report = await e.lint({ fix: true });
@@ -1124,6 +1130,41 @@ describe('SyncytiumMD v0.2.0 — full test suite', () => {
         assert.equal(collision.type, 'error');
         const kept = await fs.readFile(path.join(dir, '.syncytium', 'rules', 'bad-file-name.md'), 'utf-8');
         assert.ok(kept.includes('keep me'));
+      } finally {
+        await fs.rm(dir, { recursive: true, force: true });
+      }
+    });
+
+    test('lint --fix applies a rename whose target resolves to the source itself', async () => {
+      // On a case-insensitive filesystem a pure case-change rename
+      // (`My-Rule.md` -> `my-rule.md`) makes `fs.access` on the target succeed
+      // because the target IS the source. That must not be misreported as a
+      // collision. A symlink reproduces the same-target situation on
+      // case-sensitive filesystems too; when symlinks are unavailable the
+      // plain file still exercises the path on Windows via case-insensitivity.
+      const dir = await tmpdir('syncytium-lintself-');
+      try {
+        const e = new SyncytiumEngine(dir);
+        await e.init('P', 'generic');
+        const rulesDir = path.join(dir, '.syncytium', 'rules');
+        await fs.writeFile(
+          path.join(rulesDir, 'My-Rule.md'),
+          '---\nid: my-rule\ntitle: Case\n---\n\nbody\n'
+        );
+        try {
+          await fs.symlink(
+            path.join(rulesDir, 'My-Rule.md'),
+            path.join(rulesDir, 'my-rule.md')
+          );
+        } catch {
+          // No symlinks here (e.g. Windows without Developer Mode); the test
+          // below still validates the behaviour, just without the alias.
+        }
+        const report = await e.lint({ fix: true });
+        const collision = report.issues.find(i => i.code === 'rule-rename-collision');
+        assert.equal(collision, undefined, 'a rename onto the file itself is not a collision');
+        const kept = await fs.readFile(path.join(rulesDir, 'my-rule.md'), 'utf-8');
+        assert.ok(kept.includes('body'), 'content must survive the rename');
       } finally {
         await fs.rm(dir, { recursive: true, force: true });
       }

@@ -56,6 +56,31 @@ const SENSITIVE_FILE_PATTERN =
 
 const SENSITIVE_DIR_PATTERN = /(^|\/)\.git(\/|$)/i;
 
+/**
+ * True when both paths name the same file on disk.
+ *
+ * `lint --fix` renames rule files to their kebab-case slug, and refuses the
+ * rename when the target already exists. But on a case-insensitive filesystem
+ * (Windows, default macOS) a pure case-change rename such as `My_Rule.md` to
+ * `my_rule.md` resolves to the source file itself: `fs.access` on the target
+ * succeeds even though nothing else occupies the name. Without this check the
+ * rename is misreported as a collision and never applied.
+ *
+ * Identity is compared by device + inode first (covers hard links and is
+ * exact on every platform Node reports them) with a `realpath` fallback,
+ * which additionally canonicalises the on-disk casing on Windows.
+ */
+async function isSameFile(a: string, b: string): Promise<boolean> {
+  try {
+    const [sa, sb] = await Promise.all([fs.stat(a), fs.stat(b)]);
+    if (sa.ino && sb.ino && sa.dev === sb.dev && Number(sa.ino) === Number(sb.ino)) return true;
+    const [ra, rb] = await Promise.all([fs.realpath(a), fs.realpath(b)]);
+    return ra === rb;
+  } catch {
+    return false;
+  }
+}
+
 /** Perspectives the UI and the API accept; anything else is treated as `all`. */
 const KNOWN_CATEGORIES = new Set(['ide', 'cli', 'extension', 'agent', 'brain', 'generic']);
 
@@ -1296,13 +1321,23 @@ ${content.trim()}
           if (oldPath === newPath) {
             // Nothing to rename; the name is already canonical.
           } else if (await fs.access(newPath).then(() => true, () => false)) {
-            issues.push({
-              file: filePath,
-              type: 'error',
-              code: 'rule-rename-collision',
-              message: `Cannot auto-fix to "${newFileName}" because that file already exists. Merge the rules manually.`
-            });
-            continue;
+            // The target name is taken — but it may be taken by the source
+            // file itself (see isSameFile): a pure case-change rename on a
+            // case-insensitive filesystem must still go through.
+            if (await isSameFile(oldPath, newPath)) {
+              await fs.rename(oldPath, newPath);
+              currentFileName = newFileName;
+              baseName = kebab;
+              fixedCount++;
+            } else {
+              issues.push({
+                file: filePath,
+                type: 'error',
+                code: 'rule-rename-collision',
+                message: `Cannot auto-fix to "${newFileName}" because that file already exists. Merge the rules manually.`
+              });
+              continue;
+            }
           } else {
             await fs.rename(oldPath, newPath);
             currentFileName = newFileName;
