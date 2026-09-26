@@ -10,6 +10,25 @@ import { listSupportedStacks, normalizeStack } from '../core/templates.js';
 import { renderMarkdownToHtml } from '../ui/markdown.js';
 import type { DoctorReport, DiffReport, LintReport } from '../core/types.js';
 
+// `syncytium sync | head -1` and friends close stdout while we are still
+// writing. An unhandled EPIPE would kill the process *mid-command*, which for
+// `init` means a half-written .syncytium/. Swallow it instead and let the work
+// finish: nobody is reading the output, but the side effect must still happen.
+output.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EPIPE' || err.code === 'ERR_STREAM_DESTROYED') return;
+  throw err;
+});
+
+const write = output.write.bind(output);
+output.write = ((chunk: string | Uint8Array, ...rest: unknown[]): boolean => {
+  try {
+    return write(chunk, ...(rest as []));
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'EPIPE') return true;
+    throw err;
+  }
+}) as typeof output.write;
+
 /** Every command honours this for machine-readable output. */
 let jsonMode = false;
 

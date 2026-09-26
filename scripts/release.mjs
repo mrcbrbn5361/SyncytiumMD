@@ -6,9 +6,10 @@
  * to serve the version -> install globally.
  *
  * Every step is skippable:
- *   node scripts/release.mjs --dry-run   verify only, touch nothing
- *   node scripts/release.mjs --bump patch bump the version, then run the rest
- *   node scripts/release.mjs --no-install verify + publish only
+ *   node scripts/release.mjs --dry-run      verify only, touch nothing
+ *   node scripts/release.mjs --bump patch   bump the version, then run the rest
+ *   node scripts/release.mjs --no-install   verify + publish only
+ *   node scripts/release.mjs --otp 123456   supply a current 2FA code
  */
 import { execSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -26,6 +27,10 @@ const dryRun = argv.includes('--dry-run');
 const noInstall = argv.includes('--no-install');
 const bumpIndex = argv.indexOf('--bump');
 const bump = bumpIndex >= 0 ? argv[bumpIndex + 1] : null;
+// npm requires 2FA for publishing. Either pass a current one-time code here,
+// or authenticate with a granular access token that has "bypass 2FA" enabled.
+const otpIndex = argv.indexOf('--otp');
+const otp = otpIndex >= 0 ? argv[otpIndex + 1] : null;
 
 const PKG_NAME = 'syncytium-md';
 
@@ -148,7 +153,25 @@ async function main() {
   if (existing.trim() === version) {
     console.log(yellow(`  v${version} is already on the registry; skipping publish.`));
   } else {
-    run('npm publish --access public');
+    const otpFlag = otp ? ` --otp=${otp}` : '';
+    try {
+      run(`npm publish --access public${otpFlag}`);
+    } catch (err) {
+      const detail = (err.stdout ?? '') + (err.stderr ?? '');
+      if (/403/.test(detail) && /2FA|two-factor|otp/i.test(detail)) {
+        throw new Error(
+          'npm refused the publish: two-factor authentication is required.\n' +
+            '  Option A: re-run with a current code from your authenticator app:\n' +
+            '             npm run release -- --otp 123456\n' +
+            '  Option B: use a granular access token instead (no code needed):\n' +
+            '             https://www.npmjs.com/settings/access-tokens\n' +
+            '             -> package "syncytium-md", access "Read and write",\n' +
+            '                and tick "Bypass 2FA for publishing".\n' +
+            '             npm login && npm token set <token>'
+        );
+      }
+      throw err;
+    }
   }
 
   // ---- 3. CDN propagation ------------------------------------------------
