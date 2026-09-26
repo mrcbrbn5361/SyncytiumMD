@@ -6,4 +6,4 @@
  * runtime file resolution. `tests/version.test.ts` asserts this stays in
  * sync with `package.json`.
  */
-export const VERSION = '0.2.0';
+export const VERSION = '0.2.1';
