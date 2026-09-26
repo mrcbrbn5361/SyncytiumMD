@@ -62,7 +62,7 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.6.1",
-    "chokidar": "^4.0.3",
+    "chokidar": "^5.0.0",
     "commander": "^13.1.0",
     "gray-matter": "^4.0.3",
     "picocolors": "^1.1.1",
