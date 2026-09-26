@@ -1,3 +1,39 @@
+/**
+ * Shared with the browser bundle: the functions below are injected verbatim
+ * into the served HTML via `Function.prototype.toString()`, so they must not
+ * reference anything outside their own two definitions.
+ */
+import { escapeHtml, renderMarkdownToHtml } from './markdown.js';
+
+export { escapeHtml, renderMarkdownToHtml };
+
+/** Escapes a value interpolated into the served HTML document. */
+export function escapeHtmlAttribute(value: string): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Serialises a value for inlining inside a `<script>` block.
+ *
+ * `JSON.stringify` alone is not safe there: a value containing `</script>`
+ * terminates the block, and U+2028/U+2029 are literal line terminators in JS.
+ */
+export function serializeForScript(value: unknown): string {
+  return JSON.stringify(value ?? {})
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
+const ALLOWED_PERSPECTIVES = ['all', 'ide', 'cli', 'extension', 'brain', 'agent'] as const;
+
 export function renderGraphHtml(
   projectName: string,
   initialConfig?: {
@@ -5,15 +41,23 @@ export function renderGraphHtml(
     excludeFiles?: boolean;
     excludeTags?: boolean;
     category?: string;
-  }
+  },
+  meta?: { version?: string }
 ): string {
+  const safeProjectName = escapeHtmlAttribute(projectName ?? 'Syncytium Project');
+  const version = escapeHtmlAttribute(meta?.version ?? 'dev');
+  const requestedCategory = (initialConfig?.category ?? 'all').toLowerCase();
+  const safeCategory = (ALLOWED_PERSPECTIVES as readonly string[]).includes(requestedCategory)
+    ? requestedCategory
+    : 'all';
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🧠 SyncytiumMD Obsidian Studio & 3D Galaxy - ${projectName}</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <title>🧠 SyncytiumMD Obsidian Studio &amp; 3D Galaxy - ${safeProjectName}</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <style>
     :root {
       --bg-dark: #07090e;
@@ -549,6 +593,22 @@ export function renderGraphHtml(
       color: #f1f5f9;
       font-size: 0.8rem;
     }
+    .doc-content-body .md-lang {
+      display: block;
+      font-size: 0.62rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+    .doc-content-body hr {
+      border: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      margin: 16px 0;
+    }
+    .tree-folder-title { cursor: pointer; user-select: none; }
+    .node-pill { cursor: pointer; }
+    .node-pill:hover { background: var(--bg-hover); }
     .meta-card {
       background: rgba(18, 24, 38, 0.7);
       border: 1px solid var(--panel-border);
@@ -666,7 +726,7 @@ export function renderGraphHtml(
         <span class="brand-icon">🧬</span>
         <span>SyncytiumMD</span>
       </div>
-      <span class="version-tag">${projectName} 0.1.9</span>
+      <span class="version-tag">${safeProjectName} ${version}</span>
     </div>
 
     <!-- Multi-Tool Perspective Selector -->
@@ -757,7 +817,13 @@ export function renderGraphHtml(
   </div>
 
   <script>
-    const initialConfig = ${JSON.stringify(initialConfig || {})};
+    const initialConfig = ${serializeForScript({
+      compact: initialConfig?.compact ?? false,
+      excludeFiles: initialConfig?.excludeFiles ?? false,
+      excludeTags: initialConfig?.excludeTags ?? false,
+      category: safeCategory
+    })};
+    const HAS_THREE = Boolean(window.THREE);
 
     // Color Palette
     const COLOR_HEX = {
@@ -768,6 +834,7 @@ export function renderGraphHtml(
       agent: 0x34d399,
       adapter: 0xf43f5e,
       file: 0x4ade80,
+      doc: 0x818cf8,
       ide: 0x38bdf8,
       cli: 0xfb923c,
       extension: 0xa855f7
@@ -780,15 +847,20 @@ export function renderGraphHtml(
       agent: 9,
       adapter: 8,
       tag: 5,
-      file: 5
+      file: 5,
+      doc: 9
     };
 
-    let graphData = { nodes: [], edges: [] };
+    let graphData = { nodes: [], edges: [], stats: {} };
     let currentPerspective = initialConfig.category || 'all';
     let compactMode = Boolean(initialConfig.compact);
-    let activeFilters = new Set(['root', 'rule', 'decision', 'agent', 'adapter']);
-    if (!compactMode && !initialConfig.excludeFiles) activeFilters.add('file');
-    if (!compactMode && !initialConfig.excludeTags) activeFilters.add('tag');
+    // Server-side exclusions are sticky: the server will never send those
+    // node types, so the client must not re-enable them when toggling compact.
+    const serverHidesFiles = Boolean(initialConfig.compact) || Boolean(initialConfig.excludeFiles);
+    const serverHidesTags = Boolean(initialConfig.compact) || Boolean(initialConfig.excludeTags);
+    let activeFilters = new Set(['root', 'rule', 'decision', 'agent', 'adapter', 'doc']);
+    if (!serverHidesFiles) activeFilters.add('file');
+    if (!serverHidesTags) activeFilters.add('tag');
 
     let selectedNode = null;
     let autoRotate = true;
@@ -803,9 +875,33 @@ export function renderGraphHtml(
       isPhysicsSleeping = false;
     }
 
-    // Geometry and Material Pooling
-    const sharedSphereGeo = new THREE.SphereGeometry(1, 16, 16);
+    // Geometry and Material Pooling (only constructed when THREE is present)
+    let sharedSphereGeo = null;
     const materialCache = new Map();
+    const disposableGeometries = new Set();
+    const disposableMaterials = new Set();
+    const disposableTextures = new Set();
+
+    function disposeTracked(kind, obj) {
+      if (!obj) return;
+      if (kind === 'geometry') disposableGeometries.add(obj);
+      else if (kind === 'material') disposableMaterials.add(obj);
+      else if (kind === 'texture') disposableTextures.add(obj);
+    }
+
+    function disposeAllTracked() {
+      disposableTextures.forEach(t => t.dispose());
+      disposableGeometries.forEach(g => g.dispose());
+      disposableMaterials.forEach(m => m.dispose());
+      disposableTextures.clear();
+      disposableGeometries.clear();
+      disposableMaterials.clear();
+    }
+
+    function initSharedResources() {
+      if (sharedSphereGeo || !HAS_THREE) return;
+      sharedSphereGeo = new THREE.SphereGeometry(1, 16, 16);
+    }
 
     function getNodeMaterial(node) {
       let key = node.type;
@@ -834,6 +930,9 @@ export function renderGraphHtml(
     let starfieldMesh;
     let raycaster, mouse;
     let hoveredMesh = null;
+    let hoveredNode = null;
+    let nodeVector = null;
+    let raycastCache = null;
     let lastClientX = 0, lastClientY = 0;
 
     // 3D Spherical Orbit Camera
@@ -858,30 +957,46 @@ export function renderGraphHtml(
       const width = container.clientWidth || window.innerWidth;
       const height = container.clientHeight || (window.innerHeight - 56);
 
+      try {
+        renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          alpha: false,
+          powerPreference: 'high-performance'
+        });
+      } catch (err) {
+        showFatal('WebGL is unavailable in this browser. The vault explorer still works.');
+        return false;
+      }
+
+      initSharedResources();
       scene = new THREE.Scene();
       scene.fog = new THREE.FogExp2(0x07090e, 0.0012);
 
       camera = new THREE.PerspectiveCamera(55, width / height, 1, 3000);
       updateCameraPos();
 
-      renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        alpha: false,
-        powerPreference: 'high-performance'
-      });
       renderer.setSize(width, height);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setClearColor(0x07090e, 1);
       container.appendChild(renderer.domElement);
 
-      // Lighting
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-      scene.add(ambientLight);
+      // Surface GPU context loss instead of leaving a permanently black canvas.
+      renderer.domElement.addEventListener('webglcontextlost', (e) => {
+        e.preventDefault();
+        cancelAnimationFrame(rafId);
+        showFatal('WebGL context lost. Waiting for the GPU to restore it...');
+      });
+      renderer.domElement.addEventListener('webglcontextrestored', () => {
+        hideFatal();
+        build3DScene();
+        rafId = requestAnimationFrame(animate);
+      });
 
+      // Lighting
+      scene.add(new THREE.AmbientLight(0xffffff, 0.7));
       const dirLight1 = new THREE.DirectionalLight(0x6366f1, 0.85);
       dirLight1.position.set(200, 300, 200);
       scene.add(dirLight1);
-
       const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.5);
       dirLight2.position.set(-200, -200, -200);
       scene.add(dirLight2);
@@ -893,6 +1008,23 @@ export function renderGraphHtml(
 
       window.addEventListener('resize', onWindowResize);
       setupControls(renderer.domElement);
+      return true;
+    }
+
+    function showFatal(message) {
+      const loader = document.getElementById('loader-overlay');
+      if (!loader) return;
+      loader.style.opacity = '1';
+      loader.innerHTML =
+        '<div class="loader-title">⚠️ Syncytium Studio</div>' +
+        '<div class="loader-sub" style="max-width:420px;text-align:center">' +
+        escapeHtml(message) +
+        '</div>';
+    }
+
+    function hideFatal() {
+      const loader = document.getElementById('loader-overlay');
+      if (loader) loader.remove();
     }
 
     function createStarfield() {
@@ -925,6 +1057,20 @@ export function renderGraphHtml(
       camera.lookAt(currentLookAt);
     }
 
+    // Reused by the pan handler so dragging does not allocate 3 Vector3s per event.
+    const panForward = { x: 0, y: 0, z: 0 };
+    const panSide = { x: 0, y: 0, z: 0 };
+    const panUp = { x: 0, y: 0, z: 0 };
+
+    function normalizeInto(out, vx, vy, vz) {
+      const len = Math.sqrt(vx * vx + vy * vy + vz * vz);
+      if (len < 1e-6) {
+        out.x = 0; out.y = 0; out.z = 0;
+        return;
+      }
+      out.x = vx / len; out.y = vy / len; out.z = vz / len;
+    }
+
     function setupControls(dom) {
       dom.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -937,7 +1083,9 @@ export function renderGraphHtml(
         wakePhysics(0.2);
       });
 
-      window.addEventListener('mousemove', e => {
+      // Bound to the canvas (not window) so moving the pointer over the vault
+      // or inspector panels no longer triggers a raycast + DOM write.
+      dom.addEventListener('mousemove', e => {
         lastClientX = e.clientX;
         lastClientY = e.clientY;
         const rect = dom.getBoundingClientRect();
@@ -961,11 +1109,29 @@ export function renderGraphHtml(
         } else if (mouseButton === 2) {
           // Pan
           const panSpeed = 0.4;
-          const forward = new THREE.Vector3().subVectors(targetLookAt, camera.position).normalize();
-          const side = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
-          const up = new THREE.Vector3().crossVectors(side, forward).normalize();
-          targetLookAt.addScaledVector(side, -deltaX * panSpeed);
-          targetLookAt.addScaledVector(up, deltaY * panSpeed);
+          normalizeInto(
+            panForward,
+            targetLookAt.x - camera.position.x,
+            targetLookAt.y - camera.position.y,
+            targetLookAt.z - camera.position.z
+          );
+          // side = forward x up
+          normalizeInto(
+            panSide,
+            panForward.y * camera.up.z - panForward.z * camera.up.y,
+            panForward.z * camera.up.x - panForward.x * camera.up.z,
+            panForward.x * camera.up.y - panForward.y * camera.up.x
+          );
+          // up = side x forward
+          normalizeInto(
+            panUp,
+            panSide.y * panForward.z - panSide.z * panForward.y,
+            panSide.z * panForward.x - panSide.x * panForward.z,
+            panSide.x * panForward.y - panSide.y * panForward.x
+          );
+          targetLookAt.x += panSide.x * -deltaX * panSpeed + panUp.x * deltaY * panSpeed;
+          targetLookAt.y += panSide.y * -deltaX * panSpeed + panUp.y * deltaY * panSpeed;
+          targetLookAt.z += panSide.z * -deltaX * panSpeed + panUp.z * deltaY * panSpeed;
         }
       });
 
@@ -997,12 +1163,25 @@ export function renderGraphHtml(
       });
     }
 
+    // Raycast candidates are cached per scene build instead of rebuilt on
+    // every mousemove, and the tooltip is only rewritten when the node changes.
+    function raycastTargets() {
+      if (!raycastCache) {
+        raycastCache = Array.from(nodeMeshMap.values())
+          .filter(entry => entry.group.visible)
+          .map(entry => entry.sphereMesh);
+      }
+      return raycastCache;
+    }
+
+    function invalidateRaycastCache() {
+      raycastCache = null;
+    }
+
     function handleHover() {
+      if (!raycaster || !camera) return;
       raycaster.setFromCamera(mouse, camera);
-      const meshes = Array.from(nodeMeshMap.values())
-        .filter(entry => entry.group.visible)
-        .map(entry => entry.sphereMesh);
-      const intersects = raycaster.intersectObjects(meshes);
+      const intersects = raycaster.intersectObjects(raycastTargets(), false);
       const tooltip = document.getElementById('hover-tooltip');
 
       if (intersects.length > 0) {
@@ -1015,6 +1194,7 @@ export function renderGraphHtml(
             hoveredMesh.scale.setScalar(baseRad);
           }
           hoveredMesh = hit;
+          hoveredNode = node || null;
           const rad = hit.userData.radius || 6;
           hoveredMesh.scale.setScalar(rad * 1.35);
           document.body.style.cursor = 'pointer';
@@ -1022,8 +1202,15 @@ export function renderGraphHtml(
 
         if (tooltip && node) {
           const colorHex = '#' + (COLOR_HEX[node.type] || 0x6366f1).toString(16).padStart(6, '0');
-          const connCount = graphData.edges.filter(e => e.source === node.id || e.target === node.id).length;
-          tooltip.innerHTML = '<span>' + escapeHtml(node.label) + '</span><span style="background:' + colorHex + '; color:#000; font-size:0.65rem; padding:2px 5px; border-radius:4px; margin-left:6px; font-weight:700;">' + node.type.toUpperCase() + ' (' + connCount + ')</span>';
+          if (hoveredNode !== node) {
+            const connCount = graphData.edges.filter(
+              e => e.source === node.id || e.target === node.id
+            ).length;
+            tooltip.innerHTML =
+              '<span>' + escapeHtml(node.label) + '</span><span style="background:' +
+              colorHex + '; color:#000; font-size:0.65rem; padding:2px 5px; border-radius:4px; margin-left:6px; font-weight:700;">' +
+              escapeHtml(String(node.type).toUpperCase()) + ' (' + connCount + ')</span>';
+          }
           tooltip.style.left = lastClientX + 'px';
           tooltip.style.top = lastClientY + 'px';
           tooltip.style.display = 'block';
@@ -1034,6 +1221,7 @@ export function renderGraphHtml(
           hoveredMesh.scale.setScalar(baseRad);
         }
         hoveredMesh = null;
+        hoveredNode = null;
         document.body.style.cursor = 'default';
         if (tooltip) tooltip.style.display = 'none';
       }
@@ -1041,8 +1229,9 @@ export function renderGraphHtml(
 
     function onWindowResize() {
       const container = document.getElementById('webgl-canvas-box');
-      const width = container.clientWidth;
-      const height = container.clientHeight;
+      if (!camera || !renderer || !container) return;
+      const width = container.clientWidth || window.innerWidth;
+      const height = container.clientHeight || (window.innerHeight - 56);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
@@ -1051,11 +1240,13 @@ export function renderGraphHtml(
     // Force-Directed Physics Simulation
     function initPhysicsPositions() {
       const n = graphData.nodes.length;
+      if (n === 0) return;
       graphData.nodes.forEach((node, i) => {
         if (node.x === undefined) {
-          if (node.type === 'root') {
+          if (node.type === 'root' || i === 0) {
             node.x = 0; node.y = 0; node.z = 0;
           } else {
+            // i / n is in (0, 1] here, so acos() stays in range for n === 1 too.
             const phi = Math.acos(-1 + (2 * i) / n);
             const theta = Math.sqrt(n * Math.PI) * phi;
             const rad = 70 + Math.random() * 100;
@@ -1125,8 +1316,10 @@ export function renderGraphHtml(
         const fy = dy * springForce;
         const fz = dz * springForce;
 
+        // Spring forces must be antisymmetric on every axis, otherwise the
+        // layout accumulates a systematic drift (previously +Z gained twice).
         a.vx += fx; a.vy += fy; a.vz += fz;
-        b.vx -= fx; b.vy -= fy; b.vz += fz;
+        b.vx -= fx; b.vy -= fy; b.vz -= fz;
       });
 
       // Damping & Center Gravity
@@ -1167,14 +1360,29 @@ export function renderGraphHtml(
     }
 
     function build3DScene() {
+      if (!scene) return;
+
+      // Dispose everything owned by the previous build before dropping it.
+      // Without this every SSE reload leaks a full scene graph.
       nodeMeshMap.forEach(entry => {
         scene.remove(entry.group);
+        entry.group.traverse(child => {
+          if (child.isSprite && child.material) {
+            if (child.material.map) disposeTracked('texture', child.material.map);
+            disposeTracked('material', child.material);
+          }
+          // Sphere geometry/materials are shared and pooled; never dispose here.
+        });
       });
       nodeMeshMap.clear();
+      disposeAllTracked();
+      invalidateRaycastCache();
 
       if (edgeLineSegments) {
         scene.remove(edgeLineSegments);
         edgeLineSegments.geometry.dispose();
+        edgeLineSegments.material.dispose();
+        edgeLineSegments = null;
       }
 
       initPhysicsPositions();
@@ -1186,25 +1394,23 @@ export function renderGraphHtml(
 
         const group = new THREE.Group();
 
-        // Unit Sphere Mesh
         const sphereMesh = new THREE.Mesh(sharedSphereGeo, getNodeMaterial(node));
         sphereMesh.scale.setScalar(radius);
         sphereMesh.userData = { node, radius };
         group.add(sphereMesh);
 
-        // Core Pulse Ring
         if (node.type === 'root') {
           const ringGeo = new THREE.TorusGeometry(radius * 1.6, 0.8, 12, 48);
           const ringMat = new THREE.MeshBasicMaterial({ color: 0x818cf8, wireframe: true });
+          disposeTracked('geometry', ringGeo);
+          disposeTracked('material', ringMat);
           const ringMesh = new THREE.Mesh(ringGeo, ringMat);
           ringMesh.rotation.x = Math.PI / 2.5;
           group.add(ringMesh);
-          group.userData.ring = ringMesh;
         }
 
-        // LOD Sprite Labels
         let labelSprite = null;
-        const isCoreNode = (node.type === 'root' || node.type === 'rule' || node.type === 'decision' || node.type === 'agent' || node.type === 'adapter');
+        const isCoreNode = ['root', 'rule', 'decision', 'agent', 'adapter', 'doc'].includes(node.type);
         if (isCoreNode || totalNodes < 35) {
           labelSprite = createTextSprite(node.label, color);
           labelSprite.position.set(0, radius + 7, 0);
@@ -1212,6 +1418,7 @@ export function renderGraphHtml(
         }
 
         group.position.set(node.x, node.y, node.z);
+        group.visible = activeFilters.has(node.type);
         scene.add(group);
 
         nodeMeshMap.set(node.id, { group, sphereMesh, labelSprite, node });
@@ -1227,7 +1434,7 @@ export function renderGraphHtml(
       const ctx = canvas.getContext('2d');
 
       ctx.fillStyle = 'rgba(10, 14, 26, 0.82)';
-      ctx.roundRect ? ctx.roundRect(4, 4, 248, 56, 12) : ctx.rect(4, 4, 248, 56);
+      if (ctx.roundRect) ctx.roundRect(4, 4, 248, 56, 12); else ctx.rect(4, 4, 248, 56);
       ctx.fill();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
       ctx.lineWidth = 2;
@@ -1237,23 +1444,54 @@ export function renderGraphHtml(
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(text.length > 20 ? text.substring(0, 19) + '…' : text, 128, 32);
+      const label = String(text ?? '');
+      ctx.fillText(label.length > 20 ? label.substring(0, 19) + '…' : label, 128, 32);
 
       const texture = new THREE.CanvasTexture(canvas);
       texture.minFilter = THREE.LinearFilter;
       const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.95 });
+      disposeTracked('texture', texture);
+      disposeTracked('material', spriteMat);
       const sprite = new THREE.Sprite(spriteMat);
       sprite.scale.set(30, 7.5, 1);
       return sprite;
     }
 
+    // Cached index of currently visible edges, rebuilt only when the filter set
+    // or the graph changes - not on every animation frame.
+    let visibleEdgeCache = [];
+    let visibleEdgeCacheKey = '';
+
+    function edgeCacheKey() {
+      return graphData.edges.length + '|' + [...activeFilters].sort().join(',');
+    }
+
+    function getVisibleEdges() {
+      const key = edgeCacheKey();
+      if (key === visibleEdgeCacheKey) return visibleEdgeCache;
+      const nodeMap = new Map(graphData.nodes.map(n => [n.id, n]));
+      const visibleNodeIds = new Set(
+        graphData.nodes.filter(n => activeFilters.has(n.type)).map(n => n.id)
+      );
+      // Resolve endpoints once here so updateEdgeLines() stays allocation-free.
+      visibleEdgeCache = graphData.edges
+        .filter(e => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target))
+        .map(e => ({ ...e, __a: nodeMap.get(e.source), __b: nodeMap.get(e.target) }))
+        .filter(e => e.__a && e.__b);
+      visibleEdgeCacheKey = key;
+      return visibleEdgeCache;
+    }
+
     function rebuildEdgeLines() {
+      if (!scene) return;
       if (edgeLineSegments) {
         scene.remove(edgeLineSegments);
+        edgeLineSegments.geometry.dispose();
+        edgeLineSegments.material.dispose();
+        edgeLineSegments = null;
       }
 
-      const visibleNodeIds = new Set(graphData.nodes.filter(n => activeFilters.has(n.type)).map(n => n.id));
-      const validEdges = graphData.edges.filter(e => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
+      const validEdges = getVisibleEdges();
       const positions = new Float32Array(validEdges.length * 6);
       const colors = new Float32Array(validEdges.length * 6);
 
@@ -1274,8 +1512,7 @@ export function renderGraphHtml(
 
     function updateEdgeLines() {
       if (!edgeLineSegments) return;
-      const visibleNodeIds = new Set(graphData.nodes.filter(n => activeFilters.has(n.type)).map(n => n.id));
-      const validEdges = graphData.edges.filter(e => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
+      const validEdges = getVisibleEdges();
 
       const posAttr = edgeLineSegments.geometry.attributes.position;
       const colAttr = edgeLineSegments.geometry.attributes.color;
@@ -1284,12 +1521,11 @@ export function renderGraphHtml(
         return;
       }
 
-      const nodeMap = new Map(graphData.nodes.map(n => [n.id, n]));
       let idx = 0;
 
       validEdges.forEach(edge => {
-        const a = nodeMap.get(edge.source);
-        const b = nodeMap.get(edge.target);
+        const a = edge.__a;
+        const b = edge.__b;
         if (!a || !b) return;
 
         posAttr.setXYZ(idx, a.x, a.y, a.z);
@@ -1307,8 +1543,12 @@ export function renderGraphHtml(
       colAttr.needsUpdate = true;
     }
 
+    let rafId = 0;
+    const tmpVector = { x: 0, y: 0, z: 0 };
+
     function animate() {
-      requestAnimationFrame(animate);
+      rafId = requestAnimationFrame(animate);
+      if (!renderer || !scene || !camera) return;
 
       const physicsActive = step3DPhysics();
       if (physicsActive) {
@@ -1323,9 +1563,15 @@ export function renderGraphHtml(
         updateEdgeLines();
       }
 
+      // The root ring lives in a per-build group, so look it up by mesh rather
+      // than through group.userData (which was never set after disposal fixes).
       const rootEntry = nodeMeshMap.get('project-root');
-      if (rootEntry && rootEntry.group.userData.ring) {
-        rootEntry.group.userData.ring.rotation.z += 0.015;
+      if (rootEntry) {
+        rootEntry.group.traverse(child => {
+          if (child.isMesh && child.geometry && child.geometry.type === 'TorusGeometry') {
+            child.rotation.z += 0.015;
+          }
+        });
       }
 
       if (starfieldMesh) {
@@ -1343,8 +1589,11 @@ export function renderGraphHtml(
 
         if (camera.position.distanceTo(flyTargetPos) < 2) {
           isFlying = false;
-          const offset = new THREE.Vector3().subVectors(camera.position, currentLookAt);
-          camRadius = offset.length();
+          const offset = tmpVector;
+          offset.x = camera.position.x - currentLookAt.x;
+          offset.y = camera.position.y - currentLookAt.y;
+          offset.z = camera.position.z - currentLookAt.z;
+          camRadius = Math.sqrt(offset.x * offset.x + offset.y * offset.y + offset.z * offset.z) || 1;
           camPhi = Math.acos(Math.max(-1, Math.min(1, offset.y / camRadius)));
           camTheta = Math.atan2(offset.x, offset.z);
         }
@@ -1357,25 +1606,43 @@ export function renderGraphHtml(
     }
 
     // Node & Document Selection
-    async function selectNode(node) {
+    function selectNode(node) {
       selectedNode = node;
       wakePhysics(0.35);
+      hoveredNode = null;
 
       // Focus camera in 3D
       flyTargetLook.set(node.x, node.y, node.z);
-      const normal = new THREE.Vector3(node.x, node.y, node.z).normalize();
-      if (normal.lengthSq() < 0.1) normal.set(0, 0.4, 1).normalize();
-      flyTargetPos.copy(flyTargetLook).addScaledVector(normal, 120);
+      if (!nodeVector) nodeVector = new THREE.Vector3();
+      nodeVector.set(node.x, node.y, node.z);
+      const lengthSq = nodeVector.lengthSq();
+      if (lengthSq < 0.1) nodeVector.set(0, 0.4, 1).normalize();
+      else nodeVector.normalize();
+      flyTargetPos.copy(flyTargetLook).addScaledVector(nodeVector, 120);
       isFlying = true;
 
       // Update Obsidian File Explorer active state
       document.querySelectorAll('.tree-file-item').forEach(el => {
-        el.classList.toggle('active', el.getAttribute('data-id') === node.id);
+        el.classList.toggle('active', el.dataset.nodeId === node.id);
       });
 
-      // Render in Obsidian Markdown Document Studio
-      await openDocumentStudio(node);
+      // Render in Obsidian Markdown Document Studio (never let it throw unhandled)
+      openDocumentStudio(node).catch(err => {
+        console.error('Document studio failed', err);
+        const docBody = document.getElementById('doc-content-body');
+        if (docBody) {
+          docBody.innerHTML =
+            '<p style="color:#f87171">Could not render this node: ' + escapeHtml(err.message) + '</p>';
+        }
+      });
     }
+
+    function selectNodeById(id) {
+      const node = nodeIndex.get(id);
+      if (node) selectNode(node);
+    }
+
+    let nodeIndex = new Map();
 
     async function openDocumentStudio(node) {
       const docBreadcrumbs = document.getElementById('doc-breadcrumbs');
@@ -1383,6 +1650,7 @@ export function renderGraphHtml(
       const docTypeBadge = document.getElementById('doc-type-badge');
       const docOriginBadge = document.getElementById('doc-origin-badge');
       const docBody = document.getElementById('doc-content-body');
+      if (!docBody) return;
 
       // Expand right sidebar if collapsed
       const sidebar = document.getElementById('doc-sidebar');
@@ -1401,37 +1669,55 @@ export function renderGraphHtml(
       docTypeBadge.style.background = '#' + typeColor.toString(16).padStart(6, '0');
       docTypeBadge.style.color = '#000';
 
-      const isBrainMaster = node.metadata?.category === 'brain' || node.metadata?.category === 'rule' || node.metadata?.category === 'decision' || node.metadata?.category === 'architecture' || node.metadata?.category === 'agent';
-      docOriginBadge.textContent = isBrainMaster ? '🧠 Canonical Source of Truth (.syncytium)' : ('⚡ Transpiled from .syncytium/ (' + (node.metadata?.category || 'Bridge') + ')');
+      const brainCategories = ['brain', 'rule', 'decision', 'architecture', 'agent'];
+      const isBrainMaster = brainCategories.includes(node.metadata?.category);
+      docOriginBadge.textContent = isBrainMaster
+        ? '🧠 Canonical Source of Truth (.syncytium)'
+        : '⚡ Transpiled from .syncytium/ (' + (node.metadata?.category || 'Bridge') + ')';
       docOriginBadge.style.color = isBrainMaster ? '#a5b4fc' : '#4ade80';
 
       let html = '';
 
       // Metadata card
-      if (node.metadata) {
+      const meta = node.metadata;
+      if (meta) {
         html += '<div class="meta-card">';
-        if (node.metadata.category) html += '<div class="meta-row"><span class="meta-key">Category:</span><span class="meta-val">' + escapeHtml(node.metadata.category.toUpperCase()) + '</span></div>';
-        if (node.metadata.path) html += '<div class="meta-row"><span class="meta-key">Path:</span><code style="color: #38bdf8;">' + escapeHtml(node.metadata.path) + '</code></div>';
-        if (node.metadata.globs) html += '<div class="meta-row"><span class="meta-key">Target Globs:</span><span class="meta-val">' + escapeHtml(node.metadata.globs.join(', ')) + '</span></div>';
-        if (node.metadata.tags) html += '<div class="meta-row"><span class="meta-key">Tags:</span><span class="meta-val">' + escapeHtml(node.metadata.tags.map(t => '#' + t).join(' ')) + '</span></div>';
-        if (node.metadata.status) html += '<div class="meta-row"><span class="meta-key">Status:</span><span class="meta-val">[' + escapeHtml(node.metadata.status.toUpperCase()) + ']</span></div>';
+        if (meta.category) html += row('Category', escapeHtml(String(meta.category).toUpperCase()));
+        if (meta.path) html += '<div class="meta-row"><span class="meta-key">Path:</span><code style="color: #38bdf8;">' + escapeHtml(meta.path) + '</code></div>';
+        if (Array.isArray(meta.globs) && meta.globs.length > 0) html += row('Target Globs', escapeHtml(meta.globs.join(', ')));
+        if (Array.isArray(meta.tags) && meta.tags.length > 0) html += row('Tags', escapeHtml(meta.tags.map(t => '#' + t).join(' ')));
+        if (meta.status) html += row('Status', '[' + escapeHtml(String(meta.status).toUpperCase()) + ']');
+        if (meta.priority) html += row('Priority', escapeHtml(String(meta.priority)));
         html += '</div>';
       }
 
       // Content preview: direct from metadata or fetch via /api/file
-      let content = node.metadata?.content;
-      if (!content && node.metadata?.path) {
+      let content = meta?.content;
+      let fetchError = null;
+      if (!content && meta?.path) {
         try {
-          const res = await fetch('/api/file?path=' + encodeURIComponent(node.metadata.path));
+          const res = await fetch('/api/file?path=' + encodeURIComponent(meta.path));
           if (res.ok) {
             const data = await res.json();
             content = data.content;
+          } else {
+            const err = await res.json().catch(() => ({}));
+            fetchError = err.error || 'HTTP ' + res.status;
           }
-        } catch {}
+        } catch (err) {
+          fetchError = 'network error: ' + err.message;
+        }
       }
 
       if (content) {
         html += '<div>' + renderMarkdownToHtml(content) + '</div>';
+      } else if (fetchError) {
+        html +=
+          '<p style="color:#fbbf24">Could not load <code>' +
+          escapeHtml(meta.path) +
+          '</code>: ' +
+          escapeHtml(fetchError) +
+          '</p>';
       } else if (node.description) {
         html += '<p>' + escapeHtml(node.description) + '</p>';
       }
@@ -1440,12 +1726,15 @@ export function renderGraphHtml(
       const connections = graphData.edges.filter(e => e.source === node.id || e.target === node.id);
       if (connections.length > 0) {
         html += '<div class="connected-nodes-box"><div class="connected-title">Connected Brain Nodes (' + connections.length + ')</div><div class="node-pill-list">';
-        const nodeMap = new Map(graphData.nodes.map(n => [n.id, n]));
         connections.forEach(edge => {
           const otherId = edge.source === node.id ? edge.target : edge.source;
-          const other = nodeMap.get(otherId);
+          const other = nodeIndex.get(otherId);
           if (other) {
-            html += '<div class="node-pill" onclick="selectNodeById(\\'' + other.id + '\\')"><span>' + escapeHtml(other.label) + '</span><span style="color: var(--text-dim); font-size: 0.65rem;">' + other.type + '</span></div>';
+            // data-node-id (not inline JS) so a hostile rule id cannot break out.
+            html +=
+              '<div class="node-pill" data-node-id="' + escapeHtml(other.id) + '">' +
+              '<span>' + escapeHtml(other.label) + '</span>' +
+              '<span style="color: var(--text-dim); font-size: 0.65rem;">' + escapeHtml(other.type) + '</span></div>';
           }
         });
         html += '</div></div>';
@@ -1454,162 +1743,151 @@ export function renderGraphHtml(
       docBody.innerHTML = html;
     }
 
-    window.selectNodeById = function(id) {
-      const node = graphData.nodes.find(n => n.id === id);
-      if (node) {
-        selectNode(node);
-      }
-    };
+    function row(label, valueHtml) {
+      return (
+        '<div class="meta-row"><span class="meta-key">' +
+        escapeHtml(label) +
+        ':</span><span class="meta-val">' +
+        valueHtml +
+        '</span></div>'
+      );
+    }
 
     // Obsidian Vault Tree Generator
     function buildVaultTree() {
       const container = document.getElementById('vault-tree-root');
+      if (!container) return;
       let html = '';
+
+      // One delegated listener handles every tree item and pill below.
+      const item = (node, icon, name, badgeCss, badgeText) =>
+        '<div class="tree-file-item" data-node-id="' +
+        escapeHtml(node.id) +
+        '"><span class="tree-file-name">' +
+        icon +
+        ' ' +
+        escapeHtml(name) +
+        '</span><span class="tree-badge" style="' +
+        badgeCss +
+        '">' +
+        badgeText +
+        '</span></div>';
+
+      const folder = (title, bodyHtml) =>
+        '<div class="tree-folder open">' +
+        '<div class="tree-folder-title"><span class="tree-folder-arrow">▶</span><span>' +
+        title +
+        '</span></div><div class="tree-folder-content">' +
+        bodyHtml +
+        '</div></div>';
 
       // 1. Central Brain (.syncytium/)
       const brainRules = graphData.nodes.filter(n => n.type === 'rule');
       const brainDecisions = graphData.nodes.filter(n => n.type === 'decision');
-
-      html += '<div class="tree-folder open">';
-      html += '  <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>🧠 .syncytium (Ortak Beyin)</span></div>';
-      html += '  <div class="tree-folder-content">';
-
-      // Rules folder
-      html += '    <div class="tree-folder open">';
-      html += '      <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>📁 rules/ (' + brainRules.length + ')</span></div>';
-      html += '      <div class="tree-folder-content">';
-      brainRules.forEach(rule => {
-        html += '        <div class="tree-file-item" data-id="' + rule.id + '" onclick="selectNodeById(\\'' + rule.id + '\\')">';
-        html += '          <span class="tree-file-name">📄 ' + escapeHtml(rule.label) + '</span>';
-        html += '          <span class="tree-badge" style="background: rgba(34, 211, 238, 0.2); color: #22d3ee;">RULE</span>';
-        html += '        </div>';
-      });
-      html += '      </div>';
-      html += '    </div>';
-
-      // Memory folder
-      html += '    <div class="tree-folder open">';
-      html += '      <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>📁 memory/ (ADRs & Lock)</span></div>';
-      html += '      <div class="tree-folder-content">';
-      brainDecisions.forEach(dec => {
-        html += '        <div class="tree-file-item" data-id="' + dec.id + '" onclick="selectNodeById(\\'' + dec.id + '\\')">';
-        html += '          <span class="tree-file-name">⚖️ ' + escapeHtml(dec.label) + '</span>';
-        html += '          <span class="tree-badge" style="background: rgba(232, 121, 249, 0.2); color: #e879f9;">ADR</span>';
-        html += '        </div>';
-      });
-      html += '      </div>';
-      html += '    </div>';
-
-      // System files
-      const archNode = graphData.nodes.find(n => n.id === 'doc:architecture');
-      if (archNode) {
-        html += '    <div class="tree-file-item" data-id="' + archNode.id + '" onclick="selectNodeById(\\'' + archNode.id + '\\')">';
-        html += '      <span class="tree-file-name">🏛️ architecture.md</span><span class="tree-badge" style="background: rgba(99, 102, 241, 0.2); color: #818cf8;">DOC</span>';
-        html += '    </div>';
-      }
-
+      const archNode = nodeIndex.get('doc:architecture');
       const agentNode = graphData.nodes.find(n => n.type === 'agent');
+      const lockNode = graphData.nodes.find(n => n.id === 'doc:lock');
+
+      let brainBody = '';
+
+      let rulesBody = '';
+      brainRules.forEach(rule => {
+        rulesBody += item(rule, '📄', rule.label, 'background: rgba(34, 211, 238, 0.2); color: #22d3ee;', 'RULE');
+      });
+      brainBody += folder('📁 rules/ (' + brainRules.length + ')', rulesBody);
+
+      let memoryBody = '';
+      brainDecisions.forEach(dec => {
+        memoryBody += item(dec, '⚖️', dec.label, 'background: rgba(232, 121, 249, 0.2); color: #e879f9;', 'ADR');
+      });
+      if (lockNode) {
+        memoryBody += item(lockNode, '🔒', 'lock.json', 'background: rgba(251, 146, 60, 0.2); color: #fb923c;', 'LOCK');
+      }
+      brainBody += folder('📁 memory/ (ADRs & Lock)', memoryBody);
+
+      if (archNode) {
+        brainBody += item(archNode, '🏛️', 'architecture.md', 'background: rgba(99, 102, 241, 0.2); color: #818cf8;', 'DOC');
+      }
       if (agentNode) {
-        html += '    <div class="tree-file-item" data-id="' + agentNode.id + '" onclick="selectNodeById(\\'' + agentNode.id + '\\')">';
-        html += '      <span class="tree-file-name">🤝 HANDOFF.md</span><span class="tree-badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">HANDOFF</span>';
-        html += '    </div>';
+        brainBody += item(agentNode, '🤝', 'HANDOFF.md', 'background: rgba(16, 185, 129, 0.2); color: #34d399;', 'HANDOFF');
       }
 
-      html += '  </div>';
-      html += '</div>';
+      html += folder('🧠 .syncytium (Ortak Beyin)', brainBody);
 
-      // 2. IDEs Folder
-      const ideAdapters = graphData.nodes.filter(n => n.type === 'adapter' && n.metadata?.category === 'ide');
-      if (ideAdapters.length > 0) {
-        html += '<div class="tree-folder open">';
-        html += '  <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>🖥️ IDEs Context (' + ideAdapters.length + ')</span></div>';
-        html += '  <div class="tree-folder-content">';
-        ideAdapters.forEach(adp => {
-          const bridgeFiles = graphData.edges.filter(e => e.source === adp.id && e.type === 'generates').map(e => e.target);
-          html += '    <div class="tree-folder open">';
-          html += '      <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>🔹 ' + escapeHtml(adp.label) + '</span></div>';
-          html += '      <div class="tree-folder-content">';
-          bridgeFiles.forEach(fileId => {
-            const fNode = graphData.nodes.find(n => n.id === fileId);
-            if (fNode) {
-              html += '        <div class="tree-file-item" data-id="' + fNode.id + '" onclick="selectNodeById(\\'' + fNode.id + '\\')">';
-              html += '          <span class="tree-file-name">⚡ ' + escapeHtml(fNode.label) + '</span><span class="tree-badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8;">IDE</span>';
-              html += '        </div>';
-            }
+      // Bridge folders, one per adapter category.
+      const bridgeFilesFor = adapterId =>
+        graphData.edges
+          .filter(e => e.source === adapterId && e.type === 'generates')
+          .map(e => e.target)
+          .map(id => nodeIndex.get(id))
+          .filter(Boolean);
+
+      const bridgeSection = (title, categories, icon, badgeCss, badgeText) => {
+        const adapters = graphData.nodes.filter(
+          n => n.type === 'adapter' && categories.includes(n.metadata?.category)
+        );
+        if (adapters.length === 0) return '';
+        let body = '';
+        adapters.forEach(adp => {
+          const files = bridgeFilesFor(adp.id);
+          let filesHtml = '';
+          files.forEach(fNode => {
+            filesHtml += item(fNode, '⚡', fNode.label, badgeCss, badgeText);
           });
-          html += '      </div>';
-          html += '    </div>';
+          body += folder(icon + ' ' + escapeHtml(adp.label), filesHtml);
         });
-        html += '  </div>';
-        html += '</div>';
-      }
+        return folder(title + ' (' + adapters.length + ')', body);
+      };
 
-      // 3. CLIs Folder
-      const cliAdapters = graphData.nodes.filter(n => n.type === 'adapter' && (n.metadata?.category === 'cli' || n.metadata?.category === 'agent'));
-      if (cliAdapters.length > 0) {
-        html += '<div class="tree-folder open">';
-        html += '  <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>⌨️ CLIs Context (' + cliAdapters.length + ')</span></div>';
-        html += '  <div class="tree-folder-content">';
-        cliAdapters.forEach(adp => {
-          const bridgeFiles = graphData.edges.filter(e => e.source === adp.id && e.type === 'generates').map(e => e.target);
-          html += '    <div class="tree-folder open">';
-          html += '      <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>🔸 ' + escapeHtml(adp.label) + '</span></div>';
-          html += '      <div class="tree-folder-content">';
-          bridgeFiles.forEach(fileId => {
-            const fNode = graphData.nodes.find(n => n.id === fileId);
-            if (fNode) {
-              html += '        <div class="tree-file-item" data-id="' + fNode.id + '" onclick="selectNodeById(\\'' + fNode.id + '\\')">';
-              html += '          <span class="tree-file-name">⚡ ' + escapeHtml(fNode.label) + '</span><span class="tree-badge" style="background: rgba(251, 146, 60, 0.2); color: #fb923c;">CLI</span>';
-              html += '        </div>';
-            }
-          });
-          html += '      </div>';
-          html += '    </div>';
-        });
-        html += '  </div>';
-        html += '</div>';
-      }
-
-      // 4. VSCode Extensions Folder
-      const extAdapters = graphData.nodes.filter(n => n.type === 'adapter' && n.metadata?.category === 'extension');
-      if (extAdapters.length > 0) {
-        html += '<div class="tree-folder open">';
-        html += '  <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>🧩 VSCode Extensions (' + extAdapters.length + ')</span></div>';
-        html += '  <div class="tree-folder-content">';
-        extAdapters.forEach(adp => {
-          const bridgeFiles = graphData.edges.filter(e => e.source === adp.id && e.type === 'generates').map(e => e.target);
-          html += '    <div class="tree-folder open">';
-          html += '      <div class="tree-folder-title" onclick="toggleFolder(this)"><span class="tree-folder-arrow">▶</span><span>🟣 ' + escapeHtml(adp.label) + '</span></div>';
-          html += '      <div class="tree-folder-content">';
-          bridgeFiles.forEach(fileId => {
-            const fNode = graphData.nodes.find(n => n.id === fileId);
-            if (fNode) {
-              html += '        <div class="tree-file-item" data-id="' + fNode.id + '" onclick="selectNodeById(\\'' + fNode.id + '\\')">';
-              html += '          <span class="tree-file-name">⚡ ' + escapeHtml(fNode.label) + '</span><span class="tree-badge" style="background: rgba(168, 85, 247, 0.2); color: #a855f7;">EXT</span>';
-              html += '        </div>';
-            }
-          });
-          html += '      </div>';
-          html += '    </div>';
-        });
-        html += '  </div>';
-        html += '</div>';
-      }
+      html += bridgeSection('🖥️ IDEs Context', ['ide'], '🔹', 'background: rgba(56, 189, 248, 0.2); color: #38bdf8;', 'IDE');
+      html += bridgeSection('⌨️ CLIs Context', ['cli', 'agent'], '🔸', 'background: rgba(251, 146, 60, 0.2); color: #fb923c;', 'CLI');
+      html += bridgeSection('🧩 VSCode Extensions', ['extension'], '🟣', 'background: rgba(168, 85, 247, 0.2); color: #a855f7;', 'EXT');
+      html += bridgeSection('🧰 Custom Adapters', ['generic'], '⚙️', 'background: rgba(148, 163, 184, 0.2); color: #94a3b8;', 'CUSTOM');
 
       container.innerHTML = html;
-      document.getElementById('vault-file-count').textContent = graphData.nodes.length + ' nodes';
+      const fileCount = graphData.nodes.filter(n => n.type === 'file').length;
+      document.getElementById('vault-file-count').textContent =
+        fileCount + ' files · ' + graphData.nodes.length + ' nodes';
     }
 
-    window.toggleFolder = function(el) {
-      el.parentElement.classList.toggle('open');
-    };
 
-    // Filter tree via search
+    // Event delegation replaces the previous inline onclick= attributes, which
+    // made every node id an XSS vector and forced globals onto window.
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const pill = target.closest('.node-pill[data-node-id]');
+      if (pill) {
+        selectNodeById(pill.dataset.nodeId);
+        return;
+      }
+
+      const folderTitle = target.closest('.tree-folder-title');
+      if (folderTitle && folderTitle.parentElement) {
+        folderTitle.parentElement.classList.toggle('open');
+        return;
+      }
+
+      const fileItem = target.closest('.tree-file-item[data-node-id]');
+      if (fileItem) {
+        selectNodeById(fileItem.dataset.nodeId);
+      }
+    });
+
+    // Filter tree via search (also collapses folders left with no visible match)
     document.getElementById('vault-search').addEventListener('input', (e) => {
       const q = e.target.value.trim().toLowerCase();
-      document.querySelectorAll('.tree-file-item').forEach(item => {
-        const text = item.textContent.toLowerCase();
-        item.style.display = (!q || text.includes(q)) ? 'flex' : 'none';
+      document.querySelectorAll('.tree-folder-content').forEach(content => {
+        let visible = 0;
+        content.querySelectorAll('.tree-file-item').forEach(item => {
+          const match = !q || item.textContent.toLowerCase().includes(q);
+          item.style.display = match ? 'flex' : 'none';
+          if (match) visible++;
+        });
+        // Only auto-collapse when the user is actually filtering.
+        if (q && visible === 0) content.parentElement.classList.remove('open');
+        if (q && visible > 0) content.parentElement.classList.add('open');
       });
     });
 
@@ -1628,7 +1906,7 @@ export function renderGraphHtml(
           extension: '🧩 Perspective: VSCode Extensions',
           brain: '📜 Perspective: Central Brain Vault (.syncytium)'
         };
-        badge.innerHTML = '<span>' + (titles[currentPerspective] || currentPerspective) + '</span>';
+        badge.textContent = titles[currentPerspective] || 'Perspective: ' + currentPerspective;
 
         await fetchGraph();
       });
@@ -1656,12 +1934,14 @@ export function renderGraphHtml(
         activeFilters.delete('file');
         activeFilters.delete('tag');
       } else {
-        activeFilters.add('file');
-        activeFilters.add('tag');
+        // Never re-enable types the server was told to hide.
+        if (!serverHidesFiles) activeFilters.add('file');
+        if (!serverHidesTags) activeFilters.add('tag');
       }
       nodeMeshMap.forEach(entry => {
         entry.group.visible = activeFilters.has(entry.node.type);
       });
+      invalidateRaycastCache();
       rebuildEdgeLines();
       wakePhysics(0.5);
     });
@@ -1680,56 +1960,34 @@ export function renderGraphHtml(
       e.target.classList.toggle('active', autoRotate);
     });
 
-    // Simple, robust Markdown parser
-    function renderMarkdownToHtml(md) {
-      if (!md) return '';
-      let escaped = escapeHtml(md);
-
-      // Fenced code blocks
-      escaped = escaped.replace(new RegExp('\\x60\\x60\\x60([^\\n]*)\\n([\\s\\S]*?)\\x60\\x60\\x60', 'g'), '<pre><code>$2</code></pre>');
-
-      // Inline code
-      escaped = escaped.replace(new RegExp('\\x60([^\\x60]+)\\x60', 'g'), '<code>$1</code>');
-
-      // Headers
-      escaped = escaped.replace(/^### (.*$)/gm, '<h3>$1</h3>');
-      escaped = escaped.replace(/^## (.*$)/gm, '<h2>$1</h2>');
-      escaped = escaped.replace(/^# (.*$)/gm, '<h1>$1</h1>');
-
-      // Blockquotes
-      escaped = escaped.replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>');
-
-      // Unordered lists
-      escaped = escaped.replace(/^[ \t]*-[ \t]+(.*$)/gm, '<li>$1</li>');
-
-      // Bold & Italic
-      escaped = escaped.replace(new RegExp('\\\\*\\\\*(.*?)\\\\*\\\\*', 'g'), '<strong>$1</strong>');
-      escaped = escaped.replace(new RegExp('\\\\*([^*]+)\\\\*', 'g'), '<em>$1</em>');
-
-      // Horizontal rules
-      escaped = escaped.replace(/^---$/gm, '<hr style="border:none; border-top:1px solid rgba(255,255,255,0.08); margin:16px 0;" />');
-
-      // Line breaks
-      escaped = escaped.replace(new RegExp('\\\\n\\\\n', 'g'), '<br><br>');
-
-      return escaped;
-    }
-
-    function escapeHtml(str) {
-      return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
+    // The Markdown renderer below is injected verbatim from
+    // src/ui/markdown.ts so the browser copy can never drift from the one used
+    // by the --html export and the unit tests.
+${[escapeHtml.toString(), renderMarkdownToHtml.toString()].join('\n').split('\n').map(l => (l.trim() ? '    ' + l : l)).join('\n')}
 
     // Data Fetching
+    let fetchInFlight = false;
+
     async function fetchGraph() {
+      if (fetchInFlight) return;
+      fetchInFlight = true;
       try {
         let url = '/api/graph?category=' + encodeURIComponent(currentPerspective);
         if (compactMode) url += '&compact=true';
 
         const res = await fetch(url);
+        if (!res.ok) {
+          throw new Error('HTTP ' + res.status + ' from /api/graph');
+        }
         const newData = await res.json();
+        if (!newData || !Array.isArray(newData.nodes) || !Array.isArray(newData.edges)) {
+          throw new Error('Malformed graph payload');
+        }
 
-        // Preserve coordinates
-        const oldPosMap = new Map(graphData.nodes.map(n => [n.id, { x: n.x, y: n.y, z: n.z, vx: n.vx, vy: n.vy, vz: n.vz }]));
+        // Preserve coordinates so perspective switches do not reshuffle the map.
+        const oldPosMap = new Map(
+          graphData.nodes.map(n => [n.id, { x: n.x, y: n.y, z: n.z, vx: n.vx, vy: n.vy, vz: n.vz }])
+        );
         newData.nodes.forEach(n => {
           const old = oldPosMap.get(n.id);
           if (old) {
@@ -1739,52 +1997,90 @@ export function renderGraphHtml(
         });
 
         graphData = newData;
+        nodeIndex = new Map(graphData.nodes.map(n => [n.id, n]));
         build3DScene();
         buildVaultTree();
         updateHud();
-
-        const loader = document.getElementById('loader-overlay');
-        if (loader) {
-          loader.style.opacity = '0';
-          setTimeout(() => loader.remove(), 400);
-        }
+        hideFatal();
+        wakePhysics(0.6);
       } catch (e) {
         console.error('Failed to load graph', e);
-        const loader = document.getElementById('loader-overlay');
-        if (loader) loader.remove();
+        showFatal('Could not load the knowledge graph: ' + e.message);
+      } finally {
+        fetchInFlight = false;
       }
     }
 
     function updateHud() {
+      const stats = graphData.stats || {};
       document.getElementById('stat-nodes').textContent = graphData.nodes.length;
       document.getElementById('stat-edges').textContent = graphData.edges.length;
-      document.getElementById('stat-rules').textContent = graphData.stats?.rulesCount || 0;
-      document.getElementById('stat-adrs').textContent = graphData.stats?.decisionsCount || 0;
+      document.getElementById('stat-rules').textContent = stats.rulesCount || 0;
+      document.getElementById('stat-adrs').textContent = stats.decisionsCount || 0;
     }
 
+    // SSE with backoff and coalescing: a burst of edits triggers exactly one
+    // refetch, and a dead stream is closed before being retried.
+    let sseSource = null;
+    let sseRetry = 0;
+    let sseTimer = null;
+
     function setupSse() {
-      const es = new EventSource('/api/events');
-      es.onmessage = (event) => {
+      if (sseSource) {
+        try { sseSource.close(); } catch {}
+        sseSource = null;
+      }
+      try {
+        sseSource = new EventSource('/api/events');
+      } catch {
+        scheduleSseRetry();
+        return;
+      }
+
+      sseSource.onmessage = event => {
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'reload') {
-            fetchGraph();
+            sseRetry = 0;
+            void fetchGraph();
           }
-        } catch {}
+        } catch {
+          // Ignore malformed frames.
+        }
       };
-      es.onerror = () => {
-        setTimeout(setupSse, 3000);
+      sseSource.onerror = () => {
+        if (sseSource) {
+          try { sseSource.close(); } catch {}
+          sseSource = null;
+        }
+        scheduleSseRetry();
       };
     }
 
-    // Bootstrap
-    if (window.THREE) {
-      initThree();
-      fetchGraph().then(() => {
-        animate();
+    function scheduleSseRetry() {
+      if (sseTimer) return;
+      sseRetry = Math.min(sseRetry + 1, 6);
+      const delay = Math.min(1000 * 2 ** sseRetry, 30_000);
+      sseTimer = setTimeout(() => {
+        sseTimer = null;
         setupSse();
-      });
+      }, delay);
     }
+
+    // Bootstrap
+    (async function bootstrap() {
+      if (!HAS_THREE) {
+        showFatal(
+          'Three.js could not be loaded from the CDN. The vault explorer below still works offline.'
+        );
+      } else {
+        const ready = initThree();
+        if (ready) rafId = requestAnimationFrame(animate);
+      }
+      // The vault/doc panels do not depend on WebGL, so load data either way.
+      await fetchGraph();
+      setupSse();
+    })();
   </script>
 </body>
 </html>`;

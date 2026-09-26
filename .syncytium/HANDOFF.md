@@ -1,10 +1,8 @@
 ---
 activeAgent: Antigravity
 nextAgent: Any
-status: in_progress
-goal: >-
-  Release v0.1.7: 3D WebGL knowledge galaxy, physics sleep mode, compact view,
-  and resilient npm publishing
+status: ready_for_review
+goal: 'Release v0.2.0: correctness, security and extensibility release'
 completedWork:
   - >-
     Implemented embedded Knowledge Graph UI server (syncytium graph / syncytium
@@ -25,9 +23,19 @@ completedWork:
     in CLI
   - Enhanced scripts/release.mjs with resilient npm publish retry loop
   - Achieved 21/21 passing unit tests
+  - 'Fixed the diff --check gate, orphan pruning and destructive clean'
+  - >-
+    Eliminated stored XSS in the Obsidian Studio UI and hardened the local
+    server
+  - >-
+    Added zod validation, rule/ADR CRUD, export, validate, lock heartbeat,
+    --json
+  - 'Added AGENTS.md, GEMINI.md, Copilot path instructions and Roo Code adapters'
+  - Replaced substring ignore matching with a real gitignore glob engine
+  - Grew the suite from 22 to 114 tests covering every regression above
 pendingTasks:
-  - Run npm run release to publish v0.1.7 to NPM
-  - Commit and push to GitHub repository
+  - Run npm run release to publish v0.2.0
+  - Commit and push the regenerated bridge files
 touchedFiles:
   - package.json
   - src/core/types.ts
@@ -41,20 +49,24 @@ touchedFiles:
   - .syncytium/memory/decisions.md
   - .syncytium/rules/adapter-standards.md
   - .syncytium/HANDOFF.md
+  - src/core/paths.ts
+  - src/core/schemas.ts
+  - src/core/diff.ts
+  - src/ui/markdown.ts
 contextNotes: >-
-  SyncytiumMD is now dogfooded within its own repository. Run syncytium graph to
-  view the live knowledge graph.
-lastUpdated: '2026-09-19T18:43:12.027Z'
+  Typecheck, build and 114/114 tests are green. The two known follow-ups are the
+  r128 Three.js CDN pin and the read-only Dockerfile entrypoint.
+lastUpdated: '2026-09-26T12:21:37.449Z'
 ---
 # 🤝 Syncytium Handoff & Live State
 
 > **Active Agent:** `Antigravity`  
 > **Next Recommended Agent:** `Any`  
-> **Status:** `IN_PROGRESS`  
-> **Last Updated:** `2026-09-19T18:43:12.027Z`
+> **Status:** `READY_FOR_REVIEW`  
+> **Last Updated:** `2026-09-26T12:21:37.449Z`
 
 ## 🎯 Current Goal
-Release v0.1.7: 3D WebGL knowledge galaxy, physics sleep mode, compact view, and resilient npm publishing
+Release v0.2.0: correctness, security and extensibility release
 
 ## ✅ Completed in Recent Turns
 - Implemented embedded Knowledge Graph UI server (syncytium graph / syncytium ui)
@@ -68,10 +80,16 @@ Release v0.1.7: 3D WebGL knowledge galaxy, physics sleep mode, compact view, and
 - Added compact view button in UI and --compact, --no-files, --no-tags flags in CLI
 - Enhanced scripts/release.mjs with resilient npm publish retry loop
 - Achieved 21/21 passing unit tests
+- Fixed the diff --check gate, orphan pruning and destructive clean
+- Eliminated stored XSS in the Obsidian Studio UI and hardened the local server
+- Added zod validation, rule/ADR CRUD, export, validate, lock heartbeat, --json
+- Added AGENTS.md, GEMINI.md, Copilot path instructions and Roo Code adapters
+- Replaced substring ignore matching with a real gitignore glob engine
+- Grew the suite from 22 to 114 tests covering every regression above
 
 ## 📋 Pending Tasks (Next Agent Action Items)
-- [ ] Run npm run release to publish v0.1.7 to NPM
-- [ ] Commit and push to GitHub repository
+- [ ] Run npm run release to publish v0.2.0
+- [ ] Commit and push the regenerated bridge files
 
 ## 📂 Recently Touched Files
 - `package.json`
@@ -86,6 +104,10 @@ Release v0.1.7: 3D WebGL knowledge galaxy, physics sleep mode, compact view, and
 - `.syncytium/memory/decisions.md`
 - `.syncytium/rules/adapter-standards.md`
 - `.syncytium/HANDOFF.md`
+- `src/core/paths.ts`
+- `src/core/schemas.ts`
+- `src/core/diff.ts`
+- `src/ui/markdown.ts`
 
 ## 🧠 Context & Handoff Notes for Next Agent
-SyncytiumMD is now dogfooded within its own repository. Run syncytium graph to view the live knowledge graph.
+Typecheck, build and 114/114 tests are green. The two known follow-ups are the r128 Three.js CDN pin and the read-only Dockerfile entrypoint.

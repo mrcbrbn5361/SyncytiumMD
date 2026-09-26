@@ -9,9 +9,29 @@ alwaysApply: true
   Source of truth: .syncytium/
 -->
 
-## Code Style Guidelines
+# Code Style & Formatting
+
 - Write clean, modular, and self-documenting code.
 - Always prefer strict types, immutable data structures, and pure functions where reasonable.
 - Keep functions concise with a single responsibility.
 - Preserve existing comments and documentation unless explicitly asked to modify them.
 - Avoid unnecessary dependencies; prefer standard library APIs where possible.
+
+## Repository-specific conventions
+
+- **Comments explain *why*.** A comment restating what the code does is noise;
+  a comment explaining a non-obvious constraint, a bug workaround, or a
+  deliberate deviation is mandatory. Prefer a short comment at the point of
+  the decision over a long block at the top of the file.
+- **Never let a shared, cached object escape.** `gray-matter` hands back the
+  same object for identical content, and `DEFAULT_CONFIG` / `INITIAL_RULES` /
+  `INITIAL_DECISIONS` are module-level singletons. Copy before mutating
+  (see `clone()` in `src/core/storage.ts` and `deepClone()` in the config path).
+- **Order-dependent output is a bug.** Rule loading is sorted explicitly so
+  generated files are byte-identical across platforms.
+- **Derive, do not duplicate.** The version lives in `src/version.ts`, the
+  Markdown renderer in `src/ui/markdown.ts` (injected into the browser bundle
+  via `Function.prototype.toString()`), and path safety in `src/core/paths.ts`.
+  A second copy will drift.
+- When a bug is fixed, add a test that fails without the change and name the
+  regression in the test description.

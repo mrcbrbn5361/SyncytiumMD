@@ -10,13 +10,110 @@
 
 ### 🤝 Live Handoff Status
 - **Active Agent:** `Antigravity` (Next: `Any`)
-- **Status:** `IN_PROGRESS`
-- **Current Goal:** Release v0.1.7: 3D WebGL knowledge galaxy, physics sleep mode, compact view, and resilient npm publishing
+- **Status:** `READY_FOR_REVIEW`
+- **Current Goal:** Release v0.2.0: correctness, security and extensibility release
 - **Pending Tasks:**
-  - [ ] Run npm run release to publish v0.1.7 to NPM
-  - [ ] Commit and push to GitHub repository
-- **Notes:** SyncytiumMD is now dogfooded within its own repository. Run syncytium graph to view the live knowledge graph.
+  - [ ] Run npm run release to publish v0.2.0
+  - [ ] Commit and push the regenerated bridge files
+- **Recently Touched:**
+  - `.syncytium/architecture.md`
+  - `.syncytium/memory/decisions.md`
+  - `.syncytium/rules/adapter-standards.md`
+  - `.syncytium/HANDOFF.md`
+  - `src/core/paths.ts`
+  - `src/core/schemas.ts`
+  - `src/core/diff.ts`
+  - `src/ui/markdown.ts`
+- **Notes:** Typecheck, build and 114/114 tests are green. The two known follow-ups are the r128 Three.js CDN pin and the read-only Dockerfile entrypoint.
+- **Last Updated:** 2026-09-26T12:21:37.449Z
 
+
+---
+
+## System Architecture
+
+# System Architecture & Technology Stack
+
+> Single source of truth for every AI agent working on this repository. Every
+> bridge file (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules/*.mdc`, …) is generated
+> from this directory by `syncytium sync` — never edit those by hand.
+
+## Overview
+
+SyncytiumMD is a CLI + library + MCP server that maintains one canonical
+context (`.syncytium/`) and transpiles it into the native instruction format of
+every AI coding tool in use. It also provides multi-agent coordination: a
+lease-based workspace lock, a handoff baton with an audit trail, and a local
+visual knowledge graph.
+
+## Technology Stack
+
+- **Runtime:** Node.js 22.6+ (ESM, required by `node --experimental-strip-types`)
+- **Language:** TypeScript, `strict` plus `noUnusedLocals`,
+  `noUnusedParameters`, `noImplicitOverride`, `noImplicitReturns`,
+  `verbatimModuleSyntax`
+- **Build:** tsup (esbuild) with `dts: true` → `dist/{index,cli/index,mcp/index}.js`
+- **CLI:** Commander.js + picocolors
+- **Validation:** zod (config schema, rule frontmatter, ADR, every MCP tool input)
+- **Parsing:** gray-matter (frontmatter) — all loaders deep-copy, see ADR-006
+- **Watching:** chokidar
+- **MCP:** `@modelcontextprotocol/sdk` over stdio
+- **UI:** zero-dependency `node:http` server + a single-page Three.js app
+  (Three.js r128 loaded from cdnjs; the vault/doc panels degrade gracefully
+  without it)
+
+## Module Map
+
+| Path | Responsibility |
+| --- | --- |
+| `src/version.ts` | The single in-code version string; a unit test pins it to `package.json` |
+| `src/core/schemas.ts` | Every zod schema: config, rule frontmatter, ADR, handoff, lock, stack |
+| `src/core/paths.ts` | `slugify` (path-traversal guard), gitignore-style glob matcher, root containment |
+| `src/core/diff.ts` | Dependency-free unified-diff generator used by `diff` |
+| `src/core/storage.ts` | `.syncytium/` persistence, config validation/migration, ADR recovery |
+| `src/core/templates.ts` | Per-stack rule sets (11 stacks), banners, CI workflow template |
+| `src/core/engine.ts` | Orchestrator: init, sync, diff, doctor, lint, handoff, lock, graph, UI server, watch |
+| `src/adapters/base.ts` | Shared compile helpers, rule-id sanitising, user-section preservation |
+| `src/adapters/registry.ts` | Adapter registry, containment-checked writes, banner-only cleanup |
+| `src/adapters/builtin/` | 10 built-in adapters + `GenericAdapter` for config-declared tools |
+| `src/ui/markdown.ts` | Canonical Markdown → HTML renderer (injected into the browser bundle) |
+| `src/ui/template.ts` | Obsidian Studio HTML: 3D graph, vault explorer, document reader |
+| `src/mcp/server.ts` | 18 MCP tools, every input zod-validated, output token-budgeted |
+| `src/cli/index.ts` | 22 CLI commands with a global `--json` mode |
+
+## Engine API
+
+`init` · `sync` · `diff` · `doctor` · `lint` · `validate` · `handoff` ·
+`getHandoffHistory` · `addDecision` · `removeDecision` · `listDecisions` ·
+`addRule` · `getRule` · `removeRule` · `listRules` · `exportBundle` ·
+`clean` · `importExisting` · `getStatus` · `acquireLock` · `releaseLock` ·
+`renewLock` · `getLockStatus` · `installGitHook` · `uninstallGitHook` ·
+`installCiWorkflow` · `uninstallCiWorkflow` · `detectStack` ·
+`getKnowledgeGraph` · `startUiServer` · `watch`
+
+## Data Flow
+
+```
+.syncytium/  ──load──►  CanonicalContext  ──generate──►  GeneratedFile[]  ──write──►  bridge files
+     ▲                                                                                        │
+     └────────────────────  diff / prune / preserve user sections  ◄────────────────────────┘
+```
+
+`sync` writes every generated file, then prunes banner-tagged files that no rule
+produces any more. `diff` compares content and reports `identical`, `modified`
+(with a unified patch), `missing_on_disk`, and `unmanaged` (orphans).
+
+## Directory Layout
+
+- `src/` — source code and adapters
+- `tests/syncytium.test.ts` — 114 tests, run by `node --experimental-strip-types --test`
+- `scripts/release.mjs` — verify → publish → CDN-poll → global install
+- `.syncytium/` — single source of truth
+  - `rules/` — canonical, stack-aware rules
+  - `memory/decisions.md` — ADRs
+  - `memory/handoff-history.json` — baton audit trail
+  - `memory/lock.json` — machine-local lease (git-ignored)
+  - `HANDOFF.md` — live agent state
 
 ---
 
@@ -46,23 +143,104 @@ When adding or updating adapters in `src/adapters/`:
 ## 📌 Code Style & Formatting
 > *Enforce clean, readable, modern standards across the project*
 
-## Code Style Guidelines
+# Code Style & Formatting
+
 - Write clean, modular, and self-documenting code.
 - Always prefer strict types, immutable data structures, and pure functions where reasonable.
 - Keep functions concise with a single responsibility.
 - Preserve existing comments and documentation unless explicitly asked to modify them.
 - Avoid unnecessary dependencies; prefer standard library APIs where possible.
 
+## Repository-specific conventions
+
+- **Comments explain *why*.** A comment restating what the code does is noise;
+  a comment explaining a non-obvious constraint, a bug workaround, or a
+  deliberate deviation is mandatory. Prefer a short comment at the point of
+  the decision over a long block at the top of the file.
+- **Never let a shared, cached object escape.** `gray-matter` hands back the
+  same object for identical content, and `DEFAULT_CONFIG` / `INITIAL_RULES` /
+  `INITIAL_DECISIONS` are module-level singletons. Copy before mutating
+  (see `clone()` in `src/core/storage.ts` and `deepClone()` in the config path).
+- **Order-dependent output is a bug.** Rule loading is sorted explicitly so
+  generated files are byte-identical across platforms.
+- **Derive, do not duplicate.** The version lives in `src/version.ts`, the
+  Markdown renderer in `src/ui/markdown.ts` (injected into the browser bundle
+  via `Function.prototype.toString()`), and path safety in `src/core/paths.ts`.
+  A second copy will drift.
+- When a bug is fixed, add a test that fails without the change and name the
+  regression in the test description.
+
+---
+
+## 📌 Release & Verification Criteria
+> *Every change ships green: typecheck, build, tests, lint, and zero context drift*
+
+# Release Criteria
+
+A change is not done until all of these pass locally:
+
+```bash
+npm run typecheck   # tsc --noEmit over src/ and tests/
+npm run build       # tsup, ESM + .d.ts
+npm test            # 114 tests, node --experimental-strip-types
+npm run verify      # all three, in order
+```
+
+## Before opening a PR
+
+- `node dist/cli/index.js lint` — canonical rules and frontmatter are valid.
+- `node dist/cli/index.js diff` — **no** drift between `.syncytium/` and the
+  committed bridge files. Commit the regenerated files together with the change.
+- `node dist/cli/index.js doctor` — no `error` checks. Warnings are acceptable
+  only when they are pre-existing and unrelated.
+
+## Releasing
+
+`npm run release` runs the whole pipeline and **fails loudly**:
+
+1. `typecheck` → `build` → `test`
+2. `npm publish`
+3. polls `npm view` with exponential backoff until the version is served
+4. `npm install -g` and verifies the installed version
+
+Never hand-edit `src/version.ts` or `package.json` version independently: a unit
+test asserts they match, and `--bump` updates both together.
+
+## Definition of done
+
+- New behaviour has a test that fails without the change.
+- Public behaviour changes are reflected in `README.md` **and** `README.tr.md`.
+- Architectural decisions go into `.syncytium/memory/decisions.md` via
+  `syncytium adr add`.
+- The handoff baton is updated before the turn ends:
+  `syncytium handoff --from "<agent>" -g "<goal>" -d "<done>" -t "<todo>"`.
+
 ---
 
 ## 📌 Security & Safe Coding
 > *Security rules, secrets handling, and sanitization*
 
-## Security Guidelines
-- Never commit secrets, API keys, tokens, or credentials into source control.
-- Validate all incoming user input and payloads against strong schemas (e.g. Zod).
-- Prevent injection attacks (SQL, command execution, XSS, template injection).
-- Use parameterized queries and sanitized HTML output.
+# Security & Boundaries
+
+- The Obsidian Studio server binds to `127.0.0.1` and rejects any request whose
+  `Host` header is not a loopback name. This is a DNS-rebinding guard: without
+  it, any web page the user has open could read `/api/file` from their
+  workspace. `--allow-remote` lifts the guard and must only be used knowingly.
+- `Access-Control-Allow-Origin` is `null` (same-origin) by default.
+- `/api/file` refuses in-root secrets (`.env*`, `*.pem`, `*.key`, `id_rsa`,
+  `.npmrc`, `.netrc`, …) and everything under `.git/`, in addition to the
+  path-traversal containment check.
+- Rule ids arrive from user-authored frontmatter and are interpolated into
+  generated file paths. **Every** path is slugified (`src/core/paths.ts`) and
+  every write is re-checked against the workspace root before touching disk.
+- The UI escapes `projectName` and all node ids, serialises its bootstrap config
+  with `<`/`>`/`&`/U+2028 escaped, and uses event delegation instead of inline
+  `onclick` — a hostile rule id in a cloned repo must not be able to run script.
+- `syncytium clean` deletes only files carrying the Syncytium banner. A user's
+  own `.cursor/rules/my-rule.mdc` is never touched.
+- MCP tool inputs are validated with zod before they reach the engine.
+- Never log or echo secrets, tokens or full file contents to stdout: stdout is
+  the MCP JSON-RPC transport.
 
 ---
 
@@ -79,32 +257,12 @@ When adding or updating adapters in `src/adapters/`:
 
 ---
 
-## System Architecture
-# 🧬 SyncytiumMD — System Architecture & Technology Stack
+## 🧠 Key Decisions (ADR)
 
-## Overview
-SyncytiumMD is the universal, bi-directional context and handoff bridge for modern AI coding tools (Cursor, Claude Code, GitHub Copilot, Cline, Google Antigravity, Windsurf, Trae, OpenCode, and MCP-compatible agents). It provides a single source of truth (`.syncytium/`) to eliminate rule fragmentation, context drift, and agent collisions across multi-agent AI development workflows.
-
-## Technology Stack
-- **Runtime:** Node.js 18+ (ESM native)
-- **Language:** TypeScript (strict mode, target ES2022)
-- **Bundler:** tsup (esbuild under the hood, generates clean ESM with dts)
-- **CLI Framework:** Commander.js with picocolors
-- **Communication Protocol:** Model Context Protocol (MCP) via `@modelcontextprotocol/sdk` (Stdio transport)
-- **Visual Knowledge Graph:** Zero-dependency native Node.js HTTP server + HTML5 Canvas force-directed graph with live Server-Sent Events (SSE)
-- **Testing:** Node.js native test runner (`node --experimental-strip-types --test`)
-
-## Architectural Modules
-- `src/core/`:
-  - `types.ts`: Zod and TypeScript interfaces for rules, decisions, handoff, locks, adapters, and graph nodes.
-  - `storage.ts`: Filesystem persistence layer managing `.syncytium/` (rules, ADRs, lock, handoff history).
-  - `engine.ts`: Core orchestrator providing `init`, `sync`, `diff`, `doctor`, `lint`, `handoff`, `lock`, `listRules`, and `startUiServer`.
-  - `templates.ts`: Embedded starter templates for TypeScript, Python, Go, Rust, and generic stacks.
-- `src/adapters/`:
-  - `registry.ts`: Pluggable adapter registry.
-  - Adapter implementations for Cursor, Claude Code, GitHub Copilot, Cline, Google Antigravity, Windsurf, Trae, and OpenCode.
-- `src/ui/`:
-  - `template.ts`: Embedded Obsidian-style dark mode single-page application with 2D physics graph and detail drawer.
-- `src/cli/`: Command-line entry point with interactive prompt wizards.
-- `src/mcp/`: Headless runtime server exposing autonomous tools to AI agents.
+- **[ADR-001] Adopt SyncytiumMD as Universal Context Bridge:** Use SyncytiumMD as the single source of truth (.syncytium/) to transpile and synchronize rules, memories, and handoff state across all AI coding tools. _(accepted, 2026-09-19)_
+- **[ADR-002] Zero-Heavy-Dependencies Knowledge Graph UI:** Implement an embedded Canvas-based force-directed graph server using native node:http and Server-Sent Events (SSE). _(accepted, 2026-09-19)_
+- **[ADR-003] Lease-Based Multi-Agent Collision Prevention Lock:** Introduce syncytium lock with time-expiring leases (e.g. 30-45 minutes) stored in .syncytium/memory/lock.json. _(accepted, 2026-09-19)_
+- **[ADR-004] Automated Release Pipeline with NPM CDN Replication Polling:** Implement scripts/release.mjs (npm run release) which verifies tests, publishes, polls npm view with exponential backoff until live, and then installs globally. _(accepted, 2026-09-19)_
+- **[ADR-005] High-Performance 3D Knowledge Galaxy with Physics Sleep & Geometry Pooling:** Implement Three.js unit sphere geometry and material caching/pooling, simulation alpha decay with auto-sleeping (0% idle CPU load), LOD lazy text sprite generation, floating hover tooltips, and compact view mode (--compact, --no-files, --no-tags). _(accepted, 2026-09-19)_
+- _…and 7 more in `.syncytium/memory/decisions.md`_
 

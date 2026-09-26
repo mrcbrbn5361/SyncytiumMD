@@ -1,110 +1,195 @@
 #!/usr/bin/env node
+/**
+ * Release pipeline for SyncytiumMD.
+ *
+ * Steps: verify (typecheck + build + test) -> publish -> wait for the npm CDN
+ * to serve the version -> install globally.
+ *
+ * Every step is skippable:
+ *   node scripts/release.mjs --dry-run   verify only, touch nothing
+ *   node scripts/release.mjs --bump patch bump the version, then run the rest
+ *   node scripts/release.mjs --no-install verify + publish only
+ */
 import { execSync } from 'node:child_process';
-import fs from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-function run(cmd, options = {}) {
-  return execSync(cmd, { stdio: 'inherit', ...options });
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+// Resolved relative to this file, not the CWD, so the script behaves the same
+// when invoked as `node scripts/release.mjs` from anywhere.
+const projectRoot = path.resolve(scriptDir, '..');
+const packageJsonPath = path.join(projectRoot, 'package.json');
+
+const argv = process.argv.slice(2);
+const dryRun = argv.includes('--dry-run');
+const noInstall = argv.includes('--no-install');
+const bumpIndex = argv.indexOf('--bump');
+const bump = bumpIndex >= 0 ? argv[bumpIndex + 1] : null;
+
+const PKG_NAME = 'syncytium-md';
+
+const dim = s => `\x1b[2m${s}\x1b[0m`;
+const green = s => `\x1b[32m${s}\x1b[0m`;
+const red = s => `\x1b[31m${s}\x1b[0m`;
+const yellow = s => `\x1b[33m${s}\x1b[0m`;
+const bold = s => `\x1b[1m${s}\x1b[0m`;
+
+function readPkg() {
+  return JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
 }
 
-function runSilent(cmd) {
+function run(command, { silent = false } = {}) {
+  process.stdout.write(`${dim('$')} ${command}\n`);
+  return execSync(command, {
+    cwd: projectRoot,
+    stdio: silent ? ['ignore', 'pipe', 'pipe'] : 'inherit',
+    encoding: 'utf-8',
+    // `version` reaches a shell via the npm commands below, so keep it a
+    // strictly-formed semver string and reject anything else outright.
+    shell: process.platform === 'win32'
+  });
+}
+
+function runCaptured(command) {
   try {
-    return execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'], encoding: 'utf-8' }).trim();
-  } catch {
-    return '';
+    return execSync(command, {
+      cwd: projectRoot,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf-8',
+      shell: process.platform === 'win32'
+    }).trim();
+  } catch (err) {
+    // Keep stderr: the caller inspects it to distinguish "not published" from
+    // "registry unreachable".
+    return `${err.stdout ?? ''}\n${err.stderr ?? ''}`.trim();
   }
 }
 
-async function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+const SEMVER = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
+function assertSemver(version) {
+  if (!SEMVER.test(version)) {
+    throw new Error(`Refusing to continue: "${version}" is not a valid semver version.`);
+  }
+}
+
+function bumpVersion(level) {
+  if (!['major', 'minor', 'patch'].includes(level)) {
+    throw new Error(`--bump expects major | minor | patch (got "${level}").`);
+  }
+  const pkg = readPkg();
+  const [major, minor, patch] = pkg.version.split('.').map(Number);
+  const next =
+    level === 'major' ? `${major + 1}.0.0`
+    : level === 'minor' ? `${major}.${minor + 1}.0`
+    : `${major}.${minor}.${patch + 1}`;
+
+  pkg.version = next;
+  writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
+
+  // src/version.ts is the single in-code copy of the version and a unit test
+  // asserts it matches package.json, so it has to move in lockstep.
+  const versionFile = path.join(projectRoot, 'src', 'version.ts');
+  const source = readFileSync(versionFile, 'utf-8');
+  writeFileSync(
+    versionFile,
+    source.replace(/export const VERSION = '[^']*';/, `export const VERSION = '${next}';`),
+    'utf-8'
+  );
+
+  console.log(green(`  bumped ${bold(pkg.version)} -> ${bold(next)}`));
+  return next;
+}
+
+async function waitForCdn(version, { attempts = 20, baseDelayMs = 1000 } = {}) {
+  // Exponential backoff with a cap: 1s, 2s, 4s, 8s, 16s, 30s, 30s, ...
+  let delay = baseDelayMs;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const versions = runCaptured(`npm view ${PKG_NAME} versions --json`);
+    let list = [];
+    try {
+      const parsed = JSON.parse(versions);
+      list = Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      // Registry still propagating, or offline. Keep waiting.
+    }
+    if (list.includes(version)) return true;
+    const wait = Math.min(delay, 30_000);
+    console.log(dim(`  not live yet (attempt ${attempt}/${attempts}), waiting ${wait}ms...`));
+    await new Promise(resolve => setTimeout(resolve, wait));
+    delay *= 2;
+  }
+  return false;
 }
 
 async function main() {
-  const pkgPath = path.resolve('package.json');
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
-  const version = pkg.version;
+  const pkg = readPkg();
+  if (bump) bumpVersion(bump);
+  const version = readPkg().version;
+  assertSemver(version);
 
-  console.log(`\n🚀 Starting Automated Release for syncytium-md v${version}`);
-  console.log('──────────────────────────────────────────────────────────────────────────');
+  console.log(bold(`\n🚀 ${PKG_NAME} v${version}${dryRun ? ' (dry run)' : ''}\n`));
 
-  // 1. Build and verify test suite
-  console.log('\n📦 Step 1: Building project and running test suite...');
+  // ---- 1. Verify ---------------------------------------------------------
+  console.log(bold('1/4  Verify'));
+  // `prepublishOnly` only runs `build`, so typecheck and tests must be explicit.
+  run('npm run typecheck');
   run('npm run build');
   run('npm test');
-  console.log('✅ Build and tests passed with 100% success.');
 
-  // 2. Publish to NPM with retry and duplicate version detection
-  console.log(`\n🌐 Step 2: Publishing v${version} to NPM registry...`);
-  const alreadyPublished = runSilent(`npm view syncytium-md@${version} version`);
-  if (alreadyPublished === version) {
-    console.log(`ℹ️ Version ${version} is already published on NPM. Proceeding to verification & global upgrade...`);
+  if (dryRun) {
+    console.log(green('\n✅ Dry run complete: typecheck, build and tests all passed.'));
+    return;
+  }
+
+  // ---- 2. Publish --------------------------------------------------------
+  console.log(bold('\n2/4  Publish'));
+  const existing = runCaptured(`npm view ${PKG_NAME}@${version} version`);
+  if (existing.trim() === version) {
+    console.log(yellow(`  v${version} is already on the registry; skipping publish.`));
   } else {
-    let publishSuccess = false;
-    const maxRetries = 3;
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        console.log(`  ↳ Executing npm publish (attempt ${attempt}/${maxRetries})...`);
-        run('npm publish --access public');
-        publishSuccess = true;
-        console.log('✅ Package successfully published to NPM registry.');
-        break;
-      } catch (err) {
-        const errMsg = String(err?.message || err || '');
-        if (errMsg.includes('EPUBLISHCONFLICT') || errMsg.includes('cannot publish over')) {
-          console.log(`ℹ️ Version ${version} was successfully received by NPM registry.`);
-          publishSuccess = true;
-          break;
-        }
-        console.warn(`⚠️ npm publish attempt ${attempt} failed: ${errMsg.slice(0, 120)}`);
-        if (attempt < maxRetries) {
-          console.log('  ↳ Retrying in 5 seconds...');
-          await sleep(5000);
-        } else {
-          throw err;
-        }
-      }
-    }
+    run('npm publish --access public');
   }
 
-  // 3. Smart CDN Propagation Polling
-  console.log('\n⏳ Step 3: Verifying NPM global CDN replication (polling registry)...');
-  let isAvailable = false;
-  const maxAttempts = 30; // 30 * 5s = 150s max
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const rawVersions = runSilent('npm view syncytium-md versions --json');
+  // ---- 3. CDN propagation ------------------------------------------------
+  console.log(bold('\n3/4  Wait for npm CDN'));
+  const live = await waitForCdn(version);
+  if (!live) {
+    // Not fatal for the publish itself, but the global install below would
+    // fail with ETARGET, so fail loudly here instead of pretending success.
+    throw new Error(
+      `v${version} is still not served by the npm CDN after ${20} attempts. ` +
+        'The publish may need manual investigation; nothing else was changed.'
+    );
+  }
+  console.log(green(`  v${version} is live.`));
+
+  // ---- 4. Global install -------------------------------------------------
+  if (noInstall) {
+    console.log(yellow('\n--no-install: skipping the global upgrade.'));
+  } else {
+    console.log(bold('\n4/4  Global install'));
+    run(`npm install -g ${PKG_NAME}@${version}`);
+    const installed = runCaptured(`npm ls -g ${PKG_NAME} --depth=0 --json`);
+    let ok = false;
     try {
-      const versions = JSON.parse(rawVersions || '[]');
-      if (Array.isArray(versions) && versions.includes(version)) {
-        isAvailable = true;
-        console.log(`✨ Succeeded! v${version} is verified and active on the global NPM CDN (attempt ${attempt}).`);
-        break;
-      }
+      const tree = JSON.parse(installed);
+      const entry = tree.dependencies?.[PKG_NAME];
+      ok = entry?.version === version;
     } catch {
-      // ignore JSON parse error while CDN updates
+      ok = false;
     }
-    process.stdout.write(`  ↳ Waiting for edge replication... (attempt ${attempt}/${maxAttempts})\r`);
-    await sleep(5000);
+    if (!ok) {
+      throw new Error(`Global install did not report v${version}. Re-run: npm install -g ${PKG_NAME}@${version}`);
+    }
+    console.log(green(`  global CLI is on v${version}`));
   }
 
-  if (!isAvailable) {
-    console.warn('\n⚠️ CDN propagation is taking longer than usual, proceeding with install attempt...');
-  }
-
-  // 4. Update local global install
-  console.log(`\n💻 Step 4: Updating global CLI on your machine (npm install -g syncytium-md@${version})...`);
-  try {
-    run(`npm install -g syncytium-md@${version}`);
-    console.log(`✅ Global installation upgraded to v${version}!`);
-  } catch (err) {
-    console.error(`❌ Global install failed: ${err.message}`);
-  }
-
-  console.log('\n🎉 Release Complete!');
-  console.log(`   NPM: https://www.npmjs.com/package/syncytium-md`);
-  console.log(`   CLI: syncytium --version\n`);
+  console.log(green(bold(`\n🎉 Release complete: ${PKG_NAME} v${version}\n`)));
+  console.log(dim('  Reminders: git tag -a v' + version + ' -m "release" && git push --tags\n'));
 }
 
 main().catch(err => {
-  console.error('\n❌ Release process failed:', err);
+  console.error(red(`\n❌ Release failed: ${err.message}\n`));
   process.exit(1);
 });

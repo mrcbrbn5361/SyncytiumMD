@@ -7,8 +7,24 @@
 
 # Security & Safe Coding
 
-## Security Guidelines
-- Never commit secrets, API keys, tokens, or credentials into source control.
-- Validate all incoming user input and payloads against strong schemas (e.g. Zod).
-- Prevent injection attacks (SQL, command execution, XSS, template injection).
-- Use parameterized queries and sanitized HTML output.
+# Security & Boundaries
+
+- The Obsidian Studio server binds to `127.0.0.1` and rejects any request whose
+  `Host` header is not a loopback name. This is a DNS-rebinding guard: without
+  it, any web page the user has open could read `/api/file` from their
+  workspace. `--allow-remote` lifts the guard and must only be used knowingly.
+- `Access-Control-Allow-Origin` is `null` (same-origin) by default.
+- `/api/file` refuses in-root secrets (`.env*`, `*.pem`, `*.key`, `id_rsa`,
+  `.npmrc`, `.netrc`, …) and everything under `.git/`, in addition to the
+  path-traversal containment check.
+- Rule ids arrive from user-authored frontmatter and are interpolated into
+  generated file paths. **Every** path is slugified (`src/core/paths.ts`) and
+  every write is re-checked against the workspace root before touching disk.
+- The UI escapes `projectName` and all node ids, serialises its bootstrap config
+  with `<`/`>`/`&`/U+2028 escaped, and uses event delegation instead of inline
+  `onclick` — a hostile rule id in a cloned repo must not be able to run script.
+- `syncytium clean` deletes only files carrying the Syncytium banner. A user's
+  own `.cursor/rules/my-rule.mdc` is never touched.
+- MCP tool inputs are validated with zod before they reach the engine.
+- Never log or echo secrets, tokens or full file contents to stdout: stdout is
+  the MCP JSON-RPC transport.

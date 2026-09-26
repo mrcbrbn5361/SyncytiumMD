@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "projectName": "SyncytiumMD",
   "enabledAdapters": [
     "cursor",
@@ -9,10 +9,16 @@
     "antigravity",
     "windsurf",
     "trae",
-    "opencode"
+    "opencode",
+    "agents",
+    "gemini"
   ],
+  "customAdapters": [],
   "options": {
     "addSyncytiumBanner": true,
-    "preserveCustomSections": true
+    "preserveCustomSections": true,
+    "emitRuleIndex": false,
+    "pruneOrphans": true,
+    "enforceLock": false
   }
 }

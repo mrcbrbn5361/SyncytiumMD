@@ -1,5 +1,11 @@
 node_modules
 dist
 .git
+.github
 .syncytium
 tests
+scripts
+coverage
+*.log
+*.md
+!README.md

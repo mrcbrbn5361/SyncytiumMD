@@ -1,4 +1,15 @@
-import { z } from 'zod';
+import type { z } from 'zod';
+import {
+  SyncytiumConfigSchema,
+  CustomAdapterSchema,
+  RuleFrontmatterSchema,
+  MemoryDecisionSchema,
+  HandoffStateSchema,
+  SyncytiumLockSchema,
+  type FieldIssue
+} from './schemas.js';
+
+export * from './schemas.js';
 
 export interface CanonicalRule {
   id: string;
@@ -7,30 +18,18 @@ export interface CanonicalRule {
   globs?: string[];
   alwaysApply?: boolean;
   tags?: string[];
+  priority?: 'low' | 'medium' | 'high';
   content: string;
+  /** Absolute path of the source file, when known. */
+  sourceFile?: string;
 }
 
-export interface MemoryDecision {
-  id: string;
-  title: string;
-  status: 'proposed' | 'accepted' | 'superseded' | 'deprecated';
-  date: string;
-  context: string;
-  decision: string;
-  consequences: string;
-}
-
-export interface HandoffState {
-  activeAgent: string;
-  nextAgent?: string;
-  status: 'in_progress' | 'ready_for_review' | 'blocked' | 'completed';
-  goal: string;
-  completedWork: string[];
-  pendingTasks: string[];
-  touchedFiles: string[];
-  contextNotes: string;
-  lastUpdated: string;
-}
+export type MemoryDecision = z.infer<typeof MemoryDecisionSchema>;
+export type HandoffState = z.infer<typeof HandoffStateSchema>;
+export type SyncytiumLock = z.infer<typeof SyncytiumLockSchema>;
+export type SyncytiumConfig = z.infer<typeof SyncytiumConfigSchema>;
+export type CustomAdapterConfig = z.infer<typeof CustomAdapterSchema>;
+export type RuleFrontmatter = z.infer<typeof RuleFrontmatterSchema>;
 
 export interface CanonicalContext {
   projectName: string;
@@ -39,12 +38,16 @@ export interface CanonicalContext {
   decisions: MemoryDecision[];
   handoff: HandoffState;
   rootDir: string;
+  /** Present when loaded through `SyncytiumStorage.loadCanonicalContext`. */
+  config?: SyncytiumConfig;
 }
 
 export interface GeneratedFile {
   relativePath: string;
   content: string;
   description: string;
+  /** Adapter that produced the file, for provenance and orphan detection. */
+  adapterId?: string;
 }
 
 export interface AgentAdapter {
@@ -56,32 +59,15 @@ export interface AgentAdapter {
   generate(context: CanonicalContext): Promise<GeneratedFile[]>;
 }
 
-export const SyncytiumConfigSchema = z.object({
-  version: z.string().default('1.0.0'),
-  projectName: z.string(),
-  enabledAdapters: z.array(z.string()).default([
-    'cursor',
-    'claude',
-    'copilot',
-    'cline',
-    'antigravity',
-    'windsurf',
-    'trae',
-    'opencode'
-  ]),
-  options: z.object({
-    addSyncytiumBanner: z.boolean().default(true),
-    preserveCustomSections: z.boolean().default(true)
-  }).default({})
-});
-
-export type SyncytiumConfig = z.infer<typeof SyncytiumConfigSchema>;
-
 export interface DoctorCheckItem {
   name: string;
   status: 'ok' | 'warn' | 'error';
   message: string;
   detail?: string;
+  /** Stable machine-readable identifier, used by `--json` consumers. */
+  id?: string;
+  /** Actionable remediation hint rendered by the CLI. */
+  fix?: string;
 }
 
 export interface DoctorReport {
@@ -96,10 +82,17 @@ export interface DoctorReport {
   };
 }
 
+export type DiffStatus = 'identical' | 'modified' | 'missing_on_disk' | 'unmanaged';
+
 export interface FileDiffItem {
   relativePath: string;
-  status: 'identical' | 'modified' | 'missing_on_disk' | 'unmanaged';
+  status: DiffStatus;
   driftSummary?: string;
+  adapterId?: string;
+  /** Number of changed lines vs the generated content (modified only). */
+  changedLines?: number;
+  /** Unified diff hunks, capped to a readable number of lines. */
+  patch?: string;
 }
 
 export interface DiffReport {
@@ -109,6 +102,7 @@ export interface DiffReport {
     identical: number;
     modified: number;
     missingOnDisk: number;
+    unmanaged: number;
   };
 }
 
@@ -131,6 +125,7 @@ export interface LintIssue {
   type: 'error' | 'warning';
   message: string;
   ruleId?: string;
+  code?: string;
 }
 
 export interface LintReport {
@@ -150,23 +145,27 @@ export interface ImportItem {
 export interface ImportReport {
   importedCount: number;
   items: ImportItem[];
+  /** Files that were skipped because they are already Syncytium-managed. */
+  skippedCount?: number;
 }
 
-export interface SyncytiumLock {
-  locked: boolean;
-  agent?: string;
-  goal?: string;
-  acquiredAt?: string;
-  expiresAt?: string;
-}
+export type GraphNodeType =
+  | 'root'
+  | 'rule'
+  | 'tag'
+  | 'decision'
+  | 'agent'
+  | 'adapter'
+  | 'file'
+  | 'doc';
 
 export interface GraphNode {
   id: string;
   label: string;
-  type: 'root' | 'rule' | 'tag' | 'decision' | 'agent' | 'adapter' | 'file';
+  type: GraphNodeType;
   group: string;
   description?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface GraphEdge {
@@ -188,5 +187,30 @@ export interface KnowledgeGraph {
   };
 }
 
+export interface ValidationResult {
+  valid: boolean;
+  issues: FieldIssue[];
+  warnings: FieldIssue[];
+}
 
+export interface ExportBundleOptions {
+  includeHandoff?: boolean;
+  includeDecisions?: boolean;
+  includeArchitecture?: boolean;
+  /** Maximum characters per rule body; 0 disables truncation. */
+  maxRuleChars?: number;
+}
 
+export interface ExportedSection {
+  heading: string;
+  body: string;
+  truncated?: boolean;
+}
+
+export interface ExportBundle {
+  projectName: string;
+  generatedAt: string;
+  version: string;
+  sections: ExportedSection[];
+  markdown: string;
+}

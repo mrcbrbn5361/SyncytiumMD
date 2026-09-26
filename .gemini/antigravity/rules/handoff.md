@@ -9,10 +9,20 @@
 
 ### 🤝 Live Handoff Status
 - **Active Agent:** `Antigravity` (Next: `Any`)
-- **Status:** `IN_PROGRESS`
-- **Current Goal:** Release v0.1.7: 3D WebGL knowledge galaxy, physics sleep mode, compact view, and resilient npm publishing
+- **Status:** `READY_FOR_REVIEW`
+- **Current Goal:** Release v0.2.0: correctness, security and extensibility release
 - **Pending Tasks:**
-  - [ ] Run npm run release to publish v0.1.7 to NPM
-  - [ ] Commit and push to GitHub repository
-- **Notes:** SyncytiumMD is now dogfooded within its own repository. Run syncytium graph to view the live knowledge graph.
+  - [ ] Run npm run release to publish v0.2.0
+  - [ ] Commit and push the regenerated bridge files
+- **Recently Touched:**
+  - `.syncytium/architecture.md`
+  - `.syncytium/memory/decisions.md`
+  - `.syncytium/rules/adapter-standards.md`
+  - `.syncytium/HANDOFF.md`
+  - `src/core/paths.ts`
+  - `src/core/schemas.ts`
+  - `src/core/diff.ts`
+  - `src/ui/markdown.ts`
+- **Notes:** Typecheck, build and 114/114 tests are green. The two known follow-ups are the r128 Three.js CDN pin and the read-only Dockerfile entrypoint.
+- **Last Updated:** 2026-09-26T12:21:37.449Z
 

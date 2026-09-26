@@ -1,8 +1,38 @@
 node_modules/
 dist/
+
+# Local scratch notes
+tanitim.txt
+
+# Secrets and credentials - never commit these.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+*.asc
+credentials.json
+.npmrc
+.netrc
+.pypirc
+
+# Coverage and build artifacts
+coverage/
+.nyc_output/
+*.tsbuildinfo
 *.log
+
+# Editor / OS noise
 .DS_Store
 Thumbs.db
-tanitim.txt
-*.txt
+.idea/
+*.swp
+*~
 
+# The multi-agent lease is machine-local transient state. Committing it leaks
+# the holding agent's name/goal and makes `lock status` confusing across clones.
+.syncytium/memory/lock.json

@@ -31,23 +31,104 @@ When adding or updating adapters in `src/adapters/`:
 ## 📌 Code Style & Formatting
 > *Enforce clean, readable, modern standards across the project*
 
-## Code Style Guidelines
+# Code Style & Formatting
+
 - Write clean, modular, and self-documenting code.
 - Always prefer strict types, immutable data structures, and pure functions where reasonable.
 - Keep functions concise with a single responsibility.
 - Preserve existing comments and documentation unless explicitly asked to modify them.
 - Avoid unnecessary dependencies; prefer standard library APIs where possible.
 
+## Repository-specific conventions
+
+- **Comments explain *why*.** A comment restating what the code does is noise;
+  a comment explaining a non-obvious constraint, a bug workaround, or a
+  deliberate deviation is mandatory. Prefer a short comment at the point of
+  the decision over a long block at the top of the file.
+- **Never let a shared, cached object escape.** `gray-matter` hands back the
+  same object for identical content, and `DEFAULT_CONFIG` / `INITIAL_RULES` /
+  `INITIAL_DECISIONS` are module-level singletons. Copy before mutating
+  (see `clone()` in `src/core/storage.ts` and `deepClone()` in the config path).
+- **Order-dependent output is a bug.** Rule loading is sorted explicitly so
+  generated files are byte-identical across platforms.
+- **Derive, do not duplicate.** The version lives in `src/version.ts`, the
+  Markdown renderer in `src/ui/markdown.ts` (injected into the browser bundle
+  via `Function.prototype.toString()`), and path safety in `src/core/paths.ts`.
+  A second copy will drift.
+- When a bug is fixed, add a test that fails without the change and name the
+  regression in the test description.
+
+---
+
+## 📌 Release & Verification Criteria
+> *Every change ships green: typecheck, build, tests, lint, and zero context drift*
+
+# Release Criteria
+
+A change is not done until all of these pass locally:
+
+```bash
+npm run typecheck   # tsc --noEmit over src/ and tests/
+npm run build       # tsup, ESM + .d.ts
+npm test            # 114 tests, node --experimental-strip-types
+npm run verify      # all three, in order
+```
+
+## Before opening a PR
+
+- `node dist/cli/index.js lint` — canonical rules and frontmatter are valid.
+- `node dist/cli/index.js diff` — **no** drift between `.syncytium/` and the
+  committed bridge files. Commit the regenerated files together with the change.
+- `node dist/cli/index.js doctor` — no `error` checks. Warnings are acceptable
+  only when they are pre-existing and unrelated.
+
+## Releasing
+
+`npm run release` runs the whole pipeline and **fails loudly**:
+
+1. `typecheck` → `build` → `test`
+2. `npm publish`
+3. polls `npm view` with exponential backoff until the version is served
+4. `npm install -g` and verifies the installed version
+
+Never hand-edit `src/version.ts` or `package.json` version independently: a unit
+test asserts they match, and `--bump` updates both together.
+
+## Definition of done
+
+- New behaviour has a test that fails without the change.
+- Public behaviour changes are reflected in `README.md` **and** `README.tr.md`.
+- Architectural decisions go into `.syncytium/memory/decisions.md` via
+  `syncytium adr add`.
+- The handoff baton is updated before the turn ends:
+  `syncytium handoff --from "<agent>" -g "<goal>" -d "<done>" -t "<todo>"`.
+
 ---
 
 ## 📌 Security & Safe Coding
 > *Security rules, secrets handling, and sanitization*
 
-## Security Guidelines
-- Never commit secrets, API keys, tokens, or credentials into source control.
-- Validate all incoming user input and payloads against strong schemas (e.g. Zod).
-- Prevent injection attacks (SQL, command execution, XSS, template injection).
-- Use parameterized queries and sanitized HTML output.
+# Security & Boundaries
+
+- The Obsidian Studio server binds to `127.0.0.1` and rejects any request whose
+  `Host` header is not a loopback name. This is a DNS-rebinding guard: without
+  it, any web page the user has open could read `/api/file` from their
+  workspace. `--allow-remote` lifts the guard and must only be used knowingly.
+- `Access-Control-Allow-Origin` is `null` (same-origin) by default.
+- `/api/file` refuses in-root secrets (`.env*`, `*.pem`, `*.key`, `id_rsa`,
+  `.npmrc`, `.netrc`, …) and everything under `.git/`, in addition to the
+  path-traversal containment check.
+- Rule ids arrive from user-authored frontmatter and are interpolated into
+  generated file paths. **Every** path is slugified (`src/core/paths.ts`) and
+  every write is re-checked against the workspace root before touching disk.
+- The UI escapes `projectName` and all node ids, serialises its bootstrap config
+  with `<`/`>`/`&`/U+2028 escaped, and uses event delegation instead of inline
+  `onclick` — a hostile rule id in a cloned repo must not be able to run script.
+- `syncytium clean` deletes only files carrying the Syncytium banner. A user's
+  own `.cursor/rules/my-rule.mdc` is never touched.
+- MCP tool inputs are validated with zod before they reach the engine.
+- Never log or echo secrets, tokens or full file contents to stdout: stdout is
+  the MCP JSON-RPC transport.
 
 ---
 
@@ -66,9 +147,19 @@ When adding or updating adapters in `src/adapters/`:
 
 ### 🤝 Live Handoff Status
 - **Active Agent:** `Antigravity` (Next: `Any`)
-- **Status:** `IN_PROGRESS`
-- **Current Goal:** Release v0.1.7: 3D WebGL knowledge galaxy, physics sleep mode, compact view, and resilient npm publishing
+- **Status:** `READY_FOR_REVIEW`
+- **Current Goal:** Release v0.2.0: correctness, security and extensibility release
 - **Pending Tasks:**
-  - [ ] Run npm run release to publish v0.1.7 to NPM
-  - [ ] Commit and push to GitHub repository
-- **Notes:** SyncytiumMD is now dogfooded within its own repository. Run syncytium graph to view the live knowledge graph.
+  - [ ] Run npm run release to publish v0.2.0
+  - [ ] Commit and push the regenerated bridge files
+- **Recently Touched:**
+  - `.syncytium/architecture.md`
+  - `.syncytium/memory/decisions.md`
+  - `.syncytium/rules/adapter-standards.md`
+  - `.syncytium/HANDOFF.md`
+  - `src/core/paths.ts`
+  - `src/core/schemas.ts`
+  - `src/core/diff.ts`
+  - `src/ui/markdown.ts`
+- **Notes:** Typecheck, build and 114/114 tests are green. The two known follow-ups are the r128 Three.js CDN pin and the read-only Dockerfile entrypoint.
+- **Last Updated:** 2026-09-26T12:21:37.449Z

@@ -2,272 +2,221 @@
 
 # 🧬 SyncytiumMD
 
-### The Universal Context Engine & Multi-Agent Handoff Protocol for AI-Assisted Development
+**One context. Every AI coding tool. Zero copy-paste.**
 
-[![NPM Version](https://img.shields.io/npm/v/syncytium-md?color=6366f1&style=for-the-badge&logo=npm)](https://www.npmjs.com/package/syncytium-md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge)](CONTRIBUTING.md)
-[![Node Version](https://img.shields.io/badge/Node.js-%3E%3D18.0.0-339933?style=for-the-badge&logo=node.js)](package.json)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript)](tsconfig.json)
-[![Architecture](https://img.shields.io/badge/Architecture-Zero--Budget%20Engineered-orange?style=for-the-badge)](architecture.md)
+[![npm](https://img.shields.io/npm/v/syncytium-md)](https://www.npmjs.com/package/syncytium-md)
+[![CI](https://github.com/mrcbrbn5361/SyncytiumMD/actions/workflows/syncytium.yml/badge.svg)](https://github.com/mrcbrbn5361/SyncytiumMD/actions/workflows/syncytium.yml)
+[![Node](https://img.shields.io/badge/node-%3E%3D22.6.0-5FA04E)](https://nodejs.org)
+[![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
-<p align="center">
-  <b>Unify fragmented rulebases across Cursor, Claude Code, GitHub Copilot, Cline, and Antigravity into a single canonical brain — complete with lease-based collision locks, baton-passing handoffs, and an interactive 3D WebGL knowledge galaxy.</b>
-</p>
-
-[Quick Start](#-quick-start) • [Why SyncytiumMD?](#-the-problem-context-fragmentation--agent-collisions) • [Key Architecture](#-core-features) • [3D Galaxy View](#-3d-visual-knowledge-galaxy) • [API Grant Request](#-open-call-for-api-grants--research-sponsorship)
+[English](./README.md) · [Türkçe](./README.tr.md)
 
 </div>
 
 ---
 
-> [!IMPORTANT]
-> **What is a "Syncytium"?**  
-> In biology, a *syncytium* is a single multinucleated cell formed by the fusion of multiple cells, allowing shared cytoplasm and coordinated pulses of action. **SyncytiumMD** applies this biological paradigm to software engineering: fusing fragmented AI coding agents into a single, cohesive, collision-free nervous system.
+## The problem
 
----
+You use **Cursor** at work, **Claude Code** in the terminal, **Copilot** in
+pull requests, and three CLI agents on CI. Each one wants its own instruction
+file. So you maintain four copies of the same rules, they drift, and no agent
+knows what the others did yesterday.
 
-## 🌪️ The Problem: Context Fragmentation & Agent Collisions
+## The idea
 
-Modern engineering teams rarely use a single AI tool. Developers switch between **Cursor** for inline completions, **Claude Code** for large-scale CLI terminal refactors, **GitHub Copilot** inside VSCode/JetBrains, **Cline/Roo Code** for autonomous iterations, and **Antigravity** for complex multi-step reasoning.
-
-This multi-agent reality introduces three critical points of failure:
-
-1. **Fragmented Rules & Context Drift:** Canonical guidelines are scattered across `.cursorrules`, `CLAUDE.md`, `.clinerules`, and `.github/copilot-instructions.md`. Updating a standard in one file leaves other agents working on stale, contradictory rules.
-2. **Multi-Agent Race Conditions:** When multiple autonomous agents (or human-agent pairs) operate on the same repository concurrently, they overwrite each other’s work with zero lease awareness or lock coordination.
-3. **Black-Box Architectural Memory:** Architecture Decision Records (ADRs) and ongoing task states remain invisible to the developer, leading to duplicated reasoning tokens and redundant LLM API calls.
+Keep the rules **once**, in `.syncytium/`, and *transpile* them into every
+tool's native format.
 
 ```
-❌ WITHOUT SYNCYTIUM-MD (Fragmented Chaos)
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│ .cursorrules │     │  CLAUDE.md   │     │  .clinerules │
-└──────┬───────┘     └──────┬───────┘     └──────┬───────┘
-       │ (Stale)            │ (Out of Sync)      │ (Conflicting)
-       ▼                    ▼                    ▼
-   [Cursor AI]         [Claude Code]          [Cline]
-       │                    │                    │
-       └───────────┬────────┴────────────────────┘
-                   ▼
-       💥 Race Conditions & Overwritten Commits
-
-─────────────────────────────────────────────────────────────
-
-✅ WITH SYNCYTIUM-MD (Single Source of Truth)
-            ┌─────────────────────────────┐
-            │   .syncytium/ (The Brain)   │
-            │  Rules • ADRs • Live Lock   │
-            └──────────────┬──────────────┘
-                           │ ⚡ Bidirectional Sync (Transpiler)
-         ┌─────────────────┼─────────────────┐
-         ▼                 ▼                 ▼
-   ┌───────────┐     ┌───────────┐     ┌───────────┐
-   │  Cursor   │     │Claude Code│     │Copilot/MCP│
-   └───────────┘     └───────────┘     └───────────┘
-         │                 │                 │
-         └─────────► [Lease-Based Lock] ◄────┘
-                  Zero Collisions & Full State Transfer
+.syncytium/          canonical, human-authored, git-tracked
+  rules/*.md         code style, security, testing, architecture, …
+  memory/decisions.md  ADRs — why the project is the way it is
+  HANDOFF.md         live agent baton: who has it, what's next
+        │
+        │  syncytium sync
+        ▼
+CLAUDE.md   AGENTS.md   GEMINI.md   AGENT.md   CONVENTIONS.md
+.cursorrules   .clinerules   .roomodes   .windsurfrules   .traerules
+.cursor/rules/*.mdc          .gemini/antigravity/rules/*.md
+.github/copilot-instructions.md + .github/instructions/*.instructions.md
 ```
 
----
+Every generated file carries a banner saying where it came from, and
+`syncytium diff --check` fails your CI if any of them drift. `syncytium clean`
+removes only banner-tagged files — your hand-written rules are never touched.
 
-## ⚡ Core Features
-
-### 1. 🔄 Bi-Directional Canonical Transpiler
-Store your engineering standards, formatting guidelines, and security policies once inside `.syncytium/rules/` as clean, frontmatter-enriched Markdown. SyncytiumMD automatically transpiles and distributes compliant formats across:
-- **Cursor** (`.cursor/rules/*.mdc` & `.cursorrules`)
-- **Claude Code** (`CLAUDE.md`)
-- **GitHub Copilot** (`.github/copilot-instructions.md`)
-- **Cline / Roo Code** (`.clinerules`)
-- **Google Antigravity** (`.gemini/antigravity/rules/*.md`)
-- **Windsurf** (`.windsurfrules`)
-- **Trae** (`.traerules`)
-- **OpenCode** (`AGENT.md` & `CONVENTIONS.md`)
-
-### 2. 🔒 Lease-Based Multi-Agent Collision Lock (`syncytium lock`)
-Prevents concurrent agents from destroying active work in progress:
-- **Time-Bounded Leases:** Acquire an exclusive execution lock for a specified duration (e.g., 30–60 min).
-- **Auto-Expiration:** If an agent or session dies unexpectedly, locks expire safely without blocking the repository indefinitely.
-- **Audit Traceability:** Inspect lock states, active goals, and session owners in real-time.
+## Quick start
 
 ```bash
-# Acquire lock before autonomous execution
-npx syncytium lock acquire --agent ClaudeCode --goal "Refactoring Auth Middleware" --lease 45
-
-# Verify lock status
-npx syncytium lock status
-
-# Safe release upon task completion
-npx syncytium lock release --agent ClaudeCode
+npx syncytium init          # scaffold .syncytium/ (stack auto-detected)
+npx syncytium sync          # generate every bridge file
+npx syncytium graph         # open the 3D knowledge graph in your browser
 ```
 
-### 3. 🤝 The Baton Protocol: Structured Multi-Agent Handoff (`syncytium handoff`)
-Pass live tasks, touchsets, and operational context seamlessly between distinct LLM architectures:
-- **CLI & Interactive TUI:** Run `syncytium handoff -i` for an intuitive terminal prompt wizard.
-- **Top-of-Chat Injection:** Generates active handoff state directly injected into the target tool's prompt buffer.
-- **Milestone History:** Maintains an append-only JSON audit trail of task transitions, completed subtasks, and architectural deviations.
+Requires **Node.js 22.6+**. No global install needed; `npx` works.
 
-### 4. 🌌 Obsidian Studio & 3D Celestial Galaxy (`syncytium graph`)
-Visualizes and inspects your entire engineering topology as an interactive Obsidian-like dual-pane studio with a 3D WebGL celestial galaxy:
-- **Obsidian Vault Explorer (Left Pane):** Hierarchical, collapsible folder tree grouping the canonical `.syncytium/` vault (`rules/`, `memory/` ADRs, `architecture.md`, `HANDOFF.md`) and multi-tool adapters neatly categorized into **IDEs**, **CLIs**, and **VSCode Extensions**. Selecting any file immediately flies the camera to the node and displays its documentation.
-- **3D Celestial WebGL Galaxy (Center Pane):** Powered by Three.js with bounded Coulomb repulsion, velocity damping, and sleep-mode physics (0% CPU when settled).
-- **Obsidian Markdown Inspector (Right Pane):** Renders full Markdown documents with live syntax highlighting, frontmatter metadata tags, connected brain node pills, and provenance badges (`🧠 Canonical Source of Truth (.syncytium)` vs `⚡ Transpiled from .syncytium/`).
-- **Multi-Tool Perspective Switcher:** One-click instant isolation between:
-  - `🌌 Universal Brain` — Entire multi-agent ecosystem.
-  - `🖥️ IDEs` — Cursor, Windsurf, Trae.
-  - `⌨️ CLIs` — Claude Code, Google Antigravity, OpenCode.
-  - `🧩 VSCode Extensions` — GitHub Copilot, Cline / Roo Code.
-  - `📜 Core Vault (.syncytium)` — Pure canonical source of truth.
-- **Live SSE Sync:** Modifying any rule or handoff on disk updates both the 3D space and markdown document studio in real-time without browser reload.
+## What you get
 
-### 5. 🛠️ Autonomous MCP Server (`syncytium-mcp`)
-Native Model Context Protocol integration exposing headless endpoints to agents like Claude Desktop, Cursor, or Cline:
-- `syncytium_get_context`: Query rules, architecture, and current handoff state.
-- `syncytium_handoff`: Programmatically yield control to the next agent.
-- `syncytium_record_decision`: Auto-commit ADRs directly from chat conversations.
-- `syncytium_get_graph`: Fetch topological knowledge graph data as structured JSON.
-- `syncytium_diff`: Verify context drift between target bridge files and canonical storage.
+| | |
+|---|---|
+| **10 built-in adapters** | Cursor, Claude Code, GitHub Copilot, Cline/Roo, Antigravity, Windsurf, Trae, OpenCode, **AGENTS.md**, **GEMINI.md** |
+| **Stack-aware starters** | TypeScript, JavaScript, Python, Go, **Rust**, Java, Kotlin, PHP, Ruby, .NET, Swift, Elixir, generic |
+| **Multi-agent safety** | A lease-based workspace lock with heartbeat, a handoff baton, and a 100-entry audit trail |
+| **Drift detection** | Real unified diffs, orphan detection, and a `--check` flag that actually exits non-zero |
+| **Live 3D graph** | WebGL knowledge cosmos, vault explorer, Markdown document reader — bound to `127.0.0.1` |
+| **MCP server** | 18 tools with zod-validated inputs and token-budgeted output |
+| **CI + git hooks** | `syncytium ci` and `syncytium hook install` both gate on zero drift |
+| **`--json` everywhere** | Every command emits machine-readable output for agents and CI |
 
----
+## Commands
 
-## 📐 Architecture & Directory Structure
+Run `syncytium --help` for the full list.
 
-SyncytiumMD treats the filesystem as an immutable database and git as a decentralized transport layer:
+### Context
 
-```
-my-project/
-├── .syncytium/                     # 🧠 Single Source of Truth
-│   ├── syncytium.config.json       # Project-wide adapter configurations
-│   ├── architecture.md             # High-level architecture & stack boundaries
-│   ├── HANDOFF.md                  # Live handoff state (active agent, goal, files)
-│   ├── rules/                      # Canonical Markdown Rules
-│   │   ├── code-style.md           # Enforced naming, typing & formatting
-│   │   ├── security.md             # Secret sanitation, authentication rules
-│   │   └── testing-standards.md    # Coverage & test execution guidelines
-│   └── memory/
-│       ├── decisions.md            # Lightweight Architectural Decision Records (ADR)
-│       ├── lock.json               # Active agent lease lock metadata
-│       └── handoff-history.json    # Append-only multi-agent audit trail
-│
-├── .syncytiumignore                 # Selective ignore manifest for generated files
-│
-├── .cursor/rules/*.mdc             # ⚡ Auto-generated by SyncytiumMD
-├── CLAUDE.md                       # ⚡ Auto-generated by SyncytiumMD
-├── .clinerules                     # ⚡ Auto-generated by SyncytiumMD
-└── .github/copilot-instructions.md # ⚡ Auto-generated by SyncytiumMD
-```
+| Command | What it does |
+|---|---|
+| `init [name]` | Scaffold `.syncytium/`. `--template <stack>`, `--force` |
+| `sync` | Regenerate all bridge files. `-t/--target`, `--no-prune`, `-f/--force` |
+| `watch` | Auto-sync on every change. `-a/--agent` also holds and renews the lock |
+| `diff` | Show drift with real patches. **`--check`** exits 1 in CI, `--full` for complete hunks |
+| `doctor` | 11 health checks, each with an actionable `fix:` hint. `--strict` |
+| `lint` | Validate rules, frontmatter and ADR schema. `--fix` heals kebab-case and missing titles |
+| `validate` | Validate `syncytium.config.json` and every rule against the schema. `--fix` |
+| `clean` | Delete only banner-tagged files. `--dry-run` |
+| `export` | One portable Markdown bundle you can paste anywhere. `--html`, `--max-rule-chars` |
+| `import` | Reverse-migrate existing `CLAUDE.md`, `.cursorrules`, … into `.syncytium/`. `--dry-run` |
+| `adapters` | List every registered adapter and its targets |
+| `status` | One-screen project + handoff + lock summary |
 
----
+### Rules & decisions
 
-## 🚀 Quick Start
-
-Get up and running in your repository in under 60 seconds:
-
-### 1. Initialize Canonical Brain
 ```bash
-# Detects your technology stack (TypeScript, Python, Go, Rust) automatically:
-npx syncytium init
+syncytium rules [query]                       # search the catalog
+syncytium rule add --title "..." --body "..." # add a canonical rule
+syncytium rule show <id>                      # inspect one
+syncytium rule update <id> --body-file x.md   # edit in place
+syncytium rule remove <id>                    # delete + prune generated files
+
+syncytium adr list                            # architectural decisions
+syncytium adr add --title "..." --context "..." \
+                  --decision "..." --consequences "..."
+syncytium adr show ADR-006
+syncytium adr remove ADR-006
 ```
 
-### 2. Synchronize Bridge Files
+### Multi-agent coordination
+
 ```bash
-# Transpiles canonical rules to all active AI tool files across your project:
-npx syncytium sync
+syncytium lock acquire --agent "Cursor" --goal "Refactor auth"
+syncytium lock heartbeat --agent "Cursor"    # extend the lease
+syncytium lock status
+syncytium lock release --agent "Cursor"
+
+syncytium handoff -i                          # interactive wizard
+syncytium handoff --from "Cursor" --to "Claude" \
+  -s ready_for_review -g "Ship v1" -d "…" -t "…"
+syncytium log -n 20                           # baton audit trail
 ```
 
-### 3. Launch Obsidian Studio & 3D Knowledge Galaxy
+### Guards
+
 ```bash
-# Opens the interactive Obsidian Studio & 3D WebGL visualizer on http://localhost:3737:
-npx syncytium graph
-
-# Isolate specific tool perspectives directly from the CLI:
-npx syncytium graph --category ide        # Focus on Cursor, Windsurf, Trae
-npx syncytium graph --category cli        # Focus on Claude Code, Antigravity, OpenCode
-npx syncytium graph --category extension  # Focus on GitHub Copilot, Cline
-npx syncytium graph --category brain      # Focus on canonical .syncytium/ vault
-
-# Ultra-fast compact mode for large repositories:
-npx syncytium graph --compact
+syncytium hook install      # block commits on drift
+syncytium hook install --auto-sync   # or just re-sync on every commit
+syncytium ci                # .github/workflows/syncytium.yml drift gate
+syncytium ci --force        # regenerate an existing workflow
 ```
 
-### 4. Continuous Guardrails & CI
+### Knowledge graph
+
 ```bash
-# Validate rule schema and heal frontmatter issues:
-npx syncytium lint --fix
-
-# Install pre-commit hook to prevent context drift:
-npx syncytium hook install
-
-# Generate GitHub Actions CI workflow:
-npx syncytium ci
+syncytium graph                        # 3D WebGL cosmos + vault explorer
+syncytium graph --category ide         # isolate IDE adapters
+syncytium graph --compact              # hide file and tag nodes
+syncytium graph --no-open --port 4000
 ```
 
----
+The server binds to `127.0.0.1` and rejects non-loopback `Host` headers
+(DNS-rebinding guard). It refuses to serve `.env*`, `*.pem`, `*.key`, `.git/**`
+and other in-root secrets.
 
-## 💡 Engineering Under Zero Budget: Our Philosophy
+### MCP
 
-SyncytiumMD is intentionally engineered with **zero external runtime dependencies for its core servers**, prioritizing performance, longevity, and sustainability:
+```jsonc
+{
+  "mcpServers": {
+    "syncytium": {
+      "command": "npx",
+      "args": ["-y", "syncytium-mcp"],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}
+```
 
-- **Ultra-Lightweight Footprint:** Built on native Node.js APIs (`node:http`, `node:readline/promises`, `node:fs/promises`).
-- **No Heavy Middlewares:** Zero Express, Nest, or heavy Docker containers required to run the local UI, linter, or MCP bridge.
-- **Free-Tier Resilient:** Optimized to run within standard developer workstations and resource-constrained CI environments without incurring cloud infrastructure bills.
+Or `syncytium mcp` if you already have the CLI installed. Tools include
+`syncytium_get_context`, `syncytium_handoff`, `syncytium_create_rule`,
+`syncytium_update_rule`, `syncytium_remove_rule`, `syncytium_record_decision`,
+`syncytium_sync`, `syncytium_diff`, `syncytium_doctor`, `syncytium_validate`,
+`syncytium_lock_acquire/release/status`, `syncytium_get_graph` and more.
+Every input is zod-validated; every output is summarised rather than dumped.
 
----
+## `.syncytiumignore`
 
-## 🤝 Open Call for API Grants & Research Sponsorship
+Excludes generated targets from both `sync` and `diff`. Full gitignore syntax,
+including `**`, `?`, directory-only patterns and `!` negation:
 
-> [!NOTE]
-> ### 📢 Dear AI Foundations, Model Providers & Developer Tools Teams:
-> **(OpenAI, Anthropic, Groq, OpenRouter, Mistral, Google DeepMind, Cohere)**
->
-> SyncytiumMD is an independent, community-driven open-source initiative developed by engineers dedicated to solving the real-world fragmentation of the AI coding ecosystem.
->
-> **We are NOT asking for cash donations or venture equity.**  
->
-> To push this project to its next frontier, we are seeking **API Token Grants and Model Evaluation Credits**:
-> - **Multi-Agent Collision Benchmarking:** Stress-testing autonomous handoffs across hundreds of concurrent turns between different models (e.g., Claude 3.7 Sonnet, GPT-4.5, DeepSeek-R1, and ultra-fast inference via Groq).
-> - **Self-Healing Linter Accuracy:** Fine-tuning and verifying rule repair routines across diverse multilingual codebases (TypeScript, Python, Go, Rust, C++).
-> - **Context Drift Prevention Metrics:** Developing automated testbeds to quantify context degradation during multi-agent session transfers.
->
-> If your organization provides developer grants, startup credits, or open-source research sponsorships, your support will directly fund our automated evaluation runners and benchmark testbeds.
->
-> **Contact:** [Reach out via GitHub Issues](https://github.com/mrcbrbn5361/SyncytiumMD/issues) or directly via LinkedIn: [linkedin.com/in/mrcbrbn5361](https://www.linkedin.com/in/mrcbrbn5361).
+```
+# Don't manage these tools
+.cursorrules
+.github/instructions/
 
----
+# Except this one
+!.github/instructions/keep.md
+```
 
-## 🗺️ Roadmap
+## Custom adapters
 
-- [x] Canonical Rules Transpiler (8+ AI coding adapters)
-- [x] Lease-based Multi-Agent Collision Lock (`syncytium lock`)
-- [x] Interactive Terminal Handoff Wizard (`syncytium handoff -i`)
-- [x] Full Model Context Protocol (MCP) Autonomous Server
-- [x] 3D WebGL Force-Directed Knowledge Galaxy (`syncytium graph`)
-- [x] Automated CI Pipeline Generator (`syncytium ci`)
-- [ ] **v0.2.0:** Extended Adapters: Continue.dev, Zed, OpenHands, Goose, Amazon Q, Void
-- [ ] **v0.2.1:** Semantic Vector Search over ADRs and Canonical Rules
-- [ ] **v0.3.0:** Distributed Agent Lock Protocol over Git Remote Reflocks
+Declare any tool in `syncytium.config.json` — no code required:
 
----
+```jsonc
+{
+  "customAdapters": [
+    {
+      "id": "zed",
+      "name": "Zed",
+      "targetFile": ".rules/zed.md",
+      "includeHandoff": true,
+      "includeArchitecture": true
+    }
+  ],
+  "enabledAdapters": ["cursor", "claude", "zed"]
+}
+```
 
-## 👥 Contributing
+## Library usage
 
-We welcome community contributions from developers, researchers, and prompt engineers!
+```ts
+import { SyncytiumEngine } from 'syncytium-md';
 
-1. Fork the repository: `https://github.com/mrcbrbn5361/SyncytiumMD`
-2. Create your feature branch: `git checkout -b feat/my-new-adapter`
-3. Commit your changes: `git commit -m 'feat: add adapter for X'`
-4. Verify all tests pass: `npm test`
-5. Push to the branch: `git push origin feat/my-new-adapter`
-6. Open a Pull Request!
+const engine = new SyncytiumEngine(process.cwd());
+await engine.sync();
+const { hasDrift, summary } = await engine.diff();
+const graph = await engine.getKnowledgeGraph({ category: 'ide' });
+```
 
----
+## Development
 
-## 📄 License
+```bash
+npm install
+npm run verify      # typecheck -> build -> 114 tests
+```
 
-SyncytiumMD is open-source software licensed under the **MIT License**.  
-Free for individual developers, open-source contributors, and commercial enterprise engineering teams.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) and
+[`.syncytium/architecture.md`](./.syncytium/architecture.md).
 
----
+## License
 
-<div align="center">
-  <sub>Engineered with precision for the next generation of autonomous multi-agent software development.</sub>
-</div>
+MIT © [Miraç Birben](https://github.com/mrcbrbn5361)

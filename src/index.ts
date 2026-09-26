@@ -1,3 +1,23 @@
+export * from './version.js';
+
+// Runtime validators. The derived TypeScript types are re-exported from
+// ./core/types.js, so they are deliberately not star-exported here.
+export {
+  CONFIG_SCHEMA_VERSION,
+  SyncytiumConfigSchema,
+  CustomAdapterSchema,
+  RuleFrontmatterSchema,
+  MemoryDecisionSchema,
+  DecisionStatusSchema,
+  HandoffStateSchema,
+  HandoffStatusSchema,
+  SyncytiumLockSchema,
+  StackSchema,
+  flattenZodError
+} from './core/schemas.js';
+
+export * from './core/paths.js';
+export * from './core/diff.js';
 export * from './core/types.js';
 export * from './core/storage.js';
 export * from './core/templates.js';
@@ -12,5 +32,9 @@ export * from './adapters/builtin/antigravity.js';
 export * from './adapters/builtin/windsurf.js';
 export * from './adapters/builtin/trae.js';
 export * from './adapters/builtin/opencode.js';
+export * from './adapters/builtin/agents.js';
+export * from './adapters/builtin/gemini.js';
 export * from './adapters/builtin/generic.js';
+export * from './ui/markdown.js';
+export * from './ui/template.js';
 export * from './mcp/server.js';
