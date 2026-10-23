@@ -1,8 +1,8 @@
 ---
-activeAgent: Antigravity
+activeAgent: opencode
 nextAgent: Any
 status: ready_for_review
-goal: 'Release v0.2.0: correctness, security and extensibility release'
+goal: v0.2.2 verification and repository hygiene
 completedWork:
   - >-
     Implemented embedded Knowledge Graph UI server (syncytium graph / syncytium
@@ -33,9 +33,10 @@ completedWork:
   - 'Added AGENTS.md, GEMINI.md, Copilot path instructions and Roo Code adapters'
   - Replaced substring ignore matching with a real gitignore glob engine
   - Grew the suite from 22 to 114 tests covering every regression above
+  - npm run verify passes (119/119 tests)
+  - 'Repository paths, adapters and UI security hardening reviewed'
 pendingTasks:
-  - Run npm run release to publish v0.2.0
-  - Commit and push the regenerated bridge files
+  - No pending release tasks
 touchedFiles:
   - package.json
   - src/core/types.ts
@@ -53,20 +54,25 @@ touchedFiles:
   - src/core/schemas.ts
   - src/core/diff.ts
   - src/ui/markdown.ts
+  - .gitignore
+  - README.md
+  - README.tr.md
+  - .gitattributes
+  - src/core/storage.ts
 contextNotes: >-
-  Typecheck, build and 114/114 tests are green. The two known follow-ups are the
-  r128 Three.js CDN pin and the read-only Dockerfile entrypoint.
-lastUpdated: '2026-09-26T12:21:37.449Z'
+  Generated tool-output directories and local .mcp.json are ignored; MCP
+  hardening documented.
+lastUpdated: '2026-10-23T17:41:11.036Z'
 ---
 # 🤝 Syncytium Handoff & Live State
 
-> **Active Agent:** `Antigravity`  
-> **Next Recommended Agent:** `Any`  
-> **Status:** `READY_FOR_REVIEW`  
-> **Last Updated:** `2026-09-26T12:21:37.449Z`
+> **Active Agent:** `opencode`
+> **Next Recommended Agent:** `Any`
+> **Status:** `READY_FOR_REVIEW`
+> **Last Updated:** `2026-10-23T17:41:11.036Z`
 
 ## 🎯 Current Goal
-Release v0.2.0: correctness, security and extensibility release
+v0.2.2 verification and repository hygiene
 
 ## ✅ Completed in Recent Turns
 - Implemented embedded Knowledge Graph UI server (syncytium graph / syncytium ui)
@@ -86,10 +92,11 @@ Release v0.2.0: correctness, security and extensibility release
 - Added AGENTS.md, GEMINI.md, Copilot path instructions and Roo Code adapters
 - Replaced substring ignore matching with a real gitignore glob engine
 - Grew the suite from 22 to 114 tests covering every regression above
+- npm run verify passes (119/119 tests)
+- Repository paths, adapters and UI security hardening reviewed
 
 ## 📋 Pending Tasks (Next Agent Action Items)
-- [ ] Run npm run release to publish v0.2.0
-- [ ] Commit and push the regenerated bridge files
+- [ ] No pending release tasks
 
 ## 📂 Recently Touched Files
 - `package.json`
@@ -108,6 +115,11 @@ Release v0.2.0: correctness, security and extensibility release
 - `src/core/schemas.ts`
 - `src/core/diff.ts`
 - `src/ui/markdown.ts`
+- `.gitignore`
+- `README.md`
+- `README.tr.md`
+- `.gitattributes`
+- `src/core/storage.ts`
 
 ## 🧠 Context & Handoff Notes for Next Agent
-Typecheck, build and 114/114 tests are green. The two known follow-ups are the r128 Three.js CDN pin and the read-only Dockerfile entrypoint.
+Generated tool-output directories and local .mcp.json are ignored; MCP hardening documented.

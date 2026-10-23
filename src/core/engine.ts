@@ -10,9 +10,9 @@ import { CI_WORKFLOW_TEMPLATE, BANNER_MARKER, normalizeStack } from './templates
 import { SyncytiumStorage, omitUndefined } from './storage.js';
 import { AdapterRegistry } from '../adapters/registry.js';
 import { renderGraphHtml } from '../ui/template.js';
-import { stripPreservedSection } from '../adapters/base.js';
+import { stripExternalPluginBlocks, stripPreservedSection } from '../adapters/base.js';
 import { createUnifiedDiff, summarizeDiff } from './diff.js';
-import { isIgnored, slugify, toPosix, isInsideRoot } from './paths.js';
+import { isIgnored, slugify, toPosix, isInsideRoot, MAX_MANAGED_SCAN_DEPTH } from './paths.js';
 import {
   MemoryDecisionSchema,
   RuleFrontmatterSchema,
@@ -221,7 +221,7 @@ export class SyncytiumEngine {
     out: string[],
     depth: number
   ): Promise<void> {
-    if (depth > 4) return;
+    if (depth > MAX_MANAGED_SCAN_DEPTH) return;
     let entries: string[];
     try {
       entries = await fs.readdir(dir);
@@ -386,10 +386,13 @@ export class SyncytiumEngine {
         const diskContent = await fs.readFile(diskPath, 'utf-8');
         // A preserved user section is intentionally absent from the generated
         // content, so it must be excluded from the comparison or it would read
-        // as permanent drift. Trailing blank lines are likewise not meaningful.
+        // as permanent drift. The same holds for harness-injected
+        // `vi3ecode:plugin` blocks, which `sync` preserves verbatim on disk.
+        // Trailing blank lines are likewise not meaningful.
+        const withoutExternal = stripExternalPluginBlocks(diskContent);
         const comparableDisk = config.options.preserveCustomSections
-          ? stripPreservedSection(diskContent).replace(/\s+$/, '')
-          : diskContent;
+          ? stripPreservedSection(withoutExternal).replace(/\s+$/, '')
+          : withoutExternal.replace(/\s+$/, '');
         const result = createUnifiedDiff(
           genFile.relativePath,
           comparableDisk,
@@ -598,7 +601,7 @@ export class SyncytiumEngine {
         checks.push({
           id: 'drift',
           name: 'Bridge Files Status',
-          status: s.modified + s.missingOnDisk > 0 ? 'warn' : 'warn',
+          status: s.modified + s.missingOnDisk > 0 ? 'error' : 'warn',
           message: `${s.modified} modified, ${s.missingOnDisk} missing, ${s.unmanaged} orphaned, ${s.identical} in sync.`,
           detail: 'Run `syncytium sync` to synchronize bridge files and prune orphans.',
           fix: 'syncytium sync'
@@ -1054,10 +1057,12 @@ export class SyncytiumEngine {
 
   async clean(adapterFilter?: string[]): Promise<string[]> {
     const config = await this.storage.loadConfig();
-    const targets =
-      adapterFilter && adapterFilter.length > 0
-        ? adapterFilter
-        : await this.resolveAdapters(config);
+    // Custom adapters must be registered so their targets are covered too.
+    this.registry.applyConfig(config);
+    // No filter means every registered adapter — including disabled ones —
+    // so leftovers from a previously-enabled adapter are still removed.
+    // Only banner-tagged files are ever deleted, so the wider scope is safe.
+    const targets = adapterFilter && adapterFilter.length > 0 ? adapterFilter : undefined;
     return this.registry.cleanManagedFiles(this.storage.rootDir, targets);
   }
 
@@ -2136,7 +2141,7 @@ fi
           const resolvedRoot = path.resolve(this.storage.rootDir);
           const fullPath = path.resolve(resolvedRoot, normalizedInput);
 
-          if (!isInsideRoot(resolvedRoot, path.resolve(fullPath))) {
+          if (!isInsideRoot(resolvedRoot, fullPath)) {
             res.writeHead(403, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Access denied outside workspace root' }));
             return;

@@ -10,23 +10,22 @@
 > Source of truth: `.syncytium/` - edit that, then run `syncytium sync`.
 
 ### 🤝 Live Handoff Status
-- **Active Agent:** `Antigravity` (Next: `Any`)
+- **Active Agent:** `opencode` (Next: `Any`)
 - **Status:** `READY_FOR_REVIEW`
-- **Current Goal:** Release v0.2.0: correctness, security and extensibility release
+- **Current Goal:** v0.2.2 verification and repository hygiene
 - **Pending Tasks:**
-  - [ ] Run npm run release to publish v0.2.0
-  - [ ] Commit and push the regenerated bridge files
+  - [ ] No pending release tasks
 - **Recently Touched:**
-  - `.syncytium/architecture.md`
-  - `.syncytium/memory/decisions.md`
-  - `.syncytium/rules/adapter-standards.md`
-  - `.syncytium/HANDOFF.md`
-  - `src/core/paths.ts`
   - `src/core/schemas.ts`
   - `src/core/diff.ts`
   - `src/ui/markdown.ts`
-- **Notes:** Typecheck, build and 114/114 tests are green. The two known follow-ups are the r128 Three.js CDN pin and the read-only Dockerfile entrypoint.
-- **Last Updated:** 2026-09-26T12:21:37.449Z
+  - `.gitignore`
+  - `README.md`
+  - `README.tr.md`
+  - `.gitattributes`
+  - `src/core/storage.ts`
+- **Notes:** Generated tool-output directories and local .mcp.json are ignored; MCP hardening documented.
+- **Last Updated:** 2026-10-23T17:41:11.036Z
 
 
 ---
@@ -49,7 +48,7 @@ visual knowledge graph.
 
 ## Technology Stack
 
-- **Runtime:** Node.js 22.6+ (ESM, required by `node --experimental-strip-types`)
+- **Runtime:** Node.js 20+ (ESM, build-first; tests run from `dist-tests/`)
 - **Language:** TypeScript, `strict` plus `noUnusedLocals`,
   `noUnusedParameters`, `noImplicitOverride`, `noImplicitReturns`,
   `verbatimModuleSyntax`
@@ -107,7 +106,7 @@ produces any more. `diff` compares content and reports `identical`, `modified`
 ## Directory Layout
 
 - `src/` — source code and adapters
-- `tests/syncytium.test.ts` — 114 tests, run by `node --experimental-strip-types --test`
+- `tests/syncytium.test.ts` — 118 tests, build-first (`npm run build && tsc -p tsconfig.tests.json && node --test dist-tests/*.test.js`)
 - `scripts/release.mjs` — verify → publish → CDN-poll → global install
 - `.syncytium/` — single source of truth
   - `rules/` — canonical, stack-aware rules
@@ -183,7 +182,7 @@ A change is not done until all of these pass locally:
 ```bash
 npm run typecheck   # tsc --noEmit over src/ and tests/
 npm run build       # tsup, ESM + .d.ts
-npm test            # 114 tests, node --experimental-strip-types
+npm test            # 118 tests, build-first + dist-tests (Node 20+)
 npm run verify      # all three, in order
 ```
 

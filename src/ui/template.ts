@@ -7,6 +7,15 @@ import { escapeHtml, renderMarkdownToHtml } from './markdown.js';
 
 export { escapeHtml, renderMarkdownToHtml };
 
+/** Pinned Three.js CDN URL (UMD build, exposes global `THREE`). */
+// r128 -> 0.149.0: last UMD three.min.js before the r150+ deprecation of
+// non-module builds, so the global-THREE code below keeps working.
+export const THREE_CDN_URL =
+  'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.149.0/three.min.js';
+/** SRI hash for THREE_CDN_URL, from the cdnjs API (tamper-evident CDN load). */
+export const THREE_CDN_INTEGRITY =
+  'sha512-6p9lGA4Cm89KiwN1CixiOVQU2H9e13LeYoN6/Hj/qoUhtrMW5vNiqQz9Z96Z7/I8u89ghL6SPBz9na5HFVzF3g==';
+
 /** Escapes a value interpolated into the served HTML document. */
 export function escapeHtmlAttribute(value: string): string {
   return String(value ?? '')
@@ -57,7 +66,7 @@ export function renderGraphHtml(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🧠 SyncytiumMD Obsidian Studio &amp; 3D Galaxy - ${safeProjectName}</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="${THREE_CDN_URL}" integrity="${THREE_CDN_INTEGRITY}" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <style>
     :root {
       --bg-dark: #07090e;
@@ -395,6 +404,22 @@ export function renderGraphHtml(
       top: 0;
       left: 0;
     }
+    /* Offline fallback: replaces the black canvas when the CDN/WebGL is down. */
+    .webgl-fallback {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-align: center;
+      padding: 24px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    .webgl-fallback strong { color: #fff; }
 
     /* HUD Overlay Controls */
     .hud-controls {
@@ -1025,6 +1050,18 @@ export function renderGraphHtml(
     function hideFatal() {
       const loader = document.getElementById('loader-overlay');
       if (loader) loader.remove();
+    }
+
+    // Offline/CDN failure fallback: the loader overlay is removed once data
+    // loads, so a persistent notice must live inside the canvas box itself.
+    // Without this the viewport stays a permanently black canvas.
+    function showWebglFallback(message) {
+      const box = document.getElementById('webgl-canvas-box');
+      if (!box) return;
+      box.innerHTML =
+        '<div class="webgl-fallback"><strong>🌌 3D galaxy unavailable</strong>' +
+        '<span>' + escapeHtml(message) + '</span>' +
+        '<span style="font-size:0.75rem;color:var(--text-dim)">Vault explorer and document studio keep working.</span></div>';
     }
 
     function createStarfield() {
@@ -2002,6 +2039,11 @@ ${[escapeHtml.toString(), renderMarkdownToHtml.toString()].join('\n').split('\n'
         buildVaultTree();
         updateHud();
         hideFatal();
+        // The loader is gone now, so re-assert the canvas fallback when the
+        // CDN script (SRI-blocked or offline) never provided window.THREE.
+        if (!HAS_THREE) {
+          showWebglFallback('Three.js could not be loaded from the CDN. Check the connection and reload for the 3D view.');
+        }
         wakePhysics(0.6);
       } catch (e) {
         console.error('Failed to load graph', e);
@@ -2070,12 +2112,14 @@ ${[escapeHtml.toString(), renderMarkdownToHtml.toString()].join('\n').split('\n'
     // Bootstrap
     (async function bootstrap() {
       if (!HAS_THREE) {
-        showFatal(
-          'Three.js could not be loaded from the CDN. The vault explorer below still works offline.'
-        );
+        showWebglFallback('Three.js could not be loaded from the CDN. Check the connection and reload for the 3D view.');
       } else {
         const ready = initThree();
-        if (ready) rafId = requestAnimationFrame(animate);
+        if (ready) {
+          rafId = requestAnimationFrame(animate);
+        } else {
+          showWebglFallback('WebGL is unavailable in this browser. The vault explorer still works.');
+        }
       }
       // The vault/doc panels do not depend on WebGL, so load data either way.
       await fetchGraph();

@@ -1,8 +1,6 @@
 node_modules/
 dist/
-
-# Local scratch notes
-tanitim.txt
+dist-tests/
 
 # Secrets and credentials - never commit these.
 .env
@@ -36,3 +34,11 @@ Thumbs.db
 # The multi-agent lease is machine-local transient state. Committing it leaks
 # the holding agent's name/goal and makes `lock status` confusing across clones.
 .syncytium/memory/lock.json
+
+# Local tooling and generated output (machine-specific; not portable)
+.mcp.json
+.claude/
+.codex/
+.vi3ecode/
+graphify-out/
+vi3e-security-out/

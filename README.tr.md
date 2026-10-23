@@ -6,7 +6,7 @@
 
 [![npm](https://img.shields.io/npm/v/syncytium-md)](https://www.npmjs.com/package/syncytium-md)
 [![CI](https://github.com/mrcbrbn5361/SyncytiumMD/actions/workflows/syncytium.yml/badge.svg)](https://github.com/mrcbrbn5361/SyncytiumMD/actions/workflows/syncytium.yml)
-[![Node](https://img.shields.io/badge/node-%3E%3D22.6.0-5FA04E)](https://nodejs.org)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-5FA04E)](https://nodejs.org)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
@@ -55,7 +55,7 @@ npx syncytium sync          # tüm köprü dosyalarını üret
 npx syncytium graph         # 3D bilgi grafiğini tarayıcıda aç
 ```
 
-**Node.js 22.6+** gerekir. Global kurulum gerekmez; `npx` yeterli.
+**Node.js 20+** gerekir. Global kurulum gerekmez; `npx` yeterli.
 
 ## Neler var
 
@@ -150,12 +150,20 @@ içindeki sırları sunmayı reddeder.
   "mcpServers": {
     "syncytium": {
       "command": "npx",
-      "args": ["-y", "syncytium-mcp"],
-      "cwd": "${workspaceFolder}"
+      "args": ["--ignore-scripts", "syncytium-mcp@0.2.2"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "SYNCYTIUM_TOKEN": "${SYNCYTIUM_TOKEN}"
+      }
     }
   }
 }
 ```
+
+Sertleştirme notları: `@latest` yerine tam paket sürümünü sabitleyin, `npx`
+ile başlatırken `--ignore-scripts` geçin, bir çalışma alanında gerçekten
+ihtiyaç duyulan 3-5 MCP bağlayıcısını açık tutun ve kısa ömürlü, salt-okunur
+kimlik bilgisini komut argümanları yerine `env` bloğu üzerinden iletin.
 
 CLI zaten kuruluysa `syncytium mcp` de olur. Araçlar arasında
 `syncytium_get_context`, `syncytium_handoff`, `syncytium_create_rule`,
@@ -217,6 +225,18 @@ npm run verify      # typecheck -> build -> 114 test
 
 Bkz: [CONTRIBUTING.md](./CONTRIBUTING.md) ve
 [`.syncytium/architecture.md`](./.syncytium/architecture.md).
+
+## Hikaye
+
+Bu proje sıfır bütçeyle, bir YouTube Music uygulaması üzerinde çalışırken
+doğdu. Tek yazarlı, düşük kaynaklı bir kurulumda farklı AI araçları arasında
+geçiş yaparken aynı kuralları her araca ayrı ayrı kopyalamak sürdürülemez hale
+geldi. Bir arkadaşın önerdiği `memory.md` fikri, bu sorunu tek bir ortak hafıza
+katmanıyla çözme fikrine dönüştü: kuralları bir kez `.syncytium/` içinde tut,
+her aracın kendi biçimine transpile et.
+
+SyncytiumMD bu ihtiyaçtan çıktı: tek kaynak, çoklu ajan koordinasyonu için
+handoff sopası ve kilit, sapmada CI'ı durduran `diff --check`.
 
 ## Lisans
 

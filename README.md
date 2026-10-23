@@ -6,7 +6,7 @@
 
 [![npm](https://img.shields.io/npm/v/syncytium-md)](https://www.npmjs.com/package/syncytium-md)
 [![CI](https://github.com/mrcbrbn5361/SyncytiumMD/actions/workflows/syncytium.yml/badge.svg)](https://github.com/mrcbrbn5361/SyncytiumMD/actions/workflows/syncytium.yml)
-[![Node](https://img.shields.io/badge/node-%3E%3D22.6.0-5FA04E)](https://nodejs.org)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-5FA04E)](https://nodejs.org)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
@@ -54,7 +54,7 @@ npx syncytium sync          # generate every bridge file
 npx syncytium graph         # open the 3D knowledge graph in your browser
 ```
 
-Requires **Node.js 22.6+**. No global install needed; `npx` works.
+Requires **Node.js 20+**. No global install needed; `npx` works.
 
 ## What you get
 
@@ -149,12 +149,20 @@ and other in-root secrets.
   "mcpServers": {
     "syncytium": {
       "command": "npx",
-      "args": ["-y", "syncytium-mcp"],
-      "cwd": "${workspaceFolder}"
+      "args": ["--ignore-scripts", "syncytium-mcp@0.2.2"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "SYNCYTIUM_TOKEN": "${SYNCYTIUM_TOKEN}"
+      }
     }
   }
 }
 ```
+
+Hardening notes: pin the exact package version instead of `@latest`, pass
+`--ignore-scripts` when launching through `npx`, keep only the 3-5 MCP
+connectors a workspace actually needs, and pass any short-lived, read-only
+credential through the `env` block rather than command arguments.
 
 Or `syncytium mcp` if you already have the CLI installed. Tools include
 `syncytium_get_context`, `syncytium_handoff`, `syncytium_create_rule`,

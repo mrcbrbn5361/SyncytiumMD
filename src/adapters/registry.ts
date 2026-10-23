@@ -2,8 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { AgentAdapter, CanonicalContext, GeneratedFile, SyncytiumConfig } from '../core/types.js';
 import { BANNER_MARKER } from '../core/templates.js';
-import { toPosix } from '../core/paths.js';
-import { mergeUserSection } from './base.js';
+import { isInsideRoot, toPosix, MAX_MANAGED_SCAN_DEPTH } from '../core/paths.js';
+import { mergeExternalPluginBlocks, mergeUserSection } from './base.js';
 import { CursorAdapter } from './builtin/cursor.js';
 import { ClaudeCodeAdapter } from './builtin/claude.js';
 import { GitHubCopilotAdapter } from './builtin/copilot.js';
@@ -19,6 +19,17 @@ import { GenericAdapter, type GenericAdapterConfig } from './builtin/generic.js'
 export interface WriteOptions {
   /** Keep content the user appended below the generated section. */
   preserveUserSections?: boolean;
+}
+
+export interface GenerateAllOptions {
+  /** When true, collect per-adapter errors instead of failing fast. Default false. */
+  continueOnError?: boolean;
+}
+
+export interface GenerateAllResult {
+  files: GeneratedFile[];
+  byAdapter: Record<string, GeneratedFile[]>;
+  errors: Record<string, Error>;
 }
 
 export class AdapterRegistry {
@@ -88,10 +99,12 @@ export class AdapterRegistry {
 
   async generateAll(
     context: CanonicalContext,
-    enabledIds?: string[]
-  ): Promise<{ files: GeneratedFile[]; byAdapter: Record<string, GeneratedFile[]> }> {
+    enabledIds?: string[],
+    options?: GenerateAllOptions
+  ): Promise<GenerateAllResult> {
     const allFiles: GeneratedFile[] = [];
     const byAdapter: Record<string, GeneratedFile[]> = {};
+    const errors: Record<string, Error> = {};
 
     const requested = enabledIds && enabledIds.length > 0 ? enabledIds : [...this.adapters.keys()];
     const targetAdapters = requested
@@ -105,11 +118,19 @@ export class AdapterRegistry {
         byAdapter[adapter.id] = stamped;
         allFiles.push(...stamped);
       } catch (err) {
-        console.error(`Error generating files for adapter ${adapter.id}:`, err);
+        const cause = err instanceof Error ? err : new Error(String(err));
+        // Fail fast by default so a partial bridge set never looks successful.
+        if (options?.continueOnError !== true) {
+          throw new Error(`Failed to generate files for adapter "${adapter.id}": ${cause.message}`, {
+            cause
+          });
+        }
+        errors[adapter.id] = cause;
+        console.error(`Error generating files for adapter ${adapter.id}:`, cause);
       }
     }
 
-    return { files: allFiles, byAdapter };
+    return { files: allFiles, byAdapter, errors };
   }
 
   /**
@@ -128,14 +149,18 @@ export class AdapterRegistry {
 
     for (const file of files) {
       const fullPath = path.resolve(resolvedRoot, file.relativePath);
-      if (fullPath !== resolvedRoot && !fullPath.startsWith(resolvedRoot + path.sep)) {
+      if (!isInsideRoot(resolvedRoot, fullPath)) {
         throw new Error(`Refusing to write outside the workspace: ${file.relativePath}`);
       }
 
       let content = file.content;
-      if (options?.preserveUserSections) {
-        const previous = await fs.readFile(fullPath, 'utf-8').catch(() => null);
-        if (previous) content = mergeUserSection(file.content, previous);
+      // External plugin blocks (harness-injected) are always preserved so
+      // `sync` never strips what the harness re-adds. User sections still
+      // honour the preserveUserSections flag.
+      const previous = await fs.readFile(fullPath, 'utf-8').catch(() => null);
+      if (previous) {
+        if (options?.preserveUserSections) content = mergeUserSection(file.content, previous);
+        content = mergeExternalPluginBlocks(content, previous);
       }
 
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
@@ -194,7 +219,7 @@ export class AdapterRegistry {
   }
 
   private async collectManagedFiles(dir: string, base: string, depth = 0): Promise<string[]> {
-    if (depth > 4) return [];
+    if (depth > MAX_MANAGED_SCAN_DEPTH) return [];
     let entries: string[];
     try {
       entries = await fs.readdir(dir);

@@ -12,21 +12,20 @@ alwaysApply: true
 # 🤝 Syncytium Active Handoff
 
 ### 🤝 Live Handoff Status
-- **Active Agent:** `Antigravity` (Next: `Any`)
+- **Active Agent:** `opencode` (Next: `Any`)
 - **Status:** `READY_FOR_REVIEW`
-- **Current Goal:** Release v0.2.0: correctness, security and extensibility release
+- **Current Goal:** v0.2.2 verification and repository hygiene
 - **Pending Tasks:**
-  - [ ] Run npm run release to publish v0.2.0
-  - [ ] Commit and push the regenerated bridge files
+  - [ ] No pending release tasks
 - **Recently Touched:**
-  - `.syncytium/architecture.md`
-  - `.syncytium/memory/decisions.md`
-  - `.syncytium/rules/adapter-standards.md`
-  - `.syncytium/HANDOFF.md`
-  - `src/core/paths.ts`
   - `src/core/schemas.ts`
   - `src/core/diff.ts`
   - `src/ui/markdown.ts`
-- **Notes:** Typecheck, build and 114/114 tests are green. The two known follow-ups are the r128 Three.js CDN pin and the read-only Dockerfile entrypoint.
-- **Last Updated:** 2026-09-26T12:21:37.449Z
+  - `.gitignore`
+  - `README.md`
+  - `README.tr.md`
+  - `.gitattributes`
+  - `src/core/storage.ts`
+- **Notes:** Generated tool-output directories and local .mcp.json are ignored; MCP hardening documented.
+- **Last Updated:** 2026-10-23T17:41:11.036Z
 

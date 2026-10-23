@@ -139,6 +139,40 @@ export function stripPreservedSection(content: string): string {
   return content.slice(0, lineStart).trimEnd();
 }
 
+/**
+ * Externally injected plugin blocks (e.g. harness-managed guidance).
+ *
+ * These blocks are not part of the canonical context: an external harness
+ * re-injects them on disk after every `sync`. Without special handling
+ * `sync` strips them and `diff --check` / `doctor` can never stay green.
+ */
+export const EXTERNAL_PLUGIN_BLOCK_PATTERN =
+  /<!--\s*vi3ecode:plugin:.*?begin\s*-->[\s\S]*?<!--\s*vi3ecode:plugin:.*?end\s*-->/g;
+
+export function extractExternalPluginBlocks(content: string): string[] {
+  if (!content.includes('vi3ecode:plugin:')) return [];
+  const matches = content.match(EXTERNAL_PLUGIN_BLOCK_PATTERN);
+  return matches ? [...matches].map(b => b.trim()) : [];
+}
+
+export function stripExternalPluginBlocks(content: string): string {
+  if (!content.includes('vi3ecode:plugin:')) return content;
+  return content.replace(EXTERNAL_PLUGIN_BLOCK_PATTERN, '');
+}
+
+/**
+ * Re-appends external plugin blocks found on disk to freshly generated
+ * content. Idempotent: blocks already present are not duplicated.
+ */
+export function mergeExternalPluginBlocks(generated: string, existing: string | null): string {
+  if (!existing) return generated;
+  const blocks = extractExternalPluginBlocks(existing);
+  if (blocks.length === 0) return generated;
+  const missing = blocks.filter(b => !generated.includes(b));
+  if (missing.length === 0) return generated;
+  return `${generated.trimEnd()}\n\n${missing.join('\n\n')}\n`;
+}
+
 export function makeFile(
   relativePath: string,
   content: string,

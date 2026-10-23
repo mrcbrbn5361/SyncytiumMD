@@ -14,7 +14,7 @@ visual knowledge graph.
 
 ## Technology Stack
 
-- **Runtime:** Node.js 22.6+ (ESM, required by `node --experimental-strip-types`)
+- **Runtime:** Node.js 20+ (ESM, build-first; tests run from `dist-tests/`)
 - **Language:** TypeScript, `strict` plus `noUnusedLocals`,
   `noUnusedParameters`, `noImplicitOverride`, `noImplicitReturns`,
   `verbatimModuleSyntax`
@@ -72,7 +72,7 @@ produces any more. `diff` compares content and reports `identical`, `modified`
 ## Directory Layout
 
 - `src/` — source code and adapters
-- `tests/syncytium.test.ts` — 114 tests, run by `node --experimental-strip-types --test`
+- `tests/syncytium.test.ts` — 118 tests, build-first (`npm run build && tsc -p tsconfig.tests.json && node --test dist-tests/*.test.js`)
 - `scripts/release.mjs` — verify → publish → CDN-poll → global install
 - `.syncytium/` — single source of truth
   - `rules/` — canonical, stack-aware rules

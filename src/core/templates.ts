@@ -177,6 +177,36 @@ jobs:
       # --check makes drift a non-zero exit code, so this gate can actually fail.
       - name: Verify zero context drift
         run: syncytium diff --check
+
+  self-test:
+    name: Build, Typecheck & Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20.x, 22.x]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js \${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: \${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Build must come first: the test suite imports ../dist/index.js, so
+      # \`tsc --noEmit\` over tests/ needs the emitted type declarations to exist.
+      - name: Build
+        run: npm run build
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
 `;
 
 export const TYPESCRIPT_RULES: CanonicalRule[] = [

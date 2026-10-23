@@ -1,0 +1,36 @@
+name: Feature request
+description: Propose an adapter, command, or workflow improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What workflow is painful today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Which command/adapter changes, and how?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - adapter
+        - cli
+        - mcp
+        - ui/graph
+        - docs
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: alt
+    attributes:
+      label: Alternatives considered
+      description: Any workaround you use today

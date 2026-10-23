@@ -1975,6 +1975,36 @@ describe('SyncytiumMD v0.2.0 — full test suite', () => {
         await fs.rm(dir, { recursive: true, force: true });
       }
     });
+
+    test('sync preserves harness-injected vi3ecode plugin blocks without drift', async () => {
+      const dir = await tmpdir('syncytium-external-');
+      try {
+        const e = new SyncytiumEngine(dir);
+        await e.init('P', 'generic');
+        await e.sync();
+
+        const target = path.join(dir, 'AGENTS.md');
+        const original = await fs.readFile(target, 'utf-8');
+        const block =
+          '\n<!-- vi3ecode:plugin:graphify:guidance:begin -->\nExternal guidance.\n<!-- vi3ecode:plugin:graphify:guidance:end -->\n';
+        await fs.writeFile(target, `${original.trimEnd()}\n${block}`);
+
+        // diff must ignore the external block even before the next sync.
+        assert.equal((await e.diff()).hasDrift, false, 'external plugin block must not read as drift');
+
+        await e.sync();
+        const afterFirst = await fs.readFile(target, 'utf-8');
+        assert.ok(afterFirst.includes('vi3ecode:plugin:graphify:guidance:begin'), 'external block must survive sync');
+
+        await e.sync();
+        const afterSecond = await fs.readFile(target, 'utf-8');
+        const occurrences = afterSecond.split('vi3ecode:plugin:graphify:guidance:begin').length - 1;
+        assert.equal(occurrences, 1, 'external block must not duplicate on repeated sync');
+        assert.equal((await e.diff()).hasDrift, false, 'external plugin block must not read as drift after sync');
+      } finally {
+        await fs.rm(dir, { recursive: true, force: true });
+      }
+    });
   });
 
   // ======================================================================

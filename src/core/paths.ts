@@ -1,9 +1,21 @@
 /**
  * Pure path/glob helpers used by the ignore matcher and by rule-id sanitising.
- * Kept dependency-free so both the engine and the adapters can use them.
+ * Kept dependency-free apart from `node:path` so both the engine and the
+ * adapters can use them.
  */
+import path from 'node:path';
 
 const WINDOWS_SEP = /\\/g;
+
+/**
+ * Recursion budget for the managed-file scans behind orphan detection
+ * (`sync` prune, `diff` orphans) and `clean`. Directory targets such as
+ * `.gemini/antigravity/rules/` already nest three levels below the root, so
+ * the old budget of 4 silently missed deeper banner-tagged orphans and left
+ * stale bridges behind. 16 covers any realistic bridge layout while still
+ * bounding runaway recursion (e.g. symlink cycles, which `fs.stat` follows).
+ */
+export const MAX_MANAGED_SCAN_DEPTH = 16;
 
 /** Normalises any platform path to forward slashes. */
 export function toPosix(p: string): string {
@@ -173,12 +185,18 @@ export function isIgnored(relativePath: string, patterns: string[]): IgnoreDecis
   return { ignored, pattern: matchedBy };
 }
 
-/** Returns true when the path is contained within `root` after resolution. */
+/**
+ * Returns true when `candidate` is contained within `root` after resolution.
+ *
+ * Both sides go through `path.resolve` (relative candidates resolve against
+ * `root`), then compare with a trailing separator so `/a/bc` never passes
+ * for root `/a/b` and `/a/b/..` correctly resolves outside.
+ */
 export function isInsideRoot(root: string, candidate: string): boolean {
-  const normalizedRoot = toPosix(root).replace(/\/+$/, '');
-  const normalizedCandidate = toPosix(candidate);
+  const resolvedRoot = path.resolve(root);
+  const resolvedCandidate = path.resolve(resolvedRoot, candidate);
   return (
-    normalizedCandidate === normalizedRoot ||
-    normalizedCandidate.startsWith(`${normalizedRoot}/`)
+    resolvedCandidate === resolvedRoot ||
+    resolvedCandidate.startsWith(resolvedRoot + path.sep)
   );
 }

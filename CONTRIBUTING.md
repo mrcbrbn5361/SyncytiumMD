@@ -13,8 +13,8 @@ npm install
 npm run verify
 ```
 
-Requires **Node.js 22.6+** (the test script uses
-`node --experimental-strip-types`).
+Requires **Node.js 20+** (tests are build-first: `npm run build`
+then `tsc -p tsconfig.tests.json`, run from `dist-tests/`).
 
 ## The definition of done
 

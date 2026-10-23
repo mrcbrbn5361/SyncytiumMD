@@ -464,9 +464,9 @@ export class SyncytiumStorage {
   async writeHandoff(handoff: HandoffState): Promise<void> {
     const body = `# 🤝 Syncytium Handoff & Live State
 
-> **Active Agent:** \`${handoff.activeAgent}\`  
-> **Next Recommended Agent:** \`${handoff.nextAgent || 'Any'}\`  
-> **Status:** \`${handoff.status.toUpperCase()}\`  
+> **Active Agent:** \`${handoff.activeAgent}\`
+> **Next Recommended Agent:** \`${handoff.nextAgent || 'Any'}\`
+> **Status:** \`${handoff.status.toUpperCase()}\`
 > **Last Updated:** \`${handoff.lastUpdated}\`
 
 ## 🎯 Current Goal

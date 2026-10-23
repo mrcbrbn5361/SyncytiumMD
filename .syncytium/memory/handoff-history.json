@@ -1,5 +1,98 @@
 [
   {
+    "id": "HND-MVL9ARK1",
+    "timestamp": "2026-10-23T17:41:11.036Z",
+    "fromAgent": "opencode",
+    "toAgent": "opencode",
+    "status": "ready_for_review",
+    "goal": "v0.2.2 verification and repository hygiene",
+    "tasksDone": [
+      "npm run verify passes (119/119 tests)",
+      "Repository paths, adapters and UI security hardening reviewed"
+    ],
+    "nextTasks": [
+      "No pending release tasks"
+    ],
+    "activeFiles": [
+      ".gitattributes",
+      ".gitignore",
+      "README.md",
+      "README.tr.md",
+      "src/core/storage.ts",
+      "src/ui/template.ts"
+    ],
+    "notes": "Generated tool-output directories and local .mcp.json are ignored; MCP hardening documented."
+  },
+  {
+    "id": "HND-MVL99FX9",
+    "timestamp": "2026-10-23T17:40:09.304Z",
+    "fromAgent": "opencode",
+    "toAgent": "opencode",
+    "status": "ready_for_review",
+    "goal": "v0.2.2 verification and repository hygiene",
+    "tasksDone": [
+      "npm run verify passes (119/119 tests)",
+      "Repository paths, adapters and UI security hardening reviewed"
+    ],
+    "nextTasks": [
+      "No pending release tasks"
+    ],
+    "activeFiles": [
+      ".gitattributes",
+      ".gitignore",
+      "README.md",
+      "README.tr.md",
+      "src/core/storage.ts",
+      "src/ui/template.ts"
+    ],
+    "notes": "Generated tool-output directories and local .mcp.json are ignored; MCP hardening documented."
+  },
+  {
+    "id": "HND-MVL96P0G",
+    "timestamp": "2026-10-23T17:38:01.114Z",
+    "fromAgent": "opencode",
+    "toAgent": "opencode",
+    "status": "ready_for_review",
+    "goal": "v0.2.2 verification and repository hygiene",
+    "tasksDone": [
+      "npm run verify passes (119/119 tests)",
+      "Repository paths, adapters and UI security hardening reviewed"
+    ],
+    "nextTasks": [
+      "No pending release tasks"
+    ],
+    "activeFiles": [
+      ".gitignore",
+      "README.md",
+      "README.tr.md",
+      "src/core/paths.ts",
+      "src/ui/template.ts"
+    ],
+    "notes": "Generated tool-output directories and local .mcp.json are ignored; MCP hardening documented."
+  },
+  {
+    "id": "HND-MVL93TI4",
+    "timestamp": "2026-10-23T17:35:46.966Z",
+    "fromAgent": "Antigravity",
+    "toAgent": "opencode",
+    "status": "ready_for_review",
+    "goal": "v0.2.2 verification and repository hygiene",
+    "tasksDone": [
+      "npm run verify passes (119/119 tests)",
+      "Repository paths, adapters and UI security hardening reviewed"
+    ],
+    "nextTasks": [
+      "No pending release tasks"
+    ],
+    "activeFiles": [
+      ".gitignore",
+      "README.md",
+      "src/core/paths.ts",
+      "src/ui/template.ts"
+    ],
+    "notes": "Generated tool-output directories are now ignored; local .mcp.json remains untracked."
+  },
+  {
     "id": "HND-MUICZT4E",
     "timestamp": "2026-09-26T12:21:37.449Z",
     "fromAgent": "Antigravity",

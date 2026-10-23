@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Compiles tests/*.test.ts to dist-tests/*.test.js so `npm test` runs
+    // on plain Node 20 without --experimental-strip-types. The emitted
+    // tests import ../dist/index.js and ../dist/cli/index.js, which is why
+    // rootDir is tests/ and outDir is dist-tests/ (sibling of dist/).
+    "noEmit": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "outDir": "dist-tests",
+    "rootDir": "tests",
+    "types": ["node"]
+  },
+  "include": ["tests/**/*.ts"],
+  "exclude": ["node_modules", "dist", "dist-tests"]
+}
