@@ -65,7 +65,7 @@ Requires **Node.js 20+**. No global install needed; `npx` works.
 | **Multi-agent safety** | A lease-based workspace lock with heartbeat, a handoff baton, and a 100-entry audit trail |
 | **Drift detection** | Real unified diffs, orphan detection, and a `--check` flag that actually exits non-zero |
 | **Live 3D graph** | WebGL knowledge cosmos, vault explorer, Markdown document reader — bound to `127.0.0.1` |
-| **MCP server** | 18 tools with zod-validated inputs and token-budgeted output |
+| **MCP server** | 22 tools with zod-validated inputs, honest safety annotations, built-in rate limits, and recoverable deletions |
 | **CI + git hooks** | `syncytium ci` and `syncytium hook install` both gate on zero drift |
 | **`--json` everywhere** | Every command emits machine-readable output for agents and CI |
 
@@ -149,7 +149,7 @@ and other in-root secrets.
   "mcpServers": {
     "syncytium": {
       "command": "npx",
-      "args": ["--ignore-scripts", "syncytium-mcp@0.2.2"],
+      "args": ["--ignore-scripts", "-y", "-p", "syncytium-md@0.3.0", "syncytium-mcp"],
       "cwd": "${workspaceFolder}",
       "env": {
         "SYNCYTIUM_TOKEN": "${SYNCYTIUM_TOKEN}"
@@ -168,8 +168,18 @@ Or `syncytium mcp` if you already have the CLI installed. Tools include
 `syncytium_get_context`, `syncytium_handoff`, `syncytium_create_rule`,
 `syncytium_update_rule`, `syncytium_remove_rule`, `syncytium_record_decision`,
 `syncytium_sync`, `syncytium_diff`, `syncytium_doctor`, `syncytium_validate`,
-`syncytium_lock_acquire/release/status`, `syncytium_get_graph` and more.
+`syncytium_lock_acquire/release/status`, `syncytium_get_graph`,
+`syncytium_list_trash`, `syncytium_restore` and more.
 Every input is zod-validated; every output is summarised rather than dumped.
+
+**Built-in MCP safety.** Every tool advertises MCP `readOnlyHint`,
+`destructiveHint`, `idempotentHint` and `openWorldHint` annotations, and the
+server enforces a per-tool sliding-window rate limit (for example 5 destructive
+calls per minute). Destructive tools default to `dryRun: true`; deleting needs
+`dryRun: false` **and** `confirm: true`. Rules and ADRs are archived under
+`.syncytium/memory/trash/` before removal, so `syncytium_restore` can undo the
+operation. `syncytium_doctor` is strictly read-only. These limits are enforced
+server-side, so they hold even when a client ignores the annotations.
 
 ## `.syncytiumignore`
 

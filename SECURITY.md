@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 0.2.x   | Yes       |
-| < 0.2.0 | No — please upgrade |
+| 0.3.x   | Yes       |
+| < 0.3.0 | No — please upgrade |
 
 ## Reporting a vulnerability
 
@@ -30,6 +30,25 @@ public disclosure.
 - MCP tool inputs are validated with zod. Never paste secrets into rules,
   ADRs, or handoff notes: stdout is the MCP JSON-RPC transport, so secrets
   must never be logged.
+
+## MCP tool safety model (v0.3.0+)
+
+- Every tool advertises MCP `annotations`: `readOnlyHint`, `destructiveHint`,
+  `idempotentHint`, `openWorldHint`. `src/mcp/safety.ts` is the single source of
+  truth and a unit test pins every advertised tool to a policy.
+- The server enforces per-tool sliding-window rate limits in-process. Read tools
+  are generous, write tools are capped, and destructive tools are capped at 5
+  calls/minute. The limit applies even if a client ignores the annotations.
+- `syncytium_remove_rule` and `syncytium_remove_decision` are safe by default:
+  `dryRun` defaults to `true`, and `dryRun: false` without `confirm: true` is
+  rejected. Both operations archive the exact source under
+  `.syncytium/memory/trash/` before deleting.
+- `syncytium_restore` (and the library's `restoreFromTrash`) undo an accidental
+  deletion. `syncytium_list_trash` shows what is recoverable.
+- `syncytium_doctor` is read-only. Its `fix` fields are strings; it never runs
+  them, spawns processes, or mutates git/CI state.
+- `syncytium_sync` can prune orphaned banner-tagged generated files; pass
+  `noPrune: true` to keep them. User-authored files are never pruned.
 
 ## Permissions and local access
 

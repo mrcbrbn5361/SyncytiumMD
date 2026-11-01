@@ -26,5 +26,17 @@
 - `syncytium clean` deletes only files carrying the Syncytium banner. A user's
   own `.cursor/rules/my-rule.mdc` is never touched.
 - MCP tool inputs are validated with zod before they reach the engine.
+- Every MCP tool declares honest `readOnlyHint` / `destructiveHint` /
+  `idempotentHint` / `openWorldHint` annotations in `src/mcp/safety.ts`, and the
+  server enforces a per-tool sliding-window rate limit there. A scanner or
+  gateway can therefore reason about the surface, and a runaway agent loop is
+  stopped in-process even when the client ignores the hints.
+- Destructive MCP tools are safe by default: `dryRun` defaults to `true` and an
+  actual delete requires `dryRun: false` **and** `confirm: true`.
+- Deletions are recoverable. `removeRule` / `removeDecision` archive the exact
+  source bytes under `.syncytium/memory/trash/` before touching the live file,
+  and `syncytium_restore` / `restoreFromTrash` undo the operation.
+- `syncytium_doctor` is strictly read-only. Its `fix` strings are suggestions;
+  it never runs them, spawns processes, or edits git/CI state.
 - Never log or echo secrets, tokens or full file contents to stdout: stdout is
   the MCP JSON-RPC transport.

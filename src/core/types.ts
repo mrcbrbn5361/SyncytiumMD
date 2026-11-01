@@ -25,6 +25,22 @@ export interface CanonicalRule {
 }
 
 export type MemoryDecision = z.infer<typeof MemoryDecisionSchema>;
+
+export type TrashKind = 'rule' | 'decision';
+
+/**
+ * One recoverable deletion. `snapshotFile` points at the archived JSON payload
+ * (relative to the workspace root) so a mistaken delete can be undone with
+ * `restoreFromTrash` instead of a manual git recovery.
+ */
+export interface TrashEntry {
+  id: string;
+  kind: TrashKind;
+  title?: string;
+  archivedAt: string;
+  sourceFile: string;
+  snapshotFile: string;
+}
 export type HandoffState = z.infer<typeof HandoffStateSchema>;
 export type SyncytiumLock = z.infer<typeof SyncytiumLockSchema>;
 export type SyncytiumConfig = z.infer<typeof SyncytiumConfigSchema>;

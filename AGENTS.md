@@ -11,7 +11,7 @@
 ### 🤝 Live Handoff Status
 - **Active Agent:** `opencode` (Next: `Any`)
 - **Status:** `READY_FOR_REVIEW`
-- **Current Goal:** v0.2.2 verification and repository hygiene
+- **Current Goal:** MCP safety hardening
 - **Pending Tasks:**
   - [ ] No pending release tasks
 - **Recently Touched:**
@@ -24,7 +24,7 @@
   - `.gitattributes`
   - `src/core/storage.ts`
 - **Notes:** Generated tool-output directories and local .mcp.json are ignored; MCP hardening documented.
-- **Last Updated:** 2026-10-23T17:41:11.036Z
+- **Last Updated:** 2026-11-01T13:27:46.639Z
 
 
 ---
@@ -77,7 +77,8 @@ visual knowledge graph.
 | `src/adapters/builtin/` | 10 built-in adapters + `GenericAdapter` for config-declared tools |
 | `src/ui/markdown.ts` | Canonical Markdown → HTML renderer (injected into the browser bundle) |
 | `src/ui/template.ts` | Obsidian Studio HTML: 3D graph, vault explorer, document reader |
-| `src/mcp/server.ts` | 18 MCP tools, every input zod-validated, output token-budgeted |
+| `src/mcp/server.ts` | 22 MCP tools, every input zod-validated, output token-budgeted |
+| `src/mcp/safety.ts` | Tool annotations, per-tool rate limits, effect classification |
 | `src/cli/index.ts` | 22 CLI commands with a global `--json` mode |
 
 ## Engine API
@@ -85,10 +86,11 @@ visual knowledge graph.
 `init` · `sync` · `diff` · `doctor` · `lint` · `validate` · `handoff` ·
 `getHandoffHistory` · `addDecision` · `removeDecision` · `listDecisions` ·
 `addRule` · `getRule` · `removeRule` · `listRules` · `exportBundle` ·
-`clean` · `importExisting` · `getStatus` · `acquireLock` · `releaseLock` ·
-`renewLock` · `getLockStatus` · `installGitHook` · `uninstallGitHook` ·
-`installCiWorkflow` · `uninstallCiWorkflow` · `detectStack` ·
-`getKnowledgeGraph` · `startUiServer` · `watch`
+`clean` · `importExisting` · `getStatus` · `listTrash` · `restoreFromTrash` ·
+`acquireLock` · `releaseLock` · `renewLock` · `getLockStatus` ·
+`installGitHook` · `uninstallGitHook` · `installCiWorkflow` ·
+`uninstallCiWorkflow` · `detectStack` · `getKnowledgeGraph` ·
+`startUiServer` · `watch`
 
 ## Data Flow
 
@@ -102,10 +104,22 @@ visual knowledge graph.
 produces any more. `diff` compares content and reports `identical`, `modified`
 (with a unified patch), `missing_on_disk`, and `unmanaged` (orphans).
 
+## MCP Safety Model
+
+Every advertised tool carries MCP `annotations` (`readOnlyHint`,
+`destructiveHint`, `idempotentHint`, `openWorldHint`) from
+`src/mcp/safety.ts`, and the server enforces a per-tool sliding-window call
+budget in the same module. Destructive tools (`remove_rule`, `remove_decision`)
+default to `dryRun: true`; an actual delete needs `dryRun: false` **and**
+`confirm: true`. Before deleting, the engine archives the exact rule/ADR bytes
+under `.syncytium/memory/trash/`, and `syncytium_restore` (plus
+`listTrash`/`restoreFromTrash` in the library) can undo the operation.
+`doctor` is read-only: it reports remediation strings but never executes them.
+
 ## Directory Layout
 
 - `src/` — source code and adapters
-- `tests/syncytium.test.ts` — 118 tests, build-first (`npm run build && tsc -p tsconfig.tests.json && node --test dist-tests/*.test.js`)
+- `tests/syncytium.test.ts` — 123 tests, build-first (`npm run build && tsc -p tsconfig.tests.json && node --test dist-tests/*.test.js`)
 - `scripts/release.mjs` — verify → publish → CDN-poll → global install
 - `.syncytium/` — single source of truth
   - `rules/` — canonical, stack-aware rules
@@ -238,6 +252,18 @@ test asserts they match, and `--bump` updates both together.
 - `syncytium clean` deletes only files carrying the Syncytium banner. A user's
   own `.cursor/rules/my-rule.mdc` is never touched.
 - MCP tool inputs are validated with zod before they reach the engine.
+- Every MCP tool declares honest `readOnlyHint` / `destructiveHint` /
+  `idempotentHint` / `openWorldHint` annotations in `src/mcp/safety.ts`, and the
+  server enforces a per-tool sliding-window rate limit there. A scanner or
+  gateway can therefore reason about the surface, and a runaway agent loop is
+  stopped in-process even when the client ignores the hints.
+- Destructive MCP tools are safe by default: `dryRun` defaults to `true` and an
+  actual delete requires `dryRun: false` **and** `confirm: true`.
+- Deletions are recoverable. `removeRule` / `removeDecision` archive the exact
+  source bytes under `.syncytium/memory/trash/` before touching the live file,
+  and `syncytium_restore` / `restoreFromTrash` undo the operation.
+- `syncytium_doctor` is strictly read-only. Its `fix` strings are suggestions;
+  it never runs them, spawns processes, or edits git/CI state.
 - Never log or echo secrets, tokens or full file contents to stdout: stdout is
   the MCP JSON-RPC transport.
 

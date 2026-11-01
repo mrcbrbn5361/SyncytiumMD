@@ -1,5 +1,25 @@
 [
   {
+    "id": "HND-MVXV7JRP",
+    "timestamp": "2026-11-01T13:27:46.639Z",
+    "fromAgent": "opencode",
+    "toAgent": "opencode",
+    "status": "ready_for_review",
+    "goal": "MCP safety hardening",
+    "tasksDone": [
+      "annotations",
+      "rate limits",
+      "dryRun/confirm",
+      "trash+restore",
+      "docs",
+      "v0.3.0"
+    ],
+    "nextTasks": [
+      "No pending release tasks"
+    ],
+    "activeFiles": []
+  },
+  {
     "id": "HND-MVL9ARK1",
     "timestamp": "2026-10-23T17:41:11.036Z",
     "fromAgent": "opencode",

@@ -66,7 +66,7 @@ npx syncytium graph         # 3D bilgi grafiğini tarayıcıda aç
 | **Çoklu ajan güvenliği** | Kalp atışı olan kiralama tabanlı çalışma alanı kilidi, handoff sopası, 100 kayıtlık denetim izi |
 | **Sapma tespiti** | Gerçek unified diff'ler, sahipsiz dosya tespiti ve CI'da gerçekten hata kodu döndüren `--check` |
 | **Canlı 3D grafik** | WebGL bilgi kozmosu, vault gezgini, Markdown belge okuyucu — `127.0.0.1`'e bağlı |
-| **MCP sunucusu** | zod doğrulamalı girdi ve token bütçeli çıktı ile 18 araç |
+| **MCP sunucusu** | zod doğrulamalı girdi, dürüst güvenlik etiketleri, yerleşik hız sınırları ve geri alınabilir silmeler ile 22 araç |
 | **CI + git hook** | `syncytium ci` ve `syncytium hook install` ikisi de sıfır sapmayı zorunlu kılar |
 | **Her yerde `--json`** | Her komut makine tarafından okunabilir çıktı üretir |
 
@@ -150,7 +150,7 @@ içindeki sırları sunmayı reddeder.
   "mcpServers": {
     "syncytium": {
       "command": "npx",
-      "args": ["--ignore-scripts", "syncytium-mcp@0.2.2"],
+      "args": ["--ignore-scripts", "-y", "-p", "syncytium-md@0.3.0", "syncytium-mcp"],
       "cwd": "${workspaceFolder}",
       "env": {
         "SYNCYTIUM_TOKEN": "${SYNCYTIUM_TOKEN}"
@@ -169,8 +169,18 @@ CLI zaten kuruluysa `syncytium mcp` de olur. Araçlar arasında
 `syncytium_get_context`, `syncytium_handoff`, `syncytium_create_rule`,
 `syncytium_update_rule`, `syncytium_remove_rule`, `syncytium_record_decision`,
 `syncytium_sync`, `syncytium_diff`, `syncytium_doctor`, `syncytium_validate`,
-`syncytium_lock_acquire/release/status`, `syncytium_get_graph` ve fazlası var.
+`syncytium_lock_acquire/release/status`, `syncytium_get_graph`,
+`syncytium_list_trash`, `syncytium_restore` ve fazlası var.
 Her girdi zod ile doğrulanır; her çıktı dökülmek yerine özetlenir.
+
+**Yerleşik MCP güvenliği.** Her araç MCP `readOnlyHint`, `destructiveHint`,
+`idempotentHint` ve `openWorldHint` etiketlerini bildirir; sunucu ayrıca araç
+başına kayan pencere hız sınırı uygular (örneğin dakikada 5 yıkıcı çağrı).
+Yıkıcı araçlar varsayılan olarak `dryRun: true` çalışır; silme için
+`dryRun: false` **ve** `confirm: true` gerekir. Kural ve ADR'ler silinmeden önce
+`.syncytium/memory/trash/` altına arşivlenir; `syncytium_restore` işlemi geri
+alır. `syncytium_doctor` kesinlikle salt-okunurdur. Bu sınırlar istemci
+etiketleri yok saysa bile sunucu tarafında uygulanır.
 
 ## `.syncytiumignore`
 

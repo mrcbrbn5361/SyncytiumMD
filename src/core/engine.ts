@@ -35,6 +35,8 @@ import type {
   ImportItem,
   SyncytiumLock,
   CanonicalRule,
+  TrashEntry,
+  TrashKind,
   KnowledgeGraph,
   GraphNode,
   GraphEdge,
@@ -809,9 +811,26 @@ export class SyncytiumEngine {
   }
 
   async removeDecision(id: string): Promise<boolean> {
+    const decision = (await this.storage.loadDecisions()).find(d => d.id === id);
+    if (!decision) return false;
+    // Archive first: the delete is reversible even when a caller skips preview.
+    await this.storage.archiveDecision(decision);
     const removed = await this.storage.removeDecision(id);
     if (removed) await this.sync();
     return removed;
+  }
+
+  async listTrash(kind?: TrashKind): Promise<TrashEntry[]> {
+    return this.storage.listTrash(kind);
+  }
+
+  async restoreFromTrash(
+    kind: TrashKind,
+    id: string
+  ): Promise<{ restored: boolean; entry?: TrashEntry; reason?: string }> {
+    const result = await this.storage.restoreFromTrash(kind, id);
+    if (result.restored) await this.sync();
+    return result;
   }
 
   async listDecisions(filter?: { status?: string; query?: string }): Promise<MemoryDecision[]> {
@@ -896,18 +915,34 @@ export class SyncytiumEngine {
   async removeRule(id: string, options?: { sync?: boolean }): Promise<boolean> {
     const rule = await this.getRule(id);
     if (!rule) return false;
-    const removed = await this.storage.deleteRuleFile(slugify(rule.id, 'rule'));
-    // Some legacy files are named after the file, not the frontmatter id.
-    if (!removed && rule.sourceFile) {
+
+    const sourcePath = rule.sourceFile
+      ? path.join(this.storage.rootDir, rule.sourceFile)
+      : this.storage.getRulePath(slugify(rule.id, 'rule'));
+
+    // Archive the exact bytes before deleting. `sourceFile` may name a legacy
+    // file whose name differs from the frontmatter id, so read it directly.
+    try {
+      const raw = await fs.readFile(sourcePath, 'utf-8');
+      await this.storage.archiveRule(
+        { ...rule, sourceFile: toPosix(path.relative(this.storage.rootDir, sourcePath)) },
+        raw
+      );
+    } catch {
+      // Unreadable source: still attempt the delete, but without an archive.
+    }
+
+    let removed = await this.storage.deleteRuleFile(slugify(rule.id, 'rule'));
+    if (!removed) {
       try {
-        await fs.unlink(path.join(this.storage.rootDir, rule.sourceFile));
-        await this.storage.deleteRuleFile(path.basename(rule.sourceFile, '.md'));
-        return true;
+        await fs.unlink(sourcePath);
+        removed = true;
       } catch {
-        return false;
+        removed = false;
       }
     }
-    if (options?.sync !== false) await this.sync();
+
+    if (removed && options?.sync !== false) await this.sync();
     return removed;
   }
 

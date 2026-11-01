@@ -2,7 +2,7 @@
 activeAgent: opencode
 nextAgent: Any
 status: ready_for_review
-goal: v0.2.2 verification and repository hygiene
+goal: MCP safety hardening
 completedWork:
   - >-
     Implemented embedded Knowledge Graph UI server (syncytium graph / syncytium
@@ -35,6 +35,12 @@ completedWork:
   - Grew the suite from 22 to 114 tests covering every regression above
   - npm run verify passes (119/119 tests)
   - 'Repository paths, adapters and UI security hardening reviewed'
+  - annotations
+  - rate limits
+  - dryRun/confirm
+  - trash+restore
+  - docs
+  - v0.3.0
 pendingTasks:
   - No pending release tasks
 touchedFiles:
@@ -62,17 +68,17 @@ touchedFiles:
 contextNotes: >-
   Generated tool-output directories and local .mcp.json are ignored; MCP
   hardening documented.
-lastUpdated: '2026-10-23T17:41:11.036Z'
+lastUpdated: '2026-11-01T13:27:46.639Z'
 ---
 # 🤝 Syncytium Handoff & Live State
 
 > **Active Agent:** `opencode`
 > **Next Recommended Agent:** `Any`
 > **Status:** `READY_FOR_REVIEW`
-> **Last Updated:** `2026-10-23T17:41:11.036Z`
+> **Last Updated:** `2026-11-01T13:27:46.639Z`
 
 ## 🎯 Current Goal
-v0.2.2 verification and repository hygiene
+MCP safety hardening
 
 ## ✅ Completed in Recent Turns
 - Implemented embedded Knowledge Graph UI server (syncytium graph / syncytium ui)
@@ -94,6 +100,12 @@ v0.2.2 verification and repository hygiene
 - Grew the suite from 22 to 114 tests covering every regression above
 - npm run verify passes (119/119 tests)
 - Repository paths, adapters and UI security hardening reviewed
+- annotations
+- rate limits
+- dryRun/confirm
+- trash+restore
+- docs
+- v0.3.0
 
 ## 📋 Pending Tasks (Next Agent Action Items)
 - [ ] No pending release tasks

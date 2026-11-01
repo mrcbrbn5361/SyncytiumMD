@@ -11,6 +11,7 @@ import {
   DecisionStatusSchema,
   flattenZodError
 } from '../core/schemas.js';
+import { RateLimiter, TOOL_SAFETY } from './safety.js';
 
 /**
  * Every tool input is parsed with zod before it reaches the engine. The CLI and
@@ -71,8 +72,29 @@ const UpdateRuleInput = z.object({
   sync: z.boolean().default(true)
 });
 
-const RemoveRuleInput = z.object({ id: z.string().min(1) });
-const RemoveDecisionInput = z.object({ id: z.string().min(1) });
+/**
+ * Destructive inputs are safe by default. `dryRun` defaults to true, and an
+ * actual delete needs both `dryRun: false` and `confirm: true`, so a model that
+ * invents an argument shape still cannot delete an ADR or rule by accident.
+ */
+const RemoveRuleInput = z.object({
+  id: z.string().min(1),
+  dryRun: z.boolean().default(true),
+  confirm: z.boolean().default(false)
+});
+const RemoveDecisionInput = z.object({
+  id: z.string().min(1),
+  dryRun: z.boolean().default(true),
+  confirm: z.boolean().default(false)
+});
+const ListTrashInput = z.object({
+  kind: z.enum(['rule', 'decision']).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50)
+});
+const RestoreInput = z.object({
+  kind: z.enum(['rule', 'decision']),
+  id: z.string().min(1)
+});
 const ReleaseLockInput = z.object({
   agent: z.string().optional(),
   force: z.boolean().default(false)
@@ -92,6 +114,9 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
     isError: true,
     content: [{ type: 'text' as const, text: `Syncytium Error: ${message}` }]
   });
+
+  const limiter = new RateLimiter();
+  const ann = (name: string) => TOOL_SAFETY[name]?.annotations ?? {};
 
   /**
    * Parses `raw` with `schema`, returning either the parsed value or a
@@ -117,7 +142,8 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
       {
         name: 'syncytium_get_context',
         description:
-          'Get project rules, architecture, architectural decisions (ADR), and the active handoff state. Use this first in any session.',
+          'Read-only. Get project rules, architecture, architectural decisions (ADR), and the active handoff state. Use this first in any session.',
+        annotations: ann('syncytium_get_context'),
         inputSchema: {
           type: 'object',
           properties: {
@@ -137,7 +163,8 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
       {
         name: 'syncytium_handoff',
         description:
-          'Pass the baton to the next AI agent or record progress on the shared blackboard. Run this before you finish your turn.',
+          'Write. Pass the baton to the next AI agent or record progress on the shared blackboard. Run this before you finish your turn.',
+        annotations: ann('syncytium_handoff'),
         inputSchema: {
           type: 'object',
           properties: {
@@ -156,7 +183,8 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
       },
       {
         name: 'syncytium_record_decision',
-        description: 'Record an Architectural Decision (ADR) shared across all AI agents.',
+        description: 'Write. Record an Architectural Decision (ADR) shared across all AI agents.',
+        annotations: ann('syncytium_record_decision'),
         inputSchema: {
           type: 'object',
           properties: {
@@ -172,16 +200,31 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
       },
       {
         name: 'syncytium_remove_decision',
-        description: 'Delete an Architectural Decision Record by id.',
+        description:
+          'Destructive, but safe by default: previews the impact unless dryRun is false, requires confirm: true to delete, and archives the ADR so syncytium_restore can undo it.',
+        annotations: ann('syncytium_remove_decision'),
         inputSchema: {
           type: 'object',
-          properties: { id: { type: 'string' } },
+          properties: {
+            id: { type: 'string' },
+            dryRun: {
+              type: 'boolean',
+              default: true,
+              description: 'Preview the impact without changing anything (default).'
+            },
+            confirm: {
+              type: 'boolean',
+              default: false,
+              description: 'Must be true with dryRun:false to actually delete.'
+            }
+          },
           required: ['id']
         }
       },
       {
         name: 'syncytium_list_decisions',
-        description: 'List recorded ADRs (optionally filtered by status or free-text query).',
+        description: 'Read-only. List recorded ADRs (optionally filtered by status or free-text query).',
+        annotations: ann('syncytium_list_decisions'),
         inputSchema: {
           type: 'object',
           properties: {
@@ -193,7 +236,9 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
       },
       {
         name: 'syncytium_create_rule',
-        description: 'Add a new canonical rule to .syncytium/rules/ and regenerate every bridge file.',
+        description:
+          'Write. Add a new canonical rule to .syncytium/rules/ and regenerate every bridge file. Reversible with syncytium_remove_rule.',
+        annotations: ann('syncytium_create_rule'),
         inputSchema: {
           type: 'object',
           properties: {
@@ -211,7 +256,8 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
       },
       {
         name: 'syncytium_list_rules',
-        description: 'Search the canonical rule catalog by id, title, tag or body text.',
+        description: 'Read-only. Search the canonical rule catalog by id, title, tag or body text.',
+        annotations: ann('syncytium_list_rules'),
         inputSchema: {
           type: 'object',
           properties: {
@@ -221,7 +267,8 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
       },
       {
         name: 'syncytium_update_rule',
-        description: 'Edit an existing canonical rule in place (title, description, body, globs, tags).',
+        description: 'Write. Edit an existing canonical rule in place (title, description, body, globs, tags).',
+        annotations: ann('syncytium_update_rule'),
         inputSchema: {
           type: 'object',
           properties: {
@@ -239,27 +286,49 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
       },
       {
         name: 'syncytium_remove_rule',
-        description: 'Delete a canonical rule and prune its generated bridge files.',
+        description:
+          'Destructive, but safe by default: previews the impact unless dryRun is false, requires confirm: true to delete, archives the rule, and prunes only banner-tagged generated files. Undo with syncytium_restore.',
+        annotations: ann('syncytium_remove_rule'),
         inputSchema: {
           type: 'object',
-          properties: { id: { type: 'string' } },
+          properties: {
+            id: { type: 'string' },
+            dryRun: {
+              type: 'boolean',
+              default: true,
+              description: 'Preview the impact without changing anything (default).'
+            },
+            confirm: {
+              type: 'boolean',
+              default: false,
+              description: 'Must be true with dryRun:false to actually delete.'
+            }
+          },
           required: ['id']
         }
       },
       {
         name: 'syncytium_sync',
-        description: 'Regenerate all AI tool bridge files (CLAUDE.md, .cursor/rules/, AGENTS.md, GEMINI.md, …).',
+        description:
+          'Regenerate all AI tool bridge files (CLAUDE.md, .cursor/rules/, AGENTS.md, GEMINI.md, …). Can prune orphaned banner-tagged generated files; pass noPrune:true to keep them.',
+        annotations: ann('syncytium_sync'),
         inputSchema: {
           type: 'object',
           properties: {
             targets: { type: 'array', items: { type: 'string' }, description: 'Restrict to specific adapter ids' },
-            force: { type: 'boolean', default: false }
+            force: { type: 'boolean', default: false },
+            noPrune: {
+              type: 'boolean',
+              default: false,
+              description: 'Do not remove orphaned generated files.'
+            }
           }
         }
       },
       {
         name: 'syncytium_get_history',
-        description: 'Get the multi-agent handoff audit trail: past goals, completed tasks and baton passes.',
+        description: 'Read-only. Get the multi-agent handoff audit trail: past goals, completed tasks and baton passes.',
+        annotations: ann('syncytium_get_history'),
         inputSchema: {
           type: 'object',
           properties: { limit: { type: 'number', default: 5 } }
@@ -267,20 +336,32 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
       },
       {
         name: 'syncytium_lint',
-        description: 'Validate canonical rules, frontmatter and ADR schema. Returns a compact summary, not the full report.',
+        description:
+          'Read-only. Validate canonical rules, frontmatter and ADR schema. Returns a compact summary, not the full report.',
+        annotations: ann('syncytium_lint'),
         inputSchema: { type: 'object', properties: {} }
       },
       {
         name: 'syncytium_validate',
-        description: 'Validate syncytium.config.json and every rule frontmatter against the zod schema.',
+        description:
+          'Write only when fix:true; validates syncytium.config.json and every rule frontmatter against the zod schema.',
+        annotations: ann('syncytium_validate'),
         inputSchema: {
           type: 'object',
-          properties: { fix: { type: 'boolean', default: false } }
+          properties: {
+            fix: {
+              type: 'boolean',
+              default: false,
+              description: 'Repair config/frontmatter when they are invalid.'
+            }
+          }
         }
       },
       {
         name: 'syncytium_diff',
-        description: 'Check context drift between .syncytium/ and the generated bridge files. Returns a summary plus the drifted paths.',
+        description:
+          'Read-only. Check context drift between .syncytium/ and the generated bridge files. Returns a summary plus the drifted paths.',
+        annotations: ann('syncytium_diff'),
         inputSchema: {
           type: 'object',
           properties: { targets: { type: 'array', items: { type: 'string' } } }
@@ -288,12 +369,15 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
       },
       {
         name: 'syncytium_doctor',
-        description: 'Run the full workspace health check: config, adapters, rules, drift, lock, git hook and CI gate.',
+        description:
+          'Read-only. Run the full workspace health check: config, adapters, rules, drift, lock, git hook and CI gate. Never fixes or executes anything; remediation strings are suggestions only.',
+        annotations: ann('syncytium_doctor'),
         inputSchema: { type: 'object', properties: {} }
       },
       {
         name: 'syncytium_lock_acquire',
-        description: 'Take the exclusive workspace lease so other agents do not edit the same files concurrently.',
+        description: 'Write. Take the exclusive workspace lease so other agents do not edit the same files concurrently.',
+        annotations: ann('syncytium_lock_acquire'),
         inputSchema: {
           type: 'object',
           properties: {
@@ -307,7 +391,8 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
       },
       {
         name: 'syncytium_lock_release',
-        description: 'Release the workspace lease held by this agent.',
+        description: 'Write. Release the workspace lease held by this agent (idempotent).',
+        annotations: ann('syncytium_lock_release'),
         inputSchema: {
           type: 'object',
           properties: { agent: { type: 'string' }, force: { type: 'boolean', default: false } }
@@ -315,12 +400,15 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
       },
       {
         name: 'syncytium_lock_status',
-        description: 'Report who currently holds the workspace lease and when it expires.',
+        description: 'Read-only. Report who currently holds the workspace lease and when it expires.',
+        annotations: ann('syncytium_lock_status'),
         inputSchema: { type: 'object', properties: {} }
       },
       {
         name: 'syncytium_get_graph',
-        description: 'Get the project knowledge graph (rules, tags, ADRs, agents, adapters, bridge files) for visualisation.',
+        description:
+          'Read-only. Get the project knowledge graph (rules, tags, ADRs, agents, adapters, bridge files) for visualisation.',
+        annotations: ann('syncytium_get_graph'),
         inputSchema: {
           type: 'object',
           properties: {
@@ -331,10 +419,45 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
       },
       {
         name: 'syncytium_import',
-        description: 'Reverse-migrate existing unmanaged AI rule files (CLAUDE.md, .cursorrules, …) into .syncytium/.',
+        description:
+          'Write. Reverse-migrate existing unmanaged AI rule files (CLAUDE.md, .cursorrules, …) into .syncytium/. Dry-run by default; it only creates rules and never deletes the originals.',
+        annotations: ann('syncytium_import'),
         inputSchema: {
           type: 'object',
-          properties: { dryRun: { type: 'boolean', default: true } }
+          properties: {
+            dryRun: {
+              type: 'boolean',
+              default: true,
+              description: 'Report what would be imported without writing (default).'
+            }
+          }
+        }
+      },
+      {
+        name: 'syncytium_list_trash',
+        description:
+          'Read-only. List recoverable deletions (archived rules and ADRs) with their archive timestamps, newest first.',
+        annotations: ann('syncytium_list_trash'),
+        inputSchema: {
+          type: 'object',
+          properties: {
+            kind: { type: 'string', enum: ['rule', 'decision'] },
+            limit: { type: 'number', default: 50 }
+          }
+        }
+      },
+      {
+        name: 'syncytium_restore',
+        description:
+          'Write. Restore an archived rule or ADR from the recoverable trash and regenerate bridge files. Fails if the same id already exists.',
+        annotations: ann('syncytium_restore'),
+        inputSchema: {
+          type: 'object',
+          properties: {
+            kind: { type: 'string', enum: ['rule', 'decision'] },
+            id: { type: 'string' }
+          },
+          required: ['kind', 'id']
         }
       }
     ]
@@ -342,6 +465,17 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
 
   server.setRequestHandler(CallToolRequestSchema, async request => {
     const { name, arguments: args = {} } = request.params;
+
+    const limit = limiter.consume(name);
+    if (!limit.allowed) {
+      const policy = TOOL_SAFETY[name];
+      const seconds = Math.ceil(limit.retryAfterMs / 1000);
+      return failure(
+        `rate limit exceeded for ${name}: at most ${policy.maxCalls} calls per ${Math.round(
+          policy.windowMs / 60_000
+        )} minute(s). Retry in ${seconds}s. This limit is built into the Syncytium MCP server to stop runaway agent loops.`
+      );
+    }
 
     try {
       switch (name) {
@@ -427,10 +561,31 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         case 'syncytium_remove_decision': {
           const parsed = parse(args, RemoveDecisionInput);
           if (!parsed.ok) return parsed.error;
-          const removed = await engine.removeDecision(parsed.value.id);
+          const { id, dryRun, confirm } = parsed.value;
+          const decision = (await engine.listDecisions()).find(d => d.id === id);
+          if (!decision) return failure(`no ADR with id "${id}"`);
+
+          if (dryRun) {
+            return json({
+              dryRun: true,
+              action: 'remove_decision',
+              target: { id: decision.id, title: decision.title, status: decision.status },
+              effect: 'The ADR is archived under .syncytium/memory/trash/ and can be restored with syncytium_restore.',
+              next: 'Call again with dryRun:false and confirm:true to delete.'
+            });
+          }
+          if (!confirm) {
+            return failure(
+              `refusing to delete ${id}: pass dryRun:false AND confirm:true. Dry-run is the default and removal is archived for recovery.`
+            );
+          }
+
+          const removed = await engine.removeDecision(id);
           return removed
-            ? text(`Removed ${parsed.value.id}.`)
-            : failure(`no ADR with id "${parsed.value.id}"`);
+            ? text(
+                `Archived and removed ${id}. Undo with syncytium_restore {"kind":"decision","id":"${id}"}.`
+              )
+            : failure(`no ADR with id "${id}"`);
         }
 
         // -------------------------------------------------------- rules ---
@@ -487,17 +642,39 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         case 'syncytium_remove_rule': {
           const parsed = parse(args, RemoveRuleInput);
           if (!parsed.ok) return parsed.error;
-          const removed = await engine.removeRule(parsed.value.id);
+          const { id, dryRun, confirm } = parsed.value;
+          const rule = await engine.getRule(id);
+          if (!rule) return failure(`no rule with id "${id}"`);
+
+          if (dryRun) {
+            return json({
+              dryRun: true,
+              action: 'remove_rule',
+              target: { id: rule.id, title: rule.title, sourceFile: rule.sourceFile },
+              effect:
+                'The rule is archived under .syncytium/memory/trash/ and only banner-tagged generated bridge files are pruned.',
+              next: 'Call again with dryRun:false and confirm:true to delete.'
+            });
+          }
+          if (!confirm) {
+            return failure(
+              `refusing to delete rule "${id}": pass dryRun:false AND confirm:true. Dry-run is the default and removal is archived for recovery.`
+            );
+          }
+
+          const removed = await engine.removeRule(rule.id);
           return removed
-            ? text(`Removed rule "${parsed.value.id}" and pruned its generated files.`)
-            : failure(`no rule with id "${parsed.value.id}"`);
+            ? text(
+                `Archived and removed rule "${rule.id}" and pruned its generated files. Undo with syncytium_restore {"kind":"rule","id":"${rule.id}"}.`
+              )
+            : failure(`no rule with id "${id}"`);
         }
 
         // --------------------------------------------------------- sync ---
         case 'syncytium_sync': {
           const result = await engine.sync(
             Array.isArray(args.targets) ? (args.targets as string[]) : undefined,
-            { force: args.force === true }
+            { force: args.force === true, noPrune: args.noPrune === true }
           );
           return text(
             `Synchronized ${result.count} bridge files in ${result.elapsedMs}ms` +
@@ -595,6 +772,22 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         case 'syncytium_import': {
           const report = await engine.importExisting({ dryRun: args.dryRun !== false });
           return json(report);
+        }
+
+        case 'syncytium_list_trash': {
+          const parsed = parse(args, ListTrashInput);
+          if (!parsed.ok) return parsed.error;
+          const entries = await engine.listTrash(parsed.value.kind);
+          return json(entries.slice(0, parsed.value.limit));
+        }
+
+        case 'syncytium_restore': {
+          const parsed = parse(args, RestoreInput);
+          if (!parsed.ok) return parsed.error;
+          const result = await engine.restoreFromTrash(parsed.value.kind, parsed.value.id);
+          return result.restored
+            ? text(`Restored ${parsed.value.kind} "${result.entry?.id}" and regenerated bridge files.`)
+            : failure(result.reason ?? `could not restore ${parsed.value.kind} "${parsed.value.id}"`);
         }
 
         default:

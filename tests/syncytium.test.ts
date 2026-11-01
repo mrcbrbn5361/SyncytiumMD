@@ -28,7 +28,11 @@ import {
   renderGraphHtml,
   escapeHtmlAttribute,
   serializeForScript,
-  SyncytiumConfigSchema
+  SyncytiumConfigSchema,
+  RateLimiter,
+  TOOL_SAFETY,
+  DESTRUCTIVE_TOOLS,
+  READ_ONLY_TOOLS
 } from '../dist/index.js';
 
 async function tmpdir(prefix: string): Promise<string> {
@@ -694,6 +698,30 @@ describe('SyncytiumMD v0.2.0 — full test suite', () => {
       }
     });
 
+    test('removeRule archives the exact source so restoreFromTrash can undo it', async () => {
+      const dir = await tmpdir('syncytium-rule-trash-');
+      try {
+        const e = new SyncytiumEngine(dir);
+        await e.init('P', 'generic');
+        await e.addRule({ id: 'keep-me', title: 'Keep Me', body: 'original body' });
+
+        assert.equal(await e.removeRule('keep-me'), true);
+        assert.equal(await e.getRule('keep-me'), undefined);
+        const trash = await e.listTrash('rule');
+        assert.equal(trash.length, 1);
+        assert.equal(trash[0].id, 'keep-me');
+
+        const restored = await e.restoreFromTrash('rule', 'keep-me');
+        assert.equal(restored.restored, true);
+        assert.equal((await e.getRule('keep-me'))?.content, 'original body');
+
+        const again = await e.restoreFromTrash('rule', 'keep-me');
+        assert.equal(again.restored, false, 'restoring twice must not overwrite the live rule');
+      } finally {
+        await fs.rm(dir, { recursive: true, force: true });
+      }
+    });
+
     test('listRules searches id, title, tag and body', async () => {
       const dir = await tmpdir('syncytium-rule5-');
       try {
@@ -764,6 +792,32 @@ describe('SyncytiumMD v0.2.0 — full test suite', () => {
         assert.equal(await e.removeDecision('ADR-002'), true);
         assert.equal(await e.removeDecision('ADR-002'), false);
         assert.equal((await e.storage.loadDecisions()).some(d => d.id === 'ADR-002'), false);
+      } finally {
+        await fs.rm(dir, { recursive: true, force: true });
+      }
+    });
+
+    test('removeDecision archives the ADR so restoreFromTrash can undo it', async () => {
+      const dir = await tmpdir('syncytium-adr-trash-');
+      try {
+        const e = new SyncytiumEngine(dir);
+        await e.init('P', 'generic');
+        await e.addDecision({
+          id: 'ADR-777',
+          title: 'Recoverable',
+          status: 'accepted',
+          date: '2026-01-01',
+          context: 'c',
+          decision: 'd',
+          consequences: 'q'
+        });
+
+        assert.equal(await e.removeDecision('ADR-777'), true);
+        assert.equal((await e.listDecisions()).some(d => d.id === 'ADR-777'), false);
+        assert.equal((await e.listTrash('decision'))[0].id, 'ADR-777');
+
+        assert.equal((await e.restoreFromTrash('decision', 'ADR-777')).restored, true);
+        assert.equal((await e.listDecisions()).find(d => d.id === 'ADR-777')?.title, 'Recoverable');
       } finally {
         await fs.rm(dir, { recursive: true, force: true });
       }
@@ -2029,6 +2083,45 @@ describe('SyncytiumMD v0.2.0 — full test suite', () => {
       assert.ok(names.length >= 15, `expected >= 15 tools, found ${names.length}`);
       assert.equal(new Set(names).size, names.length, 'tool names must be unique');
       for (const name of names) assert.ok(name.startsWith('syncytium_'));
+    });
+
+    test('every advertised tool declares honest MCP safety annotations', async () => {
+      const source = await fs.readFile(
+        new URL('../src/mcp/server.ts', import.meta.url),
+        'utf-8'
+      );
+      const names = [...source.matchAll(/name: '(syncytium_[a-z_]+)'/g)].map(m => m[1]);
+      for (const name of names) {
+        const policy = TOOL_SAFETY[name];
+        assert.ok(policy, `${name} must have a safety policy`);
+        assert.equal(typeof policy.annotations.readOnlyHint, 'boolean', `${name} readOnlyHint`);
+        assert.equal(typeof policy.annotations.destructiveHint, 'boolean', `${name} destructiveHint`);
+        assert.equal(typeof policy.annotations.idempotentHint, 'boolean', `${name} idempotentHint`);
+        assert.equal(typeof policy.annotations.openWorldHint, 'boolean', `${name} openWorldHint`);
+        assert.ok(policy.maxCalls > 0, `${name} must be rate limited`);
+      }
+      assert.ok(READ_ONLY_TOOLS.includes('syncytium_doctor'), 'doctor is read-only');
+      assert.ok(DESTRUCTIVE_TOOLS.includes('syncytium_remove_rule'));
+      assert.ok(DESTRUCTIVE_TOOLS.includes('syncytium_remove_decision'));
+      for (const name of Object.keys(TOOL_SAFETY)) {
+        assert.ok(names.includes(name), `${name} is advertised in the tool list`);
+      }
+    });
+
+    test('the built-in rate limiter stops runaway loops and reports a retry delay', () => {
+      let now = 1_000_000;
+      const limiter = new RateLimiter(() => now);
+      const policy = TOOL_SAFETY['syncytium_remove_rule'];
+
+      for (let i = 0; i < policy.maxCalls; i++) {
+        assert.equal(limiter.consume('syncytium_remove_rule').allowed, true);
+      }
+      const blocked = limiter.consume('syncytium_remove_rule');
+      assert.equal(blocked.allowed, false);
+      assert.ok(blocked.retryAfterMs > 0);
+
+      now += policy.windowMs + 1;
+      assert.equal(limiter.consume('syncytium_remove_rule').allowed, true);
     });
   });
 

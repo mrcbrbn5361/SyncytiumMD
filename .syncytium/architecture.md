@@ -44,7 +44,8 @@ visual knowledge graph.
 | `src/adapters/builtin/` | 10 built-in adapters + `GenericAdapter` for config-declared tools |
 | `src/ui/markdown.ts` | Canonical Markdown → HTML renderer (injected into the browser bundle) |
 | `src/ui/template.ts` | Obsidian Studio HTML: 3D graph, vault explorer, document reader |
-| `src/mcp/server.ts` | 18 MCP tools, every input zod-validated, output token-budgeted |
+| `src/mcp/server.ts` | 22 MCP tools, every input zod-validated, output token-budgeted |
+| `src/mcp/safety.ts` | Tool annotations, per-tool rate limits, effect classification |
 | `src/cli/index.ts` | 22 CLI commands with a global `--json` mode |
 
 ## Engine API
@@ -52,10 +53,11 @@ visual knowledge graph.
 `init` · `sync` · `diff` · `doctor` · `lint` · `validate` · `handoff` ·
 `getHandoffHistory` · `addDecision` · `removeDecision` · `listDecisions` ·
 `addRule` · `getRule` · `removeRule` · `listRules` · `exportBundle` ·
-`clean` · `importExisting` · `getStatus` · `acquireLock` · `releaseLock` ·
-`renewLock` · `getLockStatus` · `installGitHook` · `uninstallGitHook` ·
-`installCiWorkflow` · `uninstallCiWorkflow` · `detectStack` ·
-`getKnowledgeGraph` · `startUiServer` · `watch`
+`clean` · `importExisting` · `getStatus` · `listTrash` · `restoreFromTrash` ·
+`acquireLock` · `releaseLock` · `renewLock` · `getLockStatus` ·
+`installGitHook` · `uninstallGitHook` · `installCiWorkflow` ·
+`uninstallCiWorkflow` · `detectStack` · `getKnowledgeGraph` ·
+`startUiServer` · `watch`
 
 ## Data Flow
 
@@ -69,10 +71,22 @@ visual knowledge graph.
 produces any more. `diff` compares content and reports `identical`, `modified`
 (with a unified patch), `missing_on_disk`, and `unmanaged` (orphans).
 
+## MCP Safety Model
+
+Every advertised tool carries MCP `annotations` (`readOnlyHint`,
+`destructiveHint`, `idempotentHint`, `openWorldHint`) from
+`src/mcp/safety.ts`, and the server enforces a per-tool sliding-window call
+budget in the same module. Destructive tools (`remove_rule`, `remove_decision`)
+default to `dryRun: true`; an actual delete needs `dryRun: false` **and**
+`confirm: true`. Before deleting, the engine archives the exact rule/ADR bytes
+under `.syncytium/memory/trash/`, and `syncytium_restore` (plus
+`listTrash`/`restoreFromTrash` in the library) can undo the operation.
+`doctor` is read-only: it reports remediation strings but never executes them.
+
 ## Directory Layout
 
 - `src/` — source code and adapters
-- `tests/syncytium.test.ts` — 118 tests, build-first (`npm run build && tsc -p tsconfig.tests.json && node --test dist-tests/*.test.js`)
+- `tests/syncytium.test.ts` — 123 tests, build-first (`npm run build && tsc -p tsconfig.tests.json && node --test dist-tests/*.test.js`)
 - `scripts/release.mjs` — verify → publish → CDN-poll → global install
 - `.syncytium/` — single source of truth
   - `rules/` — canonical, stack-aware rules

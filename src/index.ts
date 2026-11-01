@@ -37,4 +37,5 @@ export * from './adapters/builtin/gemini.js';
 export * from './adapters/builtin/generic.js';
 export * from './ui/markdown.js';
 export * from './ui/template.js';
+export * from './mcp/safety.js';
 export * from './mcp/server.js';

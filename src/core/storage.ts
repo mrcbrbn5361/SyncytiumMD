@@ -8,10 +8,18 @@ import type {
   HandoffState,
   SyncytiumConfig,
   HandoffHistoryEntry,
-  SyncytiumLock
+  SyncytiumLock,
+  TrashEntry,
+  TrashKind
 } from './types.js';
-import { SyncytiumConfigSchema, SyncytiumLockSchema, CONFIG_SCHEMA_VERSION, type Stack } from './schemas.js';
-import { toPosix } from './paths.js';
+import {
+  SyncytiumConfigSchema,
+  SyncytiumLockSchema,
+  MemoryDecisionSchema,
+  CONFIG_SCHEMA_VERSION,
+  type Stack
+} from './schemas.js';
+import { isInsideRoot, slugify, toPosix } from './paths.js';
 import {
   DEFAULT_CONFIG,
   INITIAL_DECISIONS,
@@ -108,6 +116,15 @@ export class SyncytiumStorage {
 
   get lockPath(): string {
     return path.join(this.memoryDir, 'lock.json');
+  }
+
+  /**
+   * Recoverable-deletion store. Destructive engine operations move a snapshot
+   * here before touching the live file, so an autonomous agent mistake is an
+   * undo rather than a git archaeology exercise.
+   */
+  get trashDir(): string {
+    return path.join(this.memoryDir, 'trash');
   }
 
   async loadIgnorePatterns(): Promise<string[]> {
@@ -413,6 +430,154 @@ export class SyncytiumStorage {
     if (next.length === decisions.length) return false;
     await this.writeDecisions(next);
     return true;
+  }
+
+  // ------------------------------------------------------------- trash ---
+
+  /** Allocates a collision-free archive filename. */
+  private async nextTrashFile(kind: TrashKind, id: string): Promise<string> {
+    await fs.mkdir(this.trashDir, { recursive: true });
+    const base = `${kind}-${slugify(id, 'item')}-${Date.now().toString(36)}`;
+    let candidate = `${base}.json`;
+    let suffix = 2;
+    while (await fs.access(path.join(this.trashDir, candidate)).then(() => true, () => false)) {
+      candidate = `${base}-${suffix++}.json`;
+    }
+    return path.join(this.trashDir, candidate);
+  }
+
+  async archiveRule(rule: CanonicalRule, raw: string): Promise<TrashEntry> {
+    const archivedAt = new Date().toISOString();
+    const sourceFile =
+      rule.sourceFile ?? toPosix(path.join('.syncytium', 'rules', `${slugify(rule.id, 'rule')}.md`));
+    const snapshot = await this.nextTrashFile('rule', rule.id);
+    const payload = {
+      version: 1,
+      kind: 'rule',
+      id: rule.id,
+      title: rule.title,
+      archivedAt,
+      sourceFile,
+      ruleFile: path.basename(sourceFile),
+      content: raw
+    };
+    await fs.writeFile(snapshot, JSON.stringify(payload, null, 2) + '\n', 'utf-8');
+    return {
+      id: rule.id,
+      kind: 'rule',
+      title: rule.title,
+      archivedAt,
+      sourceFile,
+      snapshotFile: toPosix(path.relative(this.rootDir, snapshot))
+    };
+  }
+
+  async archiveDecision(decision: MemoryDecision): Promise<TrashEntry> {
+    const archivedAt = new Date().toISOString();
+    const sourceFile = toPosix(path.relative(this.rootDir, this.decisionsPath));
+    const snapshot = await this.nextTrashFile('decision', decision.id);
+    const payload = {
+      version: 1,
+      kind: 'decision',
+      id: decision.id,
+      title: decision.title,
+      archivedAt,
+      sourceFile,
+      decision
+    };
+    await fs.writeFile(snapshot, JSON.stringify(payload, null, 2) + '\n', 'utf-8');
+    return {
+      id: decision.id,
+      kind: 'decision',
+      title: decision.title,
+      archivedAt,
+      sourceFile,
+      snapshotFile: toPosix(path.relative(this.rootDir, snapshot))
+    };
+  }
+
+  async listTrash(kind?: TrashKind): Promise<TrashEntry[]> {
+    let files: string[];
+    try {
+      files = await fs.readdir(this.trashDir);
+    } catch {
+      return [];
+    }
+
+    const entries: TrashEntry[] = [];
+    for (const file of files.sort()) {
+      if (!file.endsWith('.json')) continue;
+      const full = path.join(this.trashDir, file);
+      try {
+        const data = JSON.parse(await fs.readFile(full, 'utf-8')) as Record<string, unknown>;
+        if (data.version !== 1) continue;
+        if (data.kind !== 'rule' && data.kind !== 'decision') continue;
+        if (kind && data.kind !== kind) continue;
+        if (typeof data.id !== 'string' || typeof data.archivedAt !== 'string') continue;
+        entries.push({
+          id: data.id,
+          kind: data.kind,
+          title: typeof data.title === 'string' ? data.title : undefined,
+          archivedAt: data.archivedAt,
+          sourceFile: typeof data.sourceFile === 'string' ? data.sourceFile : '',
+          snapshotFile: toPosix(path.relative(this.rootDir, full))
+        });
+      } catch {
+        // A corrupt archive must not hide the rest of the recoverable history.
+      }
+    }
+    return entries.sort((a, b) => b.archivedAt.localeCompare(a.archivedAt));
+  }
+
+  async restoreFromTrash(
+    kind: TrashKind,
+    id: string
+  ): Promise<{ restored: boolean; entry?: TrashEntry; reason?: string }> {
+    const entry = (await this.listTrash(kind)).find(
+      item => item.id === id || slugify(item.id, '') === slugify(id, '')
+    );
+    if (!entry) return { restored: false, reason: `no archived ${kind} with id "${id}"` };
+
+    const snapshotPath = path.join(this.rootDir, entry.snapshotFile);
+    // Trash files are user-writable, so re-check containment before reading.
+    if (!isInsideRoot(this.rootDir, snapshotPath)) {
+      return { restored: false, entry, reason: 'archive path escapes the workspace root' };
+    }
+
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(await fs.readFile(snapshotPath, 'utf-8')) as Record<string, unknown>;
+    } catch (err) {
+      return { restored: false, entry, reason: `archive is unreadable: ${(err as Error).message}` };
+    }
+
+    if (kind === 'rule') {
+      const ruleFile = path.basename(
+        typeof data.ruleFile === 'string' && data.ruleFile ? data.ruleFile : `${slugify(String(data.id), 'rule')}.md`
+      );
+      if (!ruleFile.endsWith('.md')) {
+        return { restored: false, entry, reason: 'archived rule filename is not a .md file' };
+      }
+      const target = path.join(this.rulesDir, ruleFile);
+      if (await fs.access(target).then(() => true, () => false)) {
+        return { restored: false, entry, reason: `rule file already exists: .syncytium/rules/${ruleFile}` };
+      }
+      await fs.mkdir(this.rulesDir, { recursive: true });
+      await fs.writeFile(target, String(data.content ?? ''), 'utf-8');
+      return { restored: true, entry };
+    }
+
+    const decision = MemoryDecisionSchema.safeParse(data.decision);
+    if (!decision.success) {
+      return { restored: false, entry, reason: 'archived decision failed schema validation' };
+    }
+    const existing = await this.loadDecisions();
+    if (existing.some(d => d.id === decision.data.id)) {
+      return { restored: false, entry, reason: `decision "${decision.data.id}" already exists` };
+    }
+    existing.push(decision.data);
+    await this.writeDecisions(existing);
+    return { restored: true, entry };
   }
 
   /** Returns the next free ADR id, filling gaps without reusing existing ones. */

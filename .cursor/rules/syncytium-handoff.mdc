@@ -14,7 +14,7 @@ alwaysApply: true
 ### 🤝 Live Handoff Status
 - **Active Agent:** `opencode` (Next: `Any`)
 - **Status:** `READY_FOR_REVIEW`
-- **Current Goal:** v0.2.2 verification and repository hygiene
+- **Current Goal:** MCP safety hardening
 - **Pending Tasks:**
   - [ ] No pending release tasks
 - **Recently Touched:**
@@ -27,5 +27,5 @@ alwaysApply: true
   - `.gitattributes`
   - `src/core/storage.ts`
 - **Notes:** Generated tool-output directories and local .mcp.json are ignored; MCP hardening documented.
-- **Last Updated:** 2026-10-23T17:41:11.036Z
+- **Last Updated:** 2026-11-01T13:27:46.639Z
 
