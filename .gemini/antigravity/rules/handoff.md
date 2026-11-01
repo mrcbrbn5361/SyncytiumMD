@@ -9,19 +9,21 @@
 
 ### 🤝 Live Handoff Status
 - **Active Agent:** `opencode` (Next: `Any`)
-- **Status:** `READY_FOR_REVIEW`
-- **Current Goal:** MCP safety hardening
+- **Status:** `COMPLETED`
+- **Current Goal:** MCP safety hardening, npm 0.3.0 publish, CI release repair, server.json registry metadata
 - **Pending Tasks:**
-  - [ ] No pending release tasks
+  - [ ] Rotate the npm token and LinkedIn/Gemini credentials pasted in chat
+  - [ ] Re-enable .git/hooks/pre-push only when a post is intended
+  - [ ] Optionally publish server.json via mcp-publisher to registry.modelcontextprotocol.io
 - **Recently Touched:**
-  - `src/core/schemas.ts`
-  - `src/core/diff.ts`
-  - `src/ui/markdown.ts`
-  - `.gitignore`
   - `README.md`
   - `README.tr.md`
   - `.gitattributes`
   - `src/core/storage.ts`
-- **Notes:** Generated tool-output directories and local .mcp.json are ignored; MCP hardening documented.
-- **Last Updated:** 2026-11-01T13:27:46.639Z
+  - `server.json`
+  - `src/mcp/safety.ts`
+  - `.github/workflows/release.yml`
+  - `.github/dependabot.yml`
+- **Notes:** v0.3.0 is live on npm and GitHub. The release workflow is now idempotent: a Release for an already-published version skips npm publish. server.json is schema-valid against the 2025-12-11 registry schema; description is capped at 100 chars. The pre-push LinkedIn poster hook is disabled (pre-push.disabled).
+- **Last Updated:** 2026-11-01T18:21:48.839Z
 

@@ -1,8 +1,10 @@
 ---
 activeAgent: opencode
 nextAgent: Any
-status: ready_for_review
-goal: MCP safety hardening
+status: completed
+goal: >-
+  MCP safety hardening, npm 0.3.0 publish, CI release repair, server.json
+  registry metadata
 completedWork:
   - >-
     Implemented embedded Knowledge Graph UI server (syncytium graph / syncytium
@@ -41,8 +43,27 @@ completedWork:
   - trash+restore
   - docs
   - v0.3.0
+  - Added src/mcp/safety.ts with annotations and per-tool rate limits
+  - >-
+    Destructive MCP tools dry-run by default; deletions archived to
+    .syncytium/memory/trash and restorable
+  - Added syncytium_list_trash and syncytium_restore (20 to 22 tools)
+  - Published syncytium-md@0.3.0 to npm and verified the installed CLI
+  - >-
+    Fixed release workflow idempotency; release run 41336056797 skipped publish
+    and passed
+  - 'Fixed dependabot (ignore semver-major, group minor/patch); PR 9 green'
+  - >-
+    Added server.json in official MCP Registry format, schema-validated and
+    version-pinned by a test
+  - Created and pushed tag v0.3.0 and published GitHub Release
+  - 'All gates green: build, typecheck, 124/124 tests, lint 9/9, diff 0 drift'
 pendingTasks:
-  - No pending release tasks
+  - Rotate the npm token and LinkedIn/Gemini credentials pasted in chat
+  - Re-enable .git/hooks/pre-push only when a post is intended
+  - >-
+    Optionally publish server.json via mcp-publisher to
+    registry.modelcontextprotocol.io
 touchedFiles:
   - package.json
   - src/core/types.ts
@@ -65,20 +86,26 @@ touchedFiles:
   - README.tr.md
   - .gitattributes
   - src/core/storage.ts
+  - server.json
+  - src/mcp/safety.ts
+  - .github/workflows/release.yml
+  - .github/dependabot.yml
 contextNotes: >-
-  Generated tool-output directories and local .mcp.json are ignored; MCP
-  hardening documented.
-lastUpdated: '2026-11-01T13:27:46.639Z'
+  v0.3.0 is live on npm and GitHub. The release workflow is now idempotent: a
+  Release for an already-published version skips npm publish. server.json is
+  schema-valid against the 2025-12-11 registry schema; description is capped at
+  100 chars. The pre-push LinkedIn poster hook is disabled (pre-push.disabled).
+lastUpdated: '2026-11-01T18:21:48.839Z'
 ---
 # 🤝 Syncytium Handoff & Live State
 
 > **Active Agent:** `opencode`
 > **Next Recommended Agent:** `Any`
-> **Status:** `READY_FOR_REVIEW`
-> **Last Updated:** `2026-11-01T13:27:46.639Z`
+> **Status:** `COMPLETED`
+> **Last Updated:** `2026-11-01T18:21:48.839Z`
 
 ## 🎯 Current Goal
-MCP safety hardening
+MCP safety hardening, npm 0.3.0 publish, CI release repair, server.json registry metadata
 
 ## ✅ Completed in Recent Turns
 - Implemented embedded Knowledge Graph UI server (syncytium graph / syncytium ui)
@@ -106,9 +133,20 @@ MCP safety hardening
 - trash+restore
 - docs
 - v0.3.0
+- Added src/mcp/safety.ts with annotations and per-tool rate limits
+- Destructive MCP tools dry-run by default; deletions archived to .syncytium/memory/trash and restorable
+- Added syncytium_list_trash and syncytium_restore (20 to 22 tools)
+- Published syncytium-md@0.3.0 to npm and verified the installed CLI
+- Fixed release workflow idempotency; release run 41336056797 skipped publish and passed
+- Fixed dependabot (ignore semver-major, group minor/patch); PR 9 green
+- Added server.json in official MCP Registry format, schema-validated and version-pinned by a test
+- Created and pushed tag v0.3.0 and published GitHub Release
+- All gates green: build, typecheck, 124/124 tests, lint 9/9, diff 0 drift
 
 ## 📋 Pending Tasks (Next Agent Action Items)
-- [ ] No pending release tasks
+- [ ] Rotate the npm token and LinkedIn/Gemini credentials pasted in chat
+- [ ] Re-enable .git/hooks/pre-push only when a post is intended
+- [ ] Optionally publish server.json via mcp-publisher to registry.modelcontextprotocol.io
 
 ## 📂 Recently Touched Files
 - `package.json`
@@ -132,6 +170,10 @@ MCP safety hardening
 - `README.tr.md`
 - `.gitattributes`
 - `src/core/storage.ts`
+- `server.json`
+- `src/mcp/safety.ts`
+- `.github/workflows/release.yml`
+- `.github/dependabot.yml`
 
 ## 🧠 Context & Handoff Notes for Next Agent
-Generated tool-output directories and local .mcp.json are ignored; MCP hardening documented.
+v0.3.0 is live on npm and GitHub. The release workflow is now idempotent: a Release for an already-published version skips npm publish. server.json is schema-valid against the 2025-12-11 registry schema; description is capped at 100 chars. The pre-push LinkedIn poster hook is disabled (pre-push.disabled).
