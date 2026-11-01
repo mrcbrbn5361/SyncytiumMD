@@ -181,6 +181,11 @@ calls per minute). Destructive tools default to `dryRun: true`; deleting needs
 operation. `syncytium_doctor` is strictly read-only. These limits are enforced
 server-side, so they hold even when a client ignores the annotations.
 
+**MCP Registry.** The repository root carries a `server.json` manifest (official
+`registry.modelcontextprotocol.io` format) describing the npm package, the
+stdio transport and the `mcp` launch argument. A unit test pins its version to
+`package.json` so the registry never advertises stale metadata.
+
 ## `.syncytiumignore`
 
 Excludes generated targets from both `sync` and `diff`. Full gitignore syntax,

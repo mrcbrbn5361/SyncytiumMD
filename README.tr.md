@@ -182,6 +182,11 @@ Yıkıcı araçlar varsayılan olarak `dryRun: true` çalışır; silme için
 alır. `syncytium_doctor` kesinlikle salt-okunurdur. Bu sınırlar istemci
 etiketleri yok saysa bile sunucu tarafında uygulanır.
 
+**MCP Registry.** Depo kökünde resmî `registry.modelcontextprotocol.io`
+formatında bir `server.json` bildirimi var; npm paketini, stdio taşımını ve
+`mcp` başlatma argümanını tanımlar. Birim testi sürümünü `package.json`'a
+sabitlediği için registry asla bayat meta veri yayınlamaz.
+
 ## `.syncytiumignore`
 
 Üretilen hedefleri hem `sync` hem `diff` dışında bırakır. `**`, `?`,

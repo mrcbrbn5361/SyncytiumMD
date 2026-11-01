@@ -1,0 +1,32 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.mrcbrbn5361/syncytiummd",
+  "title": "SyncytiumMD",
+  "description": "One canonical context transpiled into Cursor, Claude, Copilot, Cline and more, with agent handoff.",
+  "version": "0.3.0",
+  "websiteUrl": "https://github.com/mrcbrbn5361/SyncytiumMD#readme",
+  "repository": {
+    "url": "https://github.com/mrcbrbn5361/SyncytiumMD",
+    "source": "github",
+    "id": "1377030995"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "syncytium-md",
+      "version": "0.3.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp",
+          "description": "Start the MCP server instead of the CLI"
+        }
+      ]
+    }
+  ]
+}

@@ -2138,5 +2138,25 @@ describe('SyncytiumMD v0.2.0 — full test suite', () => {
       const cli = await fs.readFile(new URL('../dist/cli/index.js', import.meta.url), 'utf-8');
       assert.ok(!cli.includes("version('0.1.9')"), 'CLI must not hardcode a stale version');
     });
+
+    test('server.json stays in sync with the published package', async () => {
+      const pkg = JSON.parse(
+        await fs.readFile(new URL('../package.json', import.meta.url), 'utf-8')
+      );
+      const server = JSON.parse(
+        await fs.readFile(new URL('../server.json', import.meta.url), 'utf-8')
+      );
+
+      // A stale manifest makes the official MCP registry advertise metadata
+      // for a version that no longer matches what npm serves.
+      assert.equal(server.version, pkg.version, 'server.json version must match package.json');
+      assert.equal(server.packages[0].identifier, pkg.name, 'package identifier must match the npm name');
+      assert.equal(server.packages[0].version, pkg.version, 'package version must match package.json');
+      assert.equal(pkg.bin['syncytium-mcp'], 'dist/mcp/index.js');
+      assert.match(server.name, /^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/, 'name must be reverse-DNS');
+      assert.ok(server.description.length <= 100, 'registry caps the description at 100 characters');
+      assert.ok(pkg.files.includes('dist'));
+      assert.equal(pkg.bin['syncytium'] !== undefined, true, 'CLI bin must exist');
+    });
   });
 });
