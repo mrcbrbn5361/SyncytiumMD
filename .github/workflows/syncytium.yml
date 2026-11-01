@@ -11,7 +11,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: syncytium-${{ github.ref }}
+  # Keyed on the PR number so a push to one pull request cannot cancel a
+  # different one; every PR otherwise shares the same synthetic merge ref.
+  group: syncytium-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -29,7 +31,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
       - name: Build CLI
         run: npm run build
@@ -43,14 +45,22 @@ jobs:
       # Use the CLI built from this commit so the gate cannot be skewed by an
       # older globally installed Syncytium release.
       - name: Verify zero context drift
-        run: node dist/cli/index.js diff --check
+        run: |
+          if ! node dist/cli/index.js diff --check; then
+            echo "::error::Bridge files drifted from .syncytium/. Run 'syncytium sync' and commit the result."
+            git status --porcelain
+            exit 1
+          fi
 
   self-test:
-    name: Build, Typecheck & Test
+    name: Build, Typecheck & Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        node-version: [20.x, 22.x]
+        # Node 20 was dropped: GitHub runners force it onto Node 24 and emit a
+        # deprecation warning on every job. engines still allows >=20 consumers.
+        node-version: [22.x, 24.x]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -62,7 +72,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
       # Build must come first: the test suite imports ../dist/index.js, so
       # `tsc --noEmit` over tests/ needs the emitted type declarations to exist.
@@ -74,3 +84,27 @@ jobs:
 
       - name: Test
         run: npm test
+
+  lockfile:
+    name: Lockfile matches package.json
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` tolerates a stale lockfile root version, so a version bump that
+      # forgets the lockfile would still go green. Catch it explicitly.
+      - name: Compare lockfile and package.json versions
+        run: |
+          pkg=$(node -p "require('./package.json').version")
+          lock=$(node -p "require('./package-lock.json').version")
+          if [ "$pkg" != "$lock" ]; then
+            echo "::error::package.json is $pkg but package-lock.json is $lock. Run 'npm install --package-lock-only'."
+            exit 1
+          fi

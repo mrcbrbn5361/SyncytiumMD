@@ -1,5 +1,15 @@
 name: Release
 
+# Publishing happens twice in this repo by design:
+#   1. `npm run release` on a maintainer machine (verify -> publish -> global install)
+#   2. this workflow, when a GitHub Release is published for the same tag
+#
+# Step 2 failed on every single release with
+#   npm error 403: cannot publish over the previously published version
+# because step 1 had already uploaded that exact version. The job is therefore
+# idempotent now: it verifies the tarball, skips when the version is already on
+# the registry, and only publishes when it is genuinely missing.
+
 on:
   release:
     types: [published]
@@ -12,7 +22,12 @@ on:
 
 permissions:
   contents: read
+  # `--provenance` signs with the workflow's OIDC identity.
   id-token: write
+
+concurrency:
+  group: release-${{ github.event.release.tag_name || github.ref }}
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -30,10 +45,88 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
-      # prepublishOnly runs `npm run verify` (typecheck + build + test).
-      - name: Publish
+      # Trusted publishing (OIDC) needs npm >= 11.5; Node 22 ships npm 10.
+      # `secrets` is not available in a step-level `if`, so branch in shell.
+      - name: Upgrade npm for OIDC trusted publishing
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            npm install -g npm@latest
+          else
+            echo "NPM_TOKEN present; keeping the bundled npm."
+          fi
+
+      # Fails fast and legibly instead of a bare 404 from `npm publish`.
+      - name: Preflight - credentials and version
+        id: preflight
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          dry_run="false"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs['dry-run'] }}" = "true" ]; then
+            dry_run="true"
+          fi
+          echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
+
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "::warning::NPM_TOKEN is not set. Falling back to npm OIDC trusted publishing, which requires a trusted publisher entry for this repository on npmjs.com."
+          else
+            whoami=$(npm whoami 2>/dev/null || true)
+            if [ -z "$whoami" ]; then
+              echo "::error::NPM_TOKEN is set but npm rejected it: expired, revoked, or missing publish rights for syncytium-md."
+              exit 1
+            fi
+            echo "Authenticated to npm as $whoami"
+          fi
+
+          if [ "${{ github.event_name }}" = "release" ]; then
+            tag="${{ github.event.release.tag_name }}"
+            tag_version="${tag#v}"
+            if [ "$tag_version" != "$version" ]; then
+              echo "::error::Release tag '$tag' does not match package.json version '$version'. Refusing to publish a mismatched artifact."
+              exit 1
+            fi
+          fi
+
+      # Makes the run idempotent: the version published by `npm run release`
+      # already exists, and re-uploading it is the historical failure.
+      - name: Check registry for an existing version
+        id: registry
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          version="${{ steps.preflight.outputs.version }}"
+          if npm view "syncytium-md@$version" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "v$version is already on the registry; nothing to publish."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # prepublishOnly runs `npm run verify` (build + typecheck + 123 tests), so
+      # a broken commit can never be uploaded.
+      - name: Publish to npm
+        if: steps.registry.outputs.published == 'false' && steps.preflight.outputs.dry_run == 'false'
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### syncytium-md v${{ steps.preflight.outputs.version }}"
+            if [ "${{ steps.registry.outputs.published }}" = "true" ]; then
+              echo "Already on the registry - publish skipped (idempotent release)."
+            elif [ "${{ steps.preflight.outputs.dry_run }}" = "true" ]; then
+              echo "Dry run - verified only, nothing published."
+            else
+              echo "Published to npm with provenance."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,14 +1,34 @@
 version: 2
+
+# Every open Dependabot PR was red for months because it proposed semver-major
+# upgrades (typescript 7, tsup 9, zod 4, commander 15, chokidar 6) that cannot
+# pass a build without a migration. Major upgrades are therefore ignored here:
+# they are deliberate, tested work, not something to merge on a green check.
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
+      day: monday
     open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
     groups:
-      dev-dependencies:
-        dependency-type: development
+      # One PR per ecosystem instead of one per patch bump.
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(ci)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
