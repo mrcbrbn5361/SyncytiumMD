@@ -1,5 +1,30 @@
 [
   {
+    "id": "HND-MW3P5GVL",
+    "timestamp": "2026-11-05T15:24:48.885Z",
+    "fromAgent": "opencode",
+    "toAgent": "opencode",
+    "status": "blocked",
+    "goal": "v0.3.1 npm publish and MCP Registry listing are blocked on npm OIDC trusted-publisher setup",
+    "tasksDone": [
+      "v0.3.1 code, docs, tag and GitHub Release are complete; verification run 42052911220 is green",
+      "MCP Discovery workflow validated the manifest, discovery files and registry lookup before waiting on npm",
+      "Release workflow failed with npm ENEEDAUTH because the npm package has no Trusted Publisher registered for this repository"
+    ],
+    "nextTasks": [
+      "On npmjs.com add a Trusted Publisher for syncytium-md: GitHub Actions, owner mrcbrbn5361, repo SyncytiumMD, workflow release.yml",
+      "Re-run Release run 42053623967, then run the MCP Discovery workflow (or re-run 42053623576)",
+      "Rotate any credential that was pasted into chat earlier"
+    ],
+    "activeFiles": [
+      "package.json",
+      "server.json",
+      ".github/workflows/release.yml",
+      ".github/workflows/discoverability.yml"
+    ],
+    "notes": "No npm credential exists locally or in GitHub secrets, so 0.3.1 cannot be published until the npm-side trusted publisher exists. After that, both workflows are idempotent and need no secrets."
+  },
+  {
     "id": "HND-MW3OI3WK",
     "timestamp": "2026-11-05T15:06:39.039Z",
     "fromAgent": "opencode",

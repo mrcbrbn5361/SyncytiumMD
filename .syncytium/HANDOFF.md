@@ -1,16 +1,11 @@
 ---
 activeAgent: opencode
-nextAgent: Any
-status: completed
-goal: 'v0.3.1: real-file 3D vault, structured MCP outputs, OIDC registry publishing'
+nextAgent: Human
+status: blocked
+goal: >-
+  v0.3.1 npm publish and MCP Registry listing are blocked on npm OIDC
+  trusted-publisher setup
 completedWork:
-  - >-
-    Implemented embedded Knowledge Graph UI server (syncytium graph / syncytium
-    ui)
-  - Added syncytium_get_graph tool to MCP server
-  - >-
-    Created automated release pipeline (scripts/release.mjs) with CDN
-    propagation polling
   - >-
     Enhanced SyncytiumMD self-hosting (.syncytium/ architecture, ADRs, and
     adapter standards)
@@ -70,10 +65,22 @@ completedWork:
   - >-
     All gates green: build, typecheck, 129/129 tests, lint, validate, diff 0
     drift, doctor healthy
+  - >-
+    v0.3.1 code, docs, tag and GitHub Release are complete; verification run
+    42052911220 is green
+  - >-
+    MCP Discovery workflow validated the manifest, discovery files and registry
+    lookup before waiting on npm
+  - >-
+    Release workflow failed with npm ENEEDAUTH because the npm package has no
+    Trusted Publisher registered for this repository
 pendingTasks:
   - >-
-    Confirm the v0.3.1 npm publish via OIDC trusted publishing and the MCP
-    Registry listing
+    On npmjs.com add a Trusted Publisher for syncytium-md: GitHub Actions, owner
+    mrcbrbn5361, repo SyncytiumMD, workflow release.yml
+  - >-
+    Re-run Release run 42053623967, then run the MCP Discovery workflow (or
+    re-run 42053623576)
   - Rotate any credential that was pasted into chat earlier
 touchedFiles:
   - package.json
@@ -104,25 +111,22 @@ touchedFiles:
   - scripts/build-discovery.mjs
   - .github/workflows/discoverability.yml
 contextNotes: >-
-  Version 0.3.1. The discoverability workflow regenerates llms files, waits for
-  npm, verifies mcp-publisher with cosign and publishes with GitHub OIDC. No
-  stored registry secret. LinkedIn hooks deleted from .git.
-lastUpdated: '2026-11-05T15:06:39.039Z'
+  No npm credential exists locally or in GitHub secrets, so 0.3.1 cannot be
+  published until the npm-side trusted publisher exists. After that, both
+  workflows are idempotent and need no secrets.
+lastUpdated: '2026-11-05T15:24:48.885Z'
 ---
 # 🤝 Syncytium Handoff & Live State
 
 > **Active Agent:** `opencode`
-> **Next Recommended Agent:** `Any`
-> **Status:** `COMPLETED`
-> **Last Updated:** `2026-11-05T15:06:39.039Z`
+> **Next Recommended Agent:** `Human`
+> **Status:** `BLOCKED`
+> **Last Updated:** `2026-11-05T15:24:48.885Z`
 
 ## 🎯 Current Goal
-v0.3.1: real-file 3D vault, structured MCP outputs, OIDC registry publishing
+v0.3.1 npm publish and MCP Registry listing are blocked on npm OIDC trusted-publisher setup
 
 ## ✅ Completed in Recent Turns
-- Implemented embedded Knowledge Graph UI server (syncytium graph / syncytium ui)
-- Added syncytium_get_graph tool to MCP server
-- Created automated release pipeline (scripts/release.mjs) with CDN propagation polling
 - Enhanced SyncytiumMD self-hosting (.syncytium/ architecture, ADRs, and adapter standards)
 - Added unit tests: 20/20 tests passing
 - Optimized 3D WebGL knowledge graph with Three.js geometry/material pooling
@@ -160,9 +164,13 @@ v0.3.1: real-file 3D vault, structured MCP outputs, OIDC registry publishing
 - Added server.json icons, mcpName ownership marker, llms.txt/llms-full.txt and a cosign-verified OIDC discovery workflow
 - Removed the local LinkedIn poster hooks and their plaintext credentials
 - All gates green: build, typecheck, 129/129 tests, lint, validate, diff 0 drift, doctor healthy
+- v0.3.1 code, docs, tag and GitHub Release are complete; verification run 42052911220 is green
+- MCP Discovery workflow validated the manifest, discovery files and registry lookup before waiting on npm
+- Release workflow failed with npm ENEEDAUTH because the npm package has no Trusted Publisher registered for this repository
 
 ## 📋 Pending Tasks (Next Agent Action Items)
-- [ ] Confirm the v0.3.1 npm publish via OIDC trusted publishing and the MCP Registry listing
+- [ ] On npmjs.com add a Trusted Publisher for syncytium-md: GitHub Actions, owner mrcbrbn5361, repo SyncytiumMD, workflow release.yml
+- [ ] Re-run Release run 42053623967, then run the MCP Discovery workflow (or re-run 42053623576)
 - [ ] Rotate any credential that was pasted into chat earlier
 
 ## 📂 Recently Touched Files
@@ -195,4 +203,4 @@ v0.3.1: real-file 3D vault, structured MCP outputs, OIDC registry publishing
 - `.github/workflows/discoverability.yml`
 
 ## 🧠 Context & Handoff Notes for Next Agent
-Version 0.3.1. The discoverability workflow regenerates llms files, waits for npm, verifies mcp-publisher with cosign and publishes with GitHub OIDC. No stored registry secret. LinkedIn hooks deleted from .git.
+No npm credential exists locally or in GitHub secrets, so 0.3.1 cannot be published until the npm-side trusted publisher exists. After that, both workflows are idempotent and need no secrets.

@@ -12,11 +12,12 @@ alwaysApply: true
 # 🤝 Syncytium Active Handoff
 
 ### 🤝 Live Handoff Status
-- **Active Agent:** `opencode` (Next: `Any`)
-- **Status:** `COMPLETED`
-- **Current Goal:** v0.3.1: real-file 3D vault, structured MCP outputs, OIDC registry publishing
+- **Active Agent:** `opencode` (Next: `Human`)
+- **Status:** `BLOCKED`
+- **Current Goal:** v0.3.1 npm publish and MCP Registry listing are blocked on npm OIDC trusted-publisher setup
 - **Pending Tasks:**
-  - [ ] Confirm the v0.3.1 npm publish via OIDC trusted publishing and the MCP Registry listing
+  - [ ] On npmjs.com add a Trusted Publisher for syncytium-md: GitHub Actions, owner mrcbrbn5361, repo SyncytiumMD, workflow release.yml
+  - [ ] Re-run Release run 42053623967, then run the MCP Discovery workflow (or re-run 42053623576)
   - [ ] Rotate any credential that was pasted into chat earlier
 - **Recently Touched:**
   - `.gitattributes`
@@ -27,6 +28,6 @@ alwaysApply: true
   - `.github/dependabot.yml`
   - `scripts/build-discovery.mjs`
   - `.github/workflows/discoverability.yml`
-- **Notes:** Version 0.3.1. The discoverability workflow regenerates llms files, waits for npm, verifies mcp-publisher with cosign and publishes with GitHub OIDC. No stored registry secret. LinkedIn hooks deleted from .git.
-- **Last Updated:** 2026-11-05T15:06:39.039Z
+- **Notes:** No npm credential exists locally or in GitHub secrets, so 0.3.1 cannot be published until the npm-side trusted publisher exists. After that, both workflows are idempotent and need no secrets.
+- **Last Updated:** 2026-11-05T15:24:48.885Z
 
