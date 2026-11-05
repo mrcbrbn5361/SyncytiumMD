@@ -71,7 +71,7 @@ A change is not done until all of these pass locally:
 ```bash
 npm run typecheck   # tsc --noEmit over src/ and tests/
 npm run build       # tsup, ESM + .d.ts
-npm test            # 118 tests, build-first + dist-tests (Node 20+)
+npm test            # 129 tests, build-first + dist-tests (Node 20+)
 npm run verify      # all three, in order
 ```
 

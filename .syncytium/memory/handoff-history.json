@@ -1,5 +1,39 @@
 [
   {
+    "id": "HND-MW3OI3WK",
+    "timestamp": "2026-11-05T15:06:39.039Z",
+    "fromAgent": "opencode",
+    "toAgent": "opencode",
+    "status": "completed",
+    "goal": "v0.3.1: real-file 3D vault, structured MCP outputs, OIDC registry publishing",
+    "tasksDone": [
+      "3D vault now models real generated files and directory nodes with used/empty adapter state; /api/list added and /api/file rejects directories",
+      "MCP surface: 23 tools, closed inputs, documented properties, outputSchema + structuredContent for stable reads",
+      "Split validate (read-only) from validate_fix (write)",
+      "Added server.json icons, mcpName ownership marker, llms.txt/llms-full.txt and a cosign-verified OIDC discovery workflow",
+      "Removed the local LinkedIn poster hooks and their plaintext credentials",
+      "All gates green: build, typecheck, 129/129 tests, lint, validate, diff 0 drift, doctor healthy"
+    ],
+    "nextTasks": [
+      "Confirm the v0.3.1 npm publish via OIDC trusted publishing and the MCP Registry listing",
+      "Rotate any credential that was pasted into chat earlier"
+    ],
+    "activeFiles": [
+      "src/core/engine.ts",
+      "src/core/types.ts",
+      "src/mcp/server.ts",
+      "src/mcp/safety.ts",
+      "src/ui/template.ts",
+      "tests/syncytium.test.ts",
+      "server.json",
+      "scripts/build-discovery.mjs",
+      ".github/workflows/discoverability.yml",
+      "README.md",
+      "README.tr.md"
+    ],
+    "notes": "Version 0.3.1. The discoverability workflow regenerates llms files, waits for npm, verifies mcp-publisher with cosign and publishes with GitHub OIDC. No stored registry secret. LinkedIn hooks deleted from .git."
+  },
+  {
     "id": "HND-MVY5POKU",
     "timestamp": "2026-11-01T18:21:48.839Z",
     "fromAgent": "opencode",

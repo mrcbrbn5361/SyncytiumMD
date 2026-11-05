@@ -1,6 +1,7 @@
 {
   "name": "syncytium-md",
-  "version": "0.3.0",
+  "mcpName": "io.github.mrcbrbn5361/syncytiummd",
+  "version": "0.3.1",
   "description": "Universal Context & Handoff Bridge for AI Coding Tools (IDEs, VSCode extensions, CLIs, and MCP)",
   "type": "module",
   "main": "./dist/index.js",
@@ -14,7 +15,9 @@
     "node": ">=20.0.0"
   },
   "files": [
-    "dist"
+    "dist",
+    "server.json",
+    "docs/icon.svg"
   ],
   "scripts": {
     "build": "tsup",
@@ -24,6 +27,7 @@
     "test:watch": "npm run build && tsc -p tsconfig.tests.json && node --test --watch dist-tests/*.test.js",
     "verify": "npm run build && npm run typecheck && npm test",
     "release": "node scripts/release.mjs",
+    "discovery": "npm run build && node scripts/build-discovery.mjs",
     "prepublishOnly": "npm run verify"
   },
   "keywords": [

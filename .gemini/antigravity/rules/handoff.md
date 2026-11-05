@@ -10,20 +10,19 @@
 ### 🤝 Live Handoff Status
 - **Active Agent:** `opencode` (Next: `Any`)
 - **Status:** `COMPLETED`
-- **Current Goal:** MCP safety hardening, npm 0.3.0 publish, CI release repair, server.json registry metadata
+- **Current Goal:** v0.3.1: real-file 3D vault, structured MCP outputs, OIDC registry publishing
 - **Pending Tasks:**
-  - [ ] Rotate the npm token and LinkedIn/Gemini credentials pasted in chat
-  - [ ] Re-enable .git/hooks/pre-push only when a post is intended
-  - [ ] Optionally publish server.json via mcp-publisher to registry.modelcontextprotocol.io
+  - [ ] Confirm the v0.3.1 npm publish via OIDC trusted publishing and the MCP Registry listing
+  - [ ] Rotate any credential that was pasted into chat earlier
 - **Recently Touched:**
-  - `README.md`
-  - `README.tr.md`
   - `.gitattributes`
   - `src/core/storage.ts`
   - `server.json`
   - `src/mcp/safety.ts`
   - `.github/workflows/release.yml`
   - `.github/dependabot.yml`
-- **Notes:** v0.3.0 is live on npm and GitHub. The release workflow is now idempotent: a Release for an already-published version skips npm publish. server.json is schema-valid against the 2025-12-11 registry schema; description is capped at 100 chars. The pre-push LinkedIn poster hook is disabled (pre-push.disabled).
-- **Last Updated:** 2026-11-01T18:21:48.839Z
+  - `scripts/build-discovery.mjs`
+  - `.github/workflows/discoverability.yml`
+- **Notes:** Version 0.3.1. The discoverability workflow regenerates llms files, waits for npm, verifies mcp-publisher with cosign and publishes with GitHub OIDC. No stored registry secret. LinkedIn hooks deleted from .git.
+- **Last Updated:** 2026-11-05T15:06:39.039Z
 

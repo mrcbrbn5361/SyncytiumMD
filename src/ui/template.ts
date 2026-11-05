@@ -41,7 +41,7 @@ export function serializeForScript(value: unknown): string {
     .replace(/\u2029/g, '\\u2029');
 }
 
-const ALLOWED_PERSPECTIVES = ['all', 'ide', 'cli', 'extension', 'brain', 'agent'] as const;
+const ALLOWED_PERSPECTIVES = ['all', 'ide', 'cli', 'extension', 'agent', 'brain', 'generic'] as const;
 
 export function renderGraphHtml(
   projectName: string,
@@ -567,6 +567,21 @@ export function renderGraphHtml(
       color: #cbd5e1;
       user-select: text;
     }
+    .doc-toolbar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 12px;
+    }
+    .doc-action-btn {
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #38bdf8;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+    .doc-action-btn:hover { background: rgba(56, 189, 248, 0.22); }
     .doc-content-body::-webkit-scrollbar {
       width: 6px;
     }
@@ -768,6 +783,12 @@ export function renderGraphHtml(
       <button class="perspective-btn" data-perspective="extension" title="Isolate GitHub Copilot & Cline / Roo Code extensions">
         🧩 VSCode Extensions
       </button>
+      <button class="perspective-btn" data-perspective="agent" title="Isolate AGENTS.md, Gemini CLI, Antigravity and terminal agents">
+        🤖 Agents
+      </button>
+      <button class="perspective-btn" data-perspective="generic" title="Isolate custom adapters declared in syncytium.config.json">
+        🧰 Custom
+      </button>
       <button class="perspective-btn" data-perspective="brain" title="Focus exclusively on canonical .syncytium/ source of truth">
         📜 Core Vault (.syncytium)
       </button>
@@ -859,6 +880,7 @@ export function renderGraphHtml(
       agent: 0x34d399,
       adapter: 0xf43f5e,
       file: 0x4ade80,
+      dir: 0x64748b,
       doc: 0x818cf8,
       ide: 0x38bdf8,
       cli: 0xfb923c,
@@ -873,6 +895,7 @@ export function renderGraphHtml(
       adapter: 8,
       tag: 5,
       file: 5,
+      dir: 7,
       doc: 9
     };
 
@@ -884,10 +907,11 @@ export function renderGraphHtml(
     const serverHidesFiles = Boolean(initialConfig.compact) || Boolean(initialConfig.excludeFiles);
     const serverHidesTags = Boolean(initialConfig.compact) || Boolean(initialConfig.excludeTags);
     let activeFilters = new Set(['root', 'rule', 'decision', 'agent', 'adapter', 'doc']);
-    if (!serverHidesFiles) activeFilters.add('file');
+    if (!serverHidesFiles) { activeFilters.add('file'); activeFilters.add('dir'); }
     if (!serverHidesTags) activeFilters.add('tag');
 
     let selectedNode = null;
+    let pulsedId = null;
     let autoRotate = true;
 
     // Physics Simulation Alpha
@@ -1639,12 +1663,30 @@ export function renderGraphHtml(
         updateCameraPos();
       }
 
+      // Highlight the selected node in 3D so the right-hand panel and the
+      // galaxy stay visually linked while the camera flies to it.
+      const wantedId = selectedNode ? selectedNode.id : null;
+      if (pulsedId && pulsedId !== wantedId) {
+        const prev = nodeMeshMap.get(pulsedId);
+        if (prev) prev.sphereMesh.scale.setScalar(RADIUS_MAP[prev.node.type] || 6);
+        pulsedId = null;
+      }
+      if (wantedId) {
+        const entry = nodeMeshMap.get(wantedId);
+        if (entry) {
+          const base = RADIUS_MAP[entry.node.type] || 6;
+          entry.sphereMesh.scale.setScalar(base * (1 + 0.1 * Math.sin(performance.now() / 280)));
+          pulsedId = wantedId;
+        }
+      }
+
       renderer.render(scene, camera);
     }
 
     // Node & Document Selection
     function selectNode(node) {
       selectedNode = node;
+      try { localStorage.setItem('syncytium.lastDoc', node.id); } catch {}
       wakePhysics(0.35);
       hoveredNode = null;
 
@@ -1710,13 +1752,15 @@ export function renderGraphHtml(
       const isBrainMaster = brainCategories.includes(node.metadata?.category);
       docOriginBadge.textContent = isBrainMaster
         ? '🧠 Canonical Source of Truth (.syncytium)'
-        : '⚡ Transpiled from .syncytium/ (' + (node.metadata?.category || 'Bridge') + ')';
+        : node.type === 'adapter' || node.type === 'dir'
+          ? '⚡ Bridge target descriptor'
+          : '⚡ Transpiled from .syncytium/ (' + (node.metadata?.category || 'Bridge') + ')';
       docOriginBadge.style.color = isBrainMaster ? '#a5b4fc' : '#4ade80';
 
       let html = '';
 
       // Metadata card
-      const meta = node.metadata;
+      const meta = node.metadata || {};
       if (meta) {
         html += '<div class="meta-card">';
         if (meta.category) html += row('Category', escapeHtml(String(meta.category).toUpperCase()));
@@ -1728,35 +1772,70 @@ export function renderGraphHtml(
         html += '</div>';
       }
 
-      // Content preview: direct from metadata or fetch via /api/file
-      let content = meta?.content;
-      let fetchError = null;
-      if (!content && meta?.path) {
-        try {
-          const res = await fetch('/api/file?path=' + encodeURIComponent(meta.path));
-          if (res.ok) {
-            const data = await res.json();
-            content = data.content;
-          } else {
-            const err = await res.json().catch(() => ({}));
-            fetchError = err.error || 'HTTP ' + res.status;
+      // An adapter opens its generated files; a directory opens its listing;
+      // anything else opens Markdown. A directory path must never be handed to
+      // /api/file, which correctly refuses it.
+      if (node.type === 'adapter') {
+        const files = graphData.edges
+          .filter(e => e.source === node.id && e.type === 'generates')
+          .map(e => nodeIndex.get(e.target))
+          .filter(Boolean);
+        html +=
+          '<div class="meta-card">' +
+          row('In use', '<span style="color:' + (meta.used ? '#4ade80' : '#fbbf24') + '">' +
+            (meta.used ? 'yes - files exist on disk' : 'not synced to disk yet') + '</span>') +
+          row('Generated files', escapeHtml(String(files.length))) +
+          '</div>';
+        html +=
+          '<div class="connected-nodes-box"><div class="connected-title">Generated bridge files (' +
+          files.length +
+          ')</div><div class="node-pill-list">' +
+          (files.length > 0 ? files.map(f => nodePill(f, '⚡')).join('') : '<p style="color:var(--text-dim)">No generated files.</p>') +
+          '</div></div>';
+      } else if (node.type === 'dir') {
+        html += await directoryListing(meta.path, node);
+      } else {
+        let content = meta.content;
+        let fetchError = null;
+        if (!content && meta.path) {
+          try {
+            const res = await fetch('/api/file?path=' + encodeURIComponent(meta.path));
+            if (res.ok) {
+              const data = await res.json();
+              content = data.content;
+            } else {
+              const err = await res.json().catch(() => ({}));
+              if (err.isDirectory) {
+                html += await directoryListing(meta.path, node);
+              } else {
+                fetchError = err.error || 'HTTP ' + res.status;
+              }
+            }
+          } catch (err) {
+            fetchError = 'network error: ' + err.message;
           }
-        } catch (err) {
-          fetchError = 'network error: ' + err.message;
+        }
+
+        if (content) {
+          html += '<div>' + renderMarkdownToHtml(content) + '</div>';
+        } else if (fetchError) {
+          html +=
+            '<p style="color:#fbbf24">Could not load <code>' +
+            escapeHtml(meta.path || '') +
+            '</code>: ' +
+            escapeHtml(fetchError) +
+            '</p>';
+        } else if (!html.includes('connected-nodes-box') && node.description) {
+          html += '<p>' + escapeHtml(node.description) + '</p>';
         }
       }
 
-      if (content) {
-        html += '<div>' + renderMarkdownToHtml(content) + '</div>';
-      } else if (fetchError) {
-        html +=
-          '<p style="color:#fbbf24">Could not load <code>' +
-          escapeHtml(meta.path) +
-          '</code>: ' +
-          escapeHtml(fetchError) +
-          '</p>';
-      } else if (node.description) {
-        html += '<p>' + escapeHtml(node.description) + '</p>';
+      if (meta.path && node.type !== 'adapter') {
+        html =
+          '<div class="doc-toolbar"><button class="doc-action-btn" data-copy-path="' +
+          escapeHtmlAttribute(meta.path) +
+          '">Copy path</button></div>' +
+          html;
       }
 
       // Connected Nodes section
@@ -1766,18 +1845,61 @@ export function renderGraphHtml(
         connections.forEach(edge => {
           const otherId = edge.source === node.id ? edge.target : edge.source;
           const other = nodeIndex.get(otherId);
-          if (other) {
-            // data-node-id (not inline JS) so a hostile rule id cannot break out.
-            html +=
-              '<div class="node-pill" data-node-id="' + escapeHtml(other.id) + '">' +
-              '<span>' + escapeHtml(other.label) + '</span>' +
-              '<span style="color: var(--text-dim); font-size: 0.65rem;">' + escapeHtml(other.type) + '</span></div>';
-          }
+          if (other) html += nodePill(other, ''); // data-node-id only; no inline JS
         });
         html += '</div></div>';
       }
 
       docBody.innerHTML = html;
+    }
+
+    function nodePill(other, icon) {
+      return (
+        '<div class="node-pill" data-node-id="' + escapeHtml(other.id) + '">' +
+        '<span>' + (icon ? icon + ' ' : '') + escapeHtml(other.label) + '</span>' +
+        '<span style="color: var(--text-dim); font-size: 0.65rem;">' + escapeHtml(other.type) + '</span></div>'
+      );
+    }
+
+    async function directoryListing(dirPath, node) {
+      const fromGraph = Array.isArray(node.metadata?.childFiles)
+        ? node.metadata.childFiles.map(p => nodeIndex.get('file:' + p)).filter(Boolean)
+        : [];
+      let entries = [];
+      try {
+        const res = await fetch('/api/list?path=' + encodeURIComponent(dirPath));
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.entries)) entries = data.entries;
+        }
+      } catch {
+        // Offline: fall back to the graph's known children below.
+      }
+
+      let out =
+        '<div class="connected-nodes-box"><div class="connected-title">Contents of ' +
+        escapeHtml(dirPath) +
+        '/ (' + (entries.length || fromGraph.length) + ')</div><div class="node-pill-list">';
+
+      if (entries.length > 0) {
+        entries.forEach(entry => {
+          const known = nodeIndex.get((entry.isFile ? 'file:' : 'dir:') + entry.path);
+          if (known) {
+            out += nodePill(known, entry.isFile ? '📄' : '📁');
+          } else {
+            out +=
+              '<div class="node-pill"><span>' + (entry.isFile ? '📄 ' : '📁 ') + escapeHtml(entry.name) +
+              '</span><span style="color:var(--text-dim);font-size:0.65rem">' +
+              (entry.isFile ? 'file' : 'dir') + '</span></div>';
+          }
+        });
+      } else if (fromGraph.length > 0) {
+        fromGraph.forEach(f => { out += nodePill(f, '⚡'); });
+      } else {
+        out += '<p style="color:var(--text-dim)">No readable entries.</p>';
+      }
+
+      return out + '</div></div>';
     }
 
     function row(label, valueHtml) {
@@ -1859,6 +1981,12 @@ export function renderGraphHtml(
           .map(id => nodeIndex.get(id))
           .filter(Boolean);
 
+      const bridgeDirsFor = adapterId =>
+        graphData.edges
+          .filter(e => e.source === adapterId && e.type === 'contains')
+          .map(e => nodeIndex.get(e.target))
+          .filter(n => n && n.type === 'dir');
+
       const bridgeSection = (title, categories, icon, badgeCss, badgeText) => {
         const adapters = graphData.nodes.filter(
           n => n.type === 'adapter' && categories.includes(n.metadata?.category)
@@ -1867,11 +1995,35 @@ export function renderGraphHtml(
         let body = '';
         adapters.forEach(adp => {
           const files = bridgeFilesFor(adp.id);
+          const dirs = bridgeDirsFor(adp.id);
+          const dirPaths = dirs.map(d => String(d.metadata?.path || ''));
+          // Files that live directly in a directory are grouped under it; only
+          // top-level targets such as CLAUDE.md stay at the adapter root.
+          const flat = files.filter(
+            f => !dirPaths.some(dp => dp && String(f.metadata?.path || '').startsWith(dp + '/'))
+          );
+
           let filesHtml = '';
-          files.forEach(fNode => {
+          flat.forEach(fNode => {
             filesHtml += item(fNode, '⚡', fNode.label, badgeCss, badgeText);
           });
-          body += folder(icon + ' ' + escapeHtml(adp.label), filesHtml);
+          dirs.forEach(dirNode => {
+            const dirPath = String(dirNode.metadata?.path || '');
+            const children = files.filter(f => String(f.metadata?.path || '').startsWith(dirPath + '/'));
+            const inner = children.length > 0
+              ? children.map(f => item(f, '📄', f.label, badgeCss, badgeText)).join('')
+              : '<div style="color:var(--text-dim);font-size:.7rem;padding:.35rem .6rem">empty</div>';
+            filesHtml += folder('📁 ' + escapeHtml(dirPath.split('/').pop()) + '/ (' + children.length + ')', inner);
+          });
+
+          const used = adp.metadata?.used === true;
+          const usedBadge =
+            '<span class="tree-badge" style="background:' +
+            (used ? 'rgba(74,222,128,.18)' : 'rgba(148,163,184,.15)') +
+            ';color:' + (used ? '#4ade80' : '#94a3b8') + '">' +
+            (used ? 'USED' : 'EMPTY') + '</span>';
+
+          body += folder(icon + ' ' + escapeHtml(adp.label) + ' ' + usedBadge, filesHtml);
         });
         return folder(title + ' (' + adapters.length + ')', body);
       };
@@ -1893,6 +2045,21 @@ export function renderGraphHtml(
     document.addEventListener('click', (event) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
+
+      const copyBtn = target.closest('[data-copy-path]');
+      if (copyBtn) {
+        const value = copyBtn.getAttribute('data-copy-path');
+        if (value && navigator.clipboard) {
+          navigator.clipboard.writeText(value).then(
+            () => {
+              copyBtn.textContent = 'Copied';
+              setTimeout(() => { copyBtn.textContent = 'Copy path'; }, 1200);
+            },
+            () => undefined
+          );
+        }
+        return;
+      }
 
       const pill = target.closest('.node-pill[data-node-id]');
       if (pill) {
@@ -1941,6 +2108,8 @@ export function renderGraphHtml(
           ide: '🖥️ Perspective: IDEs Cosmos',
           cli: '⌨️ Perspective: CLIs Cosmos',
           extension: '🧩 Perspective: VSCode Extensions',
+          agent: '🤖 Perspective: Agent Bridges',
+          generic: '🧰 Perspective: Custom Adapters',
           brain: '📜 Perspective: Central Brain Vault (.syncytium)'
         };
         badge.textContent = titles[currentPerspective] || 'Perspective: ' + currentPerspective;
@@ -1969,10 +2138,11 @@ export function renderGraphHtml(
       e.target.classList.toggle('active', compactMode);
       if (compactMode) {
         activeFilters.delete('file');
+        activeFilters.delete('dir');
         activeFilters.delete('tag');
       } else {
         // Never re-enable types the server was told to hide.
-        if (!serverHidesFiles) activeFilters.add('file');
+        if (!serverHidesFiles) { activeFilters.add('file'); activeFilters.add('dir'); }
         if (!serverHidesTags) activeFilters.add('tag');
       }
       nodeMeshMap.forEach(entry => {
@@ -2123,6 +2293,13 @@ ${[escapeHtml.toString(), renderMarkdownToHtml.toString()].join('\n').split('\n'
       }
       // The vault/doc panels do not depend on WebGL, so load data either way.
       await fetchGraph();
+      // Re-open the document the user was last reading, like an editor would.
+      try {
+        const lastDoc = localStorage.getItem('syncytium.lastDoc');
+        if (lastDoc && nodeIndex.has(lastDoc)) selectNodeById(lastDoc);
+      } catch {
+        // Private mode or cleared storage: start on the overview.
+      }
       setupSse();
     })();
   </script>

@@ -83,6 +83,19 @@ under `.syncytium/memory/trash/`, and `syncytium_restore` (plus
 `listTrash`/`restoreFromTrash` in the library) can undo the operation.
 `doctor` is read-only: it reports remediation strings but never executes them.
 
+The contract is mechanical, not descriptive: every `inputSchema` is closed with
+`additionalProperties: false` and documents each property, and every stable read
+tool declares an `outputSchema` plus matching `structuredContent`. Mutation is
+never hidden behind a read annotation — `validate` is read-only and the separate
+`validate_fix` tool performs repairs.
+
+## Discovery
+
+`server.json` describes the npm package to `registry.modelcontextprotocol.io`,
+and `mcpName` in `package.json` proves npm ownership. `.github/workflows/discoverability.yml`
+regenerates `llms.txt` / `llms-full.txt`, validates the manifest, and publishes
+it with GitHub OIDC; no credential is stored in the repository.
+
 ## Directory Layout
 
 - `src/` — source code and adapters

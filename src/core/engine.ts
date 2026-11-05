@@ -52,6 +52,9 @@ const MAX_COMPLETED_WORK = 40;
 /** Cap on `touchedFiles` entries in HANDOFF.md. */
 const MAX_TOUCHED_FILES = 60;
 
+/** Maximum entries returned by `/api/list` so a huge directory cannot hang the UI. */
+const LIST_ENTRY_LIMIT = 500;
+
 /** Files that must never be served by the local UI server, even in-root. */
 const SENSITIVE_FILE_PATTERN =
   /(^|\/)(\.env(\..+)?|.*\.(pem|key|p12|pfx|keystore|jks|asc|gpg)|id_(rsa|dsa|ecdsa|ed25519)|credentials(\..+)?|\.npmrc|\.netrc|\.pypirc)$/i;
@@ -80,6 +83,16 @@ async function isSameFile(a: string, b: string): Promise<boolean> {
     return ra === rb;
   } catch {
     return false;
+  }
+}
+
+/** True when `target` exists, plus whether it is a directory. Never throws. */
+async function statIfExists(target: string): Promise<{ exists: boolean; isDir: boolean }> {
+  try {
+    const stat = await fs.stat(target);
+    return { exists: true, isDir: stat.isDirectory() };
+  } catch {
+    return { exists: false, isDir: false };
   }
 }
 
@@ -1841,7 +1854,7 @@ fi
     const nodes: GraphNode[] = [];
     const edges: GraphEdge[] = [];
     const tagsSet = new Set<string>();
-    const filesSet = new Set<string>();
+    let bridgeFilesCount = 0;
 
     const rootId = 'project-root';
     nodes.push({
@@ -2036,10 +2049,60 @@ fi
     }
 
     if (filterCategory !== 'brain') {
-      for (const adapterId of config.enabledAdapters ?? []) {
+      this.registry.applyConfig(config as SyncytiumConfig);
+      const enabled = config.enabledAdapters ?? [];
+      const context = await this.storage.loadCanonicalContext().catch(() => null);
+      const byAdapter: Record<string, { relativePath: string; description: string }[]> = context
+        ? (await this.registry.generateAll(context, enabled).catch(() => ({ byAdapter: {} }))).byAdapter
+        : {};
+
+      // Directory nodes are declared targets that are directories on disk, plus
+      // every parent of a generated file. They must never masquerade as `file`
+      // nodes: `/api/file` cannot read a directory, so clicking one used to
+      // dead-end at a 404 instead of listing the Markdown it contains.
+      const dirNodes = new Map<string, { adapterId: string; category: string; children: string[] }>();
+      const ensureDir = (dirPath: string, adapterId: string, category: string): string => {
+        const key = dirPath.replace(/\/+$/, '');
+        if (!key) return '';
+        const entry = dirNodes.get(key) ?? { adapterId, category, children: [] };
+        dirNodes.set(key, entry);
+        return key;
+      };
+
+      for (const adapterId of enabled) {
         const adapter = this.registry.get(adapterId);
         if (!adapter) continue;
         if (filterCategory && !matchesCategory(adapter.category, filterCategory)) continue;
+
+        const files = (byAdapter[adapter.id] ?? [])
+          .slice()
+          .sort((a, b) => (a.relativePath < b.relativePath ? -1 : a.relativePath > b.relativePath ? 1 : 0));
+        const existing = await Promise.all(
+          files.map(file =>
+            statIfExists(path.join(this.storage.rootDir, file.relativePath)).then(s => s.exists)
+          )
+        );
+
+        // An adapter is "used" once at least one of its targets exists on disk.
+        let used = existing.some(Boolean);
+        if (!used) {
+          for (const target of adapter.defaultTargetFiles) {
+            if ((await statIfExists(path.join(this.storage.rootDir, target))).exists) {
+              used = true;
+              break;
+            }
+          }
+        }
+
+        bridgeFilesCount += files.length;
+
+        // Declared directory targets exist even before a first sync.
+        if (!hideFiles) {
+          for (const target of adapter.defaultTargetFiles) {
+            const stat = await statIfExists(path.join(this.storage.rootDir, target));
+            if (target.endsWith('/') || stat.isDir) ensureDir(target, adapter.id, adapter.category);
+          }
+        }
 
         const adpNodeId = `adapter:${adapter.id}`;
         nodes.push({
@@ -2048,25 +2111,77 @@ fi
           type: 'adapter',
           group: 'adapters',
           description: adapter.description,
-          metadata: { category: adapter.category, targetFiles: adapter.defaultTargetFiles }
+          metadata: {
+            category: adapter.category,
+            targetFiles: adapter.defaultTargetFiles,
+            used,
+            fileCount: files.length,
+            existingCount: existing.filter(Boolean).length,
+            path: adapter.defaultTargetFiles[0]
+          }
         });
         edges.push({ source: rootId, target: adpNodeId, label: 'bridges_to', type: 'contains' });
 
-        for (const targetFile of adapter.defaultTargetFiles) {
-          filesSet.add(targetFile);
-          if (hideFiles) continue;
-          const fileNodeId = `file:${targetFile}`;
+        if (hideFiles) continue;
+
+        for (let index = 0; index < files.length; index++) {
+          const file = files[index];
+          const relPath = toPosix(file.relativePath);
+          const parentRaw = relPath.includes('/') ? relPath.slice(0, relPath.lastIndexOf('/')) : '';
+          const parent = parentRaw ? ensureDir(parentRaw, adapter.id, adapter.category) : '';
+          if (parent) dirNodes.get(parent)?.children.push(relPath);
+
+          const fileNodeId = `file:${relPath}`;
           if (!nodes.some(n => n.id === fileNodeId)) {
             nodes.push({
               id: fileNodeId,
-              label: targetFile,
+              label: relPath.slice(relPath.lastIndexOf('/') + 1),
               type: 'file',
               group: 'files',
-              description: `Generated ${adapter.category.toUpperCase()} context file: ${targetFile}`,
-              metadata: { adapterId: adapter.id, adapterName: adapter.name, category: adapter.category, path: targetFile }
+              description:
+                file.description || `Generated ${adapter.category.toUpperCase()} context file: ${relPath}`,
+              metadata: {
+                adapterId: adapter.id,
+                adapterName: adapter.name,
+                category: adapter.category,
+                path: relPath,
+                exists: existing[index],
+                isDir: false
+              }
             });
           }
           edges.push({ source: adpNodeId, target: fileNodeId, label: 'generates', type: 'generates' });
+          if (parent) {
+            edges.push({ source: `dir:${parent}`, target: fileNodeId, label: 'contains', type: 'contains' });
+          }
+        }
+      }
+
+      if (!hideFiles) {
+        for (const [dirPath, info] of [...dirNodes].sort(([a], [b]) => (a < b ? -1 : 1))) {
+          const dirNodeId = `dir:${dirPath}`;
+          nodes.push({
+            id: dirNodeId,
+            label: `${dirPath}/`,
+            type: 'dir',
+            group: 'files',
+            description: `Directory target of ${info.adapterId} (${
+              info.children.length
+            } generated file${info.children.length === 1 ? '' : 's'})`,
+            metadata: {
+              adapterId: info.adapterId,
+              category: info.category,
+              path: dirPath,
+              isDir: true,
+              childFiles: info.children.slice().sort()
+            }
+          });
+          edges.push({
+            source: `adapter:${info.adapterId}`,
+            target: dirNodeId,
+            label: 'contains',
+            type: 'contains'
+          });
         }
       }
     }
@@ -2084,7 +2199,7 @@ fi
               ? 2
               : 1
             : 0,
-        bridgeFilesCount: filesSet.size
+        bridgeFilesCount
       }
     };
   }
@@ -2189,6 +2304,21 @@ fi
             return;
           }
 
+          // A directory is not a file. Without this, fs.readFile fails with
+          // EISDIR and the studio showed a misleading "file not found" 404;
+          // the client needs a distinct signal so it can list the directory.
+          const targetStat = await fs.stat(fullPath).catch(() => null);
+          if (targetStat?.isDirectory()) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(
+              JSON.stringify({
+                error: `Path is a directory, not a file: ${relPath}`,
+                isDirectory: true
+              })
+            );
+            return;
+          }
+
           try {
             const content = await fs.readFile(fullPath, 'utf-8');
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -2198,6 +2328,72 @@ fi
             res.end(
               JSON.stringify({ error: `File not found: ${relPath}`, detail: (err as Error).message })
             );
+          }
+          return;
+        }
+
+        if (parsedUrl.pathname === '/api/list') {
+          const targetPath = parsedUrl.searchParams.get('path');
+          if (!targetPath) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Missing path parameter' }));
+            return;
+          }
+
+          const normalizedInput = toPosix(targetPath).replace(/^\/+/, '');
+          const resolvedRoot = path.resolve(this.storage.rootDir);
+          const fullPath = path.resolve(resolvedRoot, normalizedInput);
+
+          if (!isInsideRoot(resolvedRoot, fullPath)) {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Access denied outside workspace root' }));
+            return;
+          }
+
+          const relPath = toPosix(path.relative(resolvedRoot, fullPath));
+          if (SENSITIVE_DIR_PATTERN.test(relPath)) {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Refusing to list a protected directory: ${relPath}` }));
+            return;
+          }
+
+          const dirStat = await fs.stat(fullPath).catch(() => null);
+          if (!dirStat) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Directory not found: ${relPath}` }));
+            return;
+          }
+          if (!dirStat.isDirectory()) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Path is not a directory: ${relPath}`, isDirectory: false }));
+            return;
+          }
+
+          try {
+            const dirents = await fs.readdir(fullPath, { withFileTypes: true });
+            const entries = await Promise.all(
+              dirents
+                .filter(entry => !SENSITIVE_FILE_PATTERN.test(toPosix(entry.name)))
+                .slice(0, LIST_ENTRY_LIMIT)
+                .map(async entry => {
+                  const childRel = toPosix(path.join(relPath, entry.name));
+                  const size = entry.isFile()
+                    ? await fs.stat(path.join(fullPath, entry.name)).then(s => s.size).catch(() => 0)
+                    : 0;
+                  return {
+                    name: entry.name,
+                    path: childRel,
+                    isFile: entry.isFile(),
+                    size
+                  };
+                })
+            );
+            entries.sort((a, b) => (a.isFile === b.isFile ? (a.name < b.name ? -1 : 1) : a.isFile ? 1 : -1));
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ path: relPath, entries }));
+          } catch (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Could not list: ${relPath}`, detail: (err as Error).message }));
           }
           return;
         }

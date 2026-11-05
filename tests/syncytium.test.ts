@@ -4,6 +4,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { request as httpRequest } from 'node:http';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import {
   SyncytiumEngine,
   CursorAdapter,
@@ -1656,6 +1658,54 @@ describe('SyncytiumMD v0.2.0 — full test suite', () => {
         await fs.rm(dir, { recursive: true, force: true });
       }
     });
+
+    test('file nodes are real files and directory targets are dir nodes (regression)', async () => {
+      const dir = await tmpdir('syncytium-graph-dirs-');
+      try {
+        const e = new SyncytiumEngine(dir);
+        await e.init('G', 'generic');
+        await e.sync();
+        const graph = await e.getKnowledgeGraph();
+
+        const files = graph.nodes.filter(n => n.type === 'file');
+        assert.ok(files.length > 0, 'a synced workspace must expose generated files');
+        for (const node of files) {
+          const rel = String(node.metadata?.path || '');
+          // v0.3.0 exposed adapter directory targets as `file` nodes, so
+          // clicking Cursor dead-ended at /api/file -> 404 instead of listing
+          // its seven .mdc rules. A file node must never name a directory.
+          assert.equal(rel.endsWith('/'), false, `${node.id} must not name a directory`);
+          const stat = await fs.stat(path.join(dir, rel));
+          assert.ok(stat.isFile(), `${node.id} must point at a file on disk`);
+        }
+
+        const dirs = graph.nodes.filter(n => n.type === 'dir');
+        assert.ok(dirs.length > 0, 'directory targets must be exposed as dir nodes');
+        for (const node of dirs) {
+          assert.equal(node.metadata?.isDir, true);
+          assert.ok(Array.isArray(node.metadata?.childFiles));
+          const stat = await fs.stat(path.join(dir, String(node.metadata?.path || '')));
+          assert.ok(stat.isDirectory(), `${node.id} must point at a directory`);
+        }
+
+        for (const adapter of graph.nodes.filter(n => n.type === 'adapter')) {
+          assert.equal(adapter.metadata?.used, true, `${adapter.id} is used after sync`);
+          assert.ok(Number(adapter.metadata?.fileCount) > 0, `${adapter.id} reports its file count`);
+        }
+
+        const ids = new Set(graph.nodes.map(n => n.id));
+        for (const edge of graph.edges) {
+          assert.ok(ids.has(edge.source), `dangling edge source: ${edge.source}`);
+          assert.ok(ids.has(edge.target), `dangling edge target: ${edge.target}`);
+        }
+        assert.ok(
+          graph.edges.some(e => e.source.startsWith('dir:') && e.type === 'contains'),
+          'directory nodes must contain their generated files'
+        );
+      } finally {
+        await fs.rm(dir, { recursive: true, force: true });
+      }
+    });
   });
 
   // ======================================================================
@@ -1818,6 +1868,53 @@ describe('SyncytiumMD v0.2.0 — full test suite', () => {
         } finally {
           await ui.close();
           // close() must resolve even with the SSE keep-alive timer in play.
+        }
+      } finally {
+        await fs.rm(dir, { recursive: true, force: true });
+      }
+    });
+
+    test('/api/file refuses a directory and /api/list serves it instead (regression)', async () => {
+      const dir = await tmpdir('syncytium-ui-dirs-');
+      try {
+        const e = new SyncytiumEngine(dir);
+        await e.init('UI', 'generic');
+        await e.sync();
+        await fs.writeFile(path.join(dir, '.env'), 'SECRET=1\n', 'utf-8');
+
+        const ui = await e.startUiServer({ port: 0, open: false });
+        const base = `http://localhost:${ui.port}`;
+        try {
+          const asFile = await fetch(`${base}/api/file?path=${encodeURIComponent('.syncytium')}`);
+          assert.equal(asFile.status, 400);
+          assert.equal((await asFile.json() as any).isDirectory, true);
+
+          const list = await fetch(`${base}/api/list?path=${encodeURIComponent('.syncytium')}`);
+          assert.equal(list.status, 200);
+          const listing = await list.json() as any;
+          assert.ok(Array.isArray(listing.entries));
+          assert.ok(listing.entries.some((entry: any) => entry.name === 'rules' && entry.isFile === false));
+          assert.ok(listing.entries.some((entry: any) => entry.name === 'architecture.md' && entry.isFile === true));
+
+          const root = await fetch(`${base}/api/list?path=${encodeURIComponent('.')}`);
+          assert.equal(root.status, 200);
+          const rootListing = await root.json() as any;
+          assert.equal(
+            rootListing.entries.some((entry: any) => entry.name === '.env'),
+            false,
+            'in-root secrets must never be listed'
+          );
+
+          const traversal = await fetch(`${base}/api/list?path=${encodeURIComponent('../..')}`);
+          assert.equal(traversal.status, 403);
+          const git = await fetch(`${base}/api/list?path=${encodeURIComponent('.git')}`);
+          assert.equal(git.status, 403);
+          const notDir = await fetch(`${base}/api/list?path=${encodeURIComponent('.syncytium/architecture.md')}`);
+          assert.equal(notDir.status, 400);
+          const missing = await fetch(`${base}/api/list?path=${encodeURIComponent('no/such/dir')}`);
+          assert.equal(missing.status, 404);
+        } finally {
+          await ui.close();
         }
       } finally {
         await fs.rm(dir, { recursive: true, force: true });
@@ -2105,6 +2202,101 @@ describe('SyncytiumMD v0.2.0 — full test suite', () => {
       assert.ok(DESTRUCTIVE_TOOLS.includes('syncytium_remove_decision'));
       for (const name of Object.keys(TOOL_SAFETY)) {
         assert.ok(names.includes(name), `${name} is advertised in the tool list`);
+      }
+    });
+
+    test('validate is read-only and validate_fix is the only repairing tool', () => {
+      // v0.3.0 advertised `syncytium_validate` as a write tool even though it
+      // only mutated when fix:true. Splitting the surface keeps the annotation
+      // honest, which is exactly what a catalogue scanner checks.
+      assert.equal(TOOL_SAFETY.syncytium_validate.effect, 'read');
+      assert.equal(TOOL_SAFETY.syncytium_validate.annotations.readOnlyHint, true);
+      assert.equal(TOOL_SAFETY.syncytium_validate.annotations.destructiveHint, false);
+      assert.ok(READ_ONLY_TOOLS.includes('syncytium_validate'));
+
+      assert.equal(TOOL_SAFETY.syncytium_validate_fix.effect, 'write');
+      assert.equal(TOOL_SAFETY.syncytium_validate_fix.annotations.readOnlyHint, false);
+      assert.equal(TOOL_SAFETY.syncytium_validate_fix.annotations.destructiveHint, false);
+    });
+
+    test('every tool input is closed and fully documented over the wire', async () => {
+      const dir = await tmpdir('syncytium-mcp-schema-');
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      const { server } = createSyncytiumMcpServer(dir);
+      await server.connect(serverTransport);
+      const client = new Client({ name: 'schema-probe', version: '1.0.0' });
+      await client.connect(clientTransport);
+      try {
+        const { tools } = await client.listTools();
+        assert.equal(tools.length, 23, 'the advertised surface is 23 tools');
+
+        for (const tool of tools) {
+          const schema = tool.inputSchema as any;
+          assert.equal(schema.type, 'object', `${tool.name} inputSchema must be an object`);
+          assert.equal(schema.additionalProperties, false, `${tool.name} must reject unknown arguments`);
+          for (const [key, prop] of Object.entries<any>(schema.properties ?? {})) {
+            assert.equal(typeof prop.description, 'string', `${tool.name}.${key} needs a description`);
+            if (prop.type === 'array') {
+              assert.equal(
+                typeof prop.items?.description,
+                'string',
+                `${tool.name}.${key} array items need a description`
+              );
+            }
+          }
+        }
+
+        const readTools = tools.filter(tool => (tool.annotations as any)?.readOnlyHint === true);
+        assert.equal(readTools.length, 11, '11 tools are read-only');
+        for (const tool of readTools) {
+          // syncytium_get_context is topic-polymorphic (array, object or text),
+          // so it is the one read tool that intentionally has no fixed schema.
+          if (tool.name === 'syncytium_get_context') continue;
+          assert.ok(tool.outputSchema, `${tool.name} should declare an outputSchema`);
+        }
+      } finally {
+        await client.close();
+        await server.close();
+        await fs.rm(dir, { recursive: true, force: true });
+      }
+    });
+
+    test('read tools return structuredContent and the server identifies itself', async () => {
+      const dir = await tmpdir('syncytium-mcp-structured-');
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      const { server } = createSyncytiumMcpServer(dir);
+      await server.connect(serverTransport);
+      const client = new Client({ name: 'structured-probe', version: '1.0.0' });
+      await client.connect(clientTransport);
+      try {
+        const e = new SyncytiumEngine(dir);
+        await e.init('Structured', 'generic');
+        await e.sync();
+
+        const graph = await client.callTool({ name: 'syncytium_get_graph', arguments: { category: 'all' } });
+        const graphData = graph.structuredContent as any;
+        assert.ok(Array.isArray(graphData?.nodes), 'graph structuredContent exposes nodes');
+        assert.ok(Array.isArray(graphData?.edges));
+        assert.equal(typeof graphData?.stats, 'object');
+
+        const rules = await client.callTool({ name: 'syncytium_list_rules', arguments: {} });
+        const ruleData = rules.structuredContent as any;
+        assert.equal(typeof ruleData?.count, 'number');
+        assert.ok(Array.isArray(ruleData?.items));
+
+        const validate = await client.callTool({ name: 'syncytium_validate', arguments: {} });
+        assert.equal(typeof (validate.structuredContent as any)?.valid, 'boolean');
+
+        const info = client.getServerVersion();
+        assert.equal(info?.name, 'syncytium-mcp');
+        assert.equal(info?.title, 'SyncytiumMD');
+        assert.ok(info?.description && info.description.length > 20);
+        assert.ok(info?.websiteUrl?.includes('github.com'));
+        assert.ok(Array.isArray(info?.icons) && info.icons.length > 0);
+      } finally {
+        await client.close();
+        await server.close();
+        await fs.rm(dir, { recursive: true, force: true });
       }
     });
 

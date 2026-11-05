@@ -2,9 +2,7 @@
 activeAgent: opencode
 nextAgent: Any
 status: completed
-goal: >-
-  MCP safety hardening, npm 0.3.0 publish, CI release repair, server.json
-  registry metadata
+goal: 'v0.3.1: real-file 3D vault, structured MCP outputs, OIDC registry publishing'
 completedWork:
   - >-
     Implemented embedded Knowledge Graph UI server (syncytium graph / syncytium
@@ -58,12 +56,25 @@ completedWork:
     version-pinned by a test
   - Created and pushed tag v0.3.0 and published GitHub Release
   - 'All gates green: build, typecheck, 124/124 tests, lint 9/9, diff 0 drift'
-pendingTasks:
-  - Rotate the npm token and LinkedIn/Gemini credentials pasted in chat
-  - Re-enable .git/hooks/pre-push only when a post is intended
   - >-
-    Optionally publish server.json via mcp-publisher to
-    registry.modelcontextprotocol.io
+    3D vault now models real generated files and directory nodes with used/empty
+    adapter state; /api/list added and /api/file rejects directories
+  - >-
+    MCP surface: 23 tools, closed inputs, documented properties, outputSchema +
+    structuredContent for stable reads
+  - Split validate (read-only) from validate_fix (write)
+  - >-
+    Added server.json icons, mcpName ownership marker, llms.txt/llms-full.txt
+    and a cosign-verified OIDC discovery workflow
+  - Removed the local LinkedIn poster hooks and their plaintext credentials
+  - >-
+    All gates green: build, typecheck, 129/129 tests, lint, validate, diff 0
+    drift, doctor healthy
+pendingTasks:
+  - >-
+    Confirm the v0.3.1 npm publish via OIDC trusted publishing and the MCP
+    Registry listing
+  - Rotate any credential that was pasted into chat earlier
 touchedFiles:
   - package.json
   - src/core/types.ts
@@ -90,22 +101,23 @@ touchedFiles:
   - src/mcp/safety.ts
   - .github/workflows/release.yml
   - .github/dependabot.yml
+  - scripts/build-discovery.mjs
+  - .github/workflows/discoverability.yml
 contextNotes: >-
-  v0.3.0 is live on npm and GitHub. The release workflow is now idempotent: a
-  Release for an already-published version skips npm publish. server.json is
-  schema-valid against the 2025-12-11 registry schema; description is capped at
-  100 chars. The pre-push LinkedIn poster hook is disabled (pre-push.disabled).
-lastUpdated: '2026-11-01T18:21:48.839Z'
+  Version 0.3.1. The discoverability workflow regenerates llms files, waits for
+  npm, verifies mcp-publisher with cosign and publishes with GitHub OIDC. No
+  stored registry secret. LinkedIn hooks deleted from .git.
+lastUpdated: '2026-11-05T15:06:39.039Z'
 ---
 # 🤝 Syncytium Handoff & Live State
 
 > **Active Agent:** `opencode`
 > **Next Recommended Agent:** `Any`
 > **Status:** `COMPLETED`
-> **Last Updated:** `2026-11-01T18:21:48.839Z`
+> **Last Updated:** `2026-11-05T15:06:39.039Z`
 
 ## 🎯 Current Goal
-MCP safety hardening, npm 0.3.0 publish, CI release repair, server.json registry metadata
+v0.3.1: real-file 3D vault, structured MCP outputs, OIDC registry publishing
 
 ## ✅ Completed in Recent Turns
 - Implemented embedded Knowledge Graph UI server (syncytium graph / syncytium ui)
@@ -142,11 +154,16 @@ MCP safety hardening, npm 0.3.0 publish, CI release repair, server.json registry
 - Added server.json in official MCP Registry format, schema-validated and version-pinned by a test
 - Created and pushed tag v0.3.0 and published GitHub Release
 - All gates green: build, typecheck, 124/124 tests, lint 9/9, diff 0 drift
+- 3D vault now models real generated files and directory nodes with used/empty adapter state; /api/list added and /api/file rejects directories
+- MCP surface: 23 tools, closed inputs, documented properties, outputSchema + structuredContent for stable reads
+- Split validate (read-only) from validate_fix (write)
+- Added server.json icons, mcpName ownership marker, llms.txt/llms-full.txt and a cosign-verified OIDC discovery workflow
+- Removed the local LinkedIn poster hooks and their plaintext credentials
+- All gates green: build, typecheck, 129/129 tests, lint, validate, diff 0 drift, doctor healthy
 
 ## 📋 Pending Tasks (Next Agent Action Items)
-- [ ] Rotate the npm token and LinkedIn/Gemini credentials pasted in chat
-- [ ] Re-enable .git/hooks/pre-push only when a post is intended
-- [ ] Optionally publish server.json via mcp-publisher to registry.modelcontextprotocol.io
+- [ ] Confirm the v0.3.1 npm publish via OIDC trusted publishing and the MCP Registry listing
+- [ ] Rotate any credential that was pasted into chat earlier
 
 ## 📂 Recently Touched Files
 - `package.json`
@@ -174,6 +191,8 @@ MCP safety hardening, npm 0.3.0 publish, CI release repair, server.json registry
 - `src/mcp/safety.ts`
 - `.github/workflows/release.yml`
 - `.github/dependabot.yml`
+- `scripts/build-discovery.mjs`
+- `.github/workflows/discoverability.yml`
 
 ## 🧠 Context & Handoff Notes for Next Agent
-v0.3.0 is live on npm and GitHub. The release workflow is now idempotent: a Release for an already-published version skips npm publish. server.json is schema-valid against the 2025-12-11 registry schema; description is capped at 100 chars. The pre-push LinkedIn poster hook is disabled (pre-push.disabled).
+Version 0.3.1. The discoverability workflow regenerates llms files, waits for npm, verifies mcp-publisher with cosign and publishes with GitHub OIDC. No stored registry secret. LinkedIn hooks deleted from .git.

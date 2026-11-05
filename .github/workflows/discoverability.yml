@@ -1,0 +1,174 @@
+name: MCP Discovery
+
+# Publishes server.json to the official MCP Registry
+# (registry.modelcontextprotocol.io) using GitHub OIDC, so catalogues and
+# agents discover SyncytiumMD from machine-readable metadata instead of a
+# stale crawl. No social posting, no third-party accounts, no stored secrets.
+#
+# Idempotent by design: a release whose version is already listed is skipped,
+# and the run waits for npm to serve the version before the registry validates
+# the package.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      skip-publish:
+        description: Regenerate and verify discovery files only
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  # Required for GitHub OIDC authentication to the MCP Registry.
+  id-token: write
+
+concurrency:
+  group: mcp-discovery-${{ github.event.release.tag_name || github.ref }}
+  cancel-in-progress: false
+
+env:
+  MCP_PUBLISHER_VERSION: v1.8.7
+  PKG_NAME: syncytium-md
+
+jobs:
+  publish:
+    name: Publish to MCP Registry
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+
+      - name: Regenerate discovery files
+        run: node scripts/build-discovery.mjs
+
+      - name: Discovery files must be committed
+        run: |
+          if ! git diff --quiet -- llms.txt llms-full.txt; then
+            git --no-pager diff -- llms.txt llms-full.txt
+            echo "::error::llms.txt / llms-full.txt are stale. Run 'node scripts/build-discovery.mjs' and commit the result."
+            exit 1
+          fi
+
+      - name: Preflight - manifest matches the package
+        id: preflight
+        run: |
+          set -euo pipefail
+          node -e "
+            const p = require('./package.json');
+            const s = require('./server.json');
+            const fail = m => { throw new Error(m); };
+            if (p.version !== s.version) fail('server.json version != package.json version');
+            if (p.mcpName !== s.name) fail('package.json mcpName must equal server.json name');
+            if (s.description.length > 100) fail('server.json description exceeds 100 characters');
+            if (!/^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/.test(s.name)) fail('server.json name is not reverse-DNS');
+            console.log('manifest ok:', s.name, s.version);
+          "
+          version=$(node -p "require('./server.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ github.event_name }}" = "release" ]; then
+            tag="${{ github.event.release.tag_name }}"
+            if [ "${tag#v}" != "$version" ]; then
+              echo "::error::Release tag '$tag' does not match server.json version '$version'."
+              exit 1
+            fi
+          fi
+
+      - name: Check the registry for an existing version
+        id: registry
+        run: |
+          name=$(node -p "require('./server.json').name")
+          version="${{ steps.preflight.outputs.version }}"
+          search=$(node -p "encodeURIComponent(require('./server.json').name)")
+          body=$(curl -fsS "https://registry.modelcontextprotocol.io/v0.1/servers?search=$search" || echo '{}')
+
+          if node -e "
+            const data = JSON.parse(process.argv[1] || '{}');
+            const hit = (data.servers || []).some(e => e.server && e.server.name === process.argv[2] && e.server.version === process.argv[3]);
+            process.exit(hit ? 0 : 1);
+          " "$body" "$name" "$version"; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "$name@$version is already on the MCP Registry; nothing to publish."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Wait for npm to serve the version
+        if: steps.registry.outputs.published == 'false'
+        run: |
+          version="${{ steps.preflight.outputs.version }}"
+          for attempt in $(seq 1 30); do
+            if npm view "${PKG_NAME}@${version}" version >/dev/null 2>&1; then
+              echo "npm already serves ${PKG_NAME}@${version}."
+              exit 0
+            fi
+            echo "Waiting for npm to serve ${PKG_NAME}@${version} (${attempt}/30)..."
+            sleep 10
+          done
+          echo "::error::npm does not serve ${PKG_NAME}@${version} after 5 minutes; refusing to publish unverifiable registry metadata."
+          exit 1
+
+      - name: Install cosign
+        if: steps.registry.outputs.published == 'false' && (github.event_name == 'release' || inputs['skip-publish'] != true)
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Download and verify mcp-publisher
+        if: steps.registry.outputs.published == 'false' && (github.event_name == 'release' || inputs['skip-publish'] != true)
+        run: |
+          set -euo pipefail
+          archive="mcp-publisher_linux_amd64.tar.gz"
+          base_url="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
+
+          curl --fail --location --silent --show-error --output "$archive" "$base_url/$archive"
+          curl --fail --location --silent --show-error --output "$archive.sigstore.json" "$base_url/$archive.sigstore.json"
+          cosign verify-blob \
+            --bundle "$archive.sigstore.json" \
+            --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/${MCP_PUBLISHER_VERSION}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$archive"
+          tar xzf "$archive" mcp-publisher
+          rm -f "$archive" "$archive.sigstore.json"
+          ./mcp-publisher --help >/dev/null
+          echo "mcp-publisher ${MCP_PUBLISHER_VERSION} verified with cosign."
+
+      - name: Validate server.json with the official publisher
+        if: steps.registry.outputs.published == 'false' && (github.event_name == 'release' || inputs['skip-publish'] != true)
+        run: ./mcp-publisher validate
+
+      - name: Authenticate to the MCP Registry (GitHub OIDC)
+        if: steps.registry.outputs.published == 'false' && (github.event_name == 'release' || inputs['skip-publish'] != true)
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish server.json
+        if: steps.registry.outputs.published == 'false' && (github.event_name == 'release' || inputs['skip-publish'] != true)
+        run: ./mcp-publisher publish
+
+      - name: Summary
+        run: |
+          name=$(node -p "require('./server.json').name")
+          {
+            echo "### MCP Registry: $name v${{ steps.preflight.outputs.version }}"
+            if [ "${{ steps.registry.outputs.published }}" = "true" ]; then
+              echo "Already listed - publish skipped (idempotent)."
+            elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs['skip-publish'] }}" = "true" ]; then
+              echo "Discovery files regenerated and verified; publish skipped by request."
+            else
+              echo "Published server.json to registry.modelcontextprotocol.io."
+            fi
+            echo ""
+            echo "Discovery artifacts: [llms.txt](../blob/main/llms.txt) · [llms-full.txt](../blob/main/llms-full.txt) · [server.json](../blob/main/server.json)"
+          } >> "$GITHUB_STEP_SUMMARY"

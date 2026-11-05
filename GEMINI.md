@@ -12,22 +12,21 @@
 ### 🤝 Live Handoff Status
 - **Active Agent:** `opencode` (Next: `Any`)
 - **Status:** `COMPLETED`
-- **Current Goal:** MCP safety hardening, npm 0.3.0 publish, CI release repair, server.json registry metadata
+- **Current Goal:** v0.3.1: real-file 3D vault, structured MCP outputs, OIDC registry publishing
 - **Pending Tasks:**
-  - [ ] Rotate the npm token and LinkedIn/Gemini credentials pasted in chat
-  - [ ] Re-enable .git/hooks/pre-push only when a post is intended
-  - [ ] Optionally publish server.json via mcp-publisher to registry.modelcontextprotocol.io
+  - [ ] Confirm the v0.3.1 npm publish via OIDC trusted publishing and the MCP Registry listing
+  - [ ] Rotate any credential that was pasted into chat earlier
 - **Recently Touched:**
-  - `README.md`
-  - `README.tr.md`
   - `.gitattributes`
   - `src/core/storage.ts`
   - `server.json`
   - `src/mcp/safety.ts`
   - `.github/workflows/release.yml`
   - `.github/dependabot.yml`
-- **Notes:** v0.3.0 is live on npm and GitHub. The release workflow is now idempotent: a Release for an already-published version skips npm publish. server.json is schema-valid against the 2025-12-11 registry schema; description is capped at 100 chars. The pre-push LinkedIn poster hook is disabled (pre-push.disabled).
-- **Last Updated:** 2026-11-01T18:21:48.839Z
+  - `scripts/build-discovery.mjs`
+  - `.github/workflows/discoverability.yml`
+- **Notes:** Version 0.3.1. The discoverability workflow regenerates llms files, waits for npm, verifies mcp-publisher with cosign and publishes with GitHub OIDC. No stored registry secret. LinkedIn hooks deleted from .git.
+- **Last Updated:** 2026-11-05T15:06:39.039Z
 
 
 ---
@@ -119,6 +118,19 @@ under `.syncytium/memory/trash/`, and `syncytium_restore` (plus
 `listTrash`/`restoreFromTrash` in the library) can undo the operation.
 `doctor` is read-only: it reports remediation strings but never executes them.
 
+The contract is mechanical, not descriptive: every `inputSchema` is closed with
+`additionalProperties: false` and documents each property, and every stable read
+tool declares an `outputSchema` plus matching `structuredContent`. Mutation is
+never hidden behind a read annotation — `validate` is read-only and the separate
+`validate_fix` tool performs repairs.
+
+## Discovery
+
+`server.json` describes the npm package to `registry.modelcontextprotocol.io`,
+and `mcpName` in `package.json` proves npm ownership. `.github/workflows/discoverability.yml`
+regenerates `llms.txt` / `llms-full.txt`, validates the manifest, and publishes
+it with GitHub OIDC; no credential is stored in the repository.
+
 ## Directory Layout
 
 - `src/` — source code and adapters
@@ -198,7 +210,7 @@ A change is not done until all of these pass locally:
 ```bash
 npm run typecheck   # tsc --noEmit over src/ and tests/
 npm run build       # tsup, ESM + .d.ts
-npm test            # 118 tests, build-first + dist-tests (Node 20+)
+npm test            # 129 tests, build-first + dist-tests (Node 20+)
 npm run verify      # all three, in order
 ```
 
@@ -292,7 +304,7 @@ test asserts they match, and `--bump` updates both together.
 - **[ADR-003] Lease-Based Multi-Agent Collision Prevention Lock:** Introduce syncytium lock with time-expiring leases (e.g. 30-45 minutes) stored in .syncytium/memory/lock.json. _(accepted, 2026-09-19)_
 - **[ADR-004] Automated Release Pipeline with NPM CDN Replication Polling:** Implement scripts/release.mjs (npm run release) which verifies tests, publishes, polls npm view with exponential backoff until live, and then installs globally. _(accepted, 2026-09-19)_
 - **[ADR-005] High-Performance 3D Knowledge Galaxy with Physics Sleep & Geometry Pooling:** Implement Three.js unit sphere geometry and material caching/pooling, simulation alpha decay with auto-sleeping (0% idle CPU load), LOD lazy text sprite generation, floating hover tooltips, and compact view mode (--compact, --no-files, --no-tags). _(accepted, 2026-09-19)_
-- _…and 7 more in `.syncytium/memory/decisions.md`_
+- _…and 10 more in `.syncytium/memory/decisions.md`_
 
 ## Working Agreement
 1. Read `.syncytium/HANDOFF.md` first: it holds the live goal and pending tasks.

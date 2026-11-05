@@ -11,22 +11,21 @@
 ### 🤝 Live Handoff Status
 - **Active Agent:** `opencode` (Next: `Any`)
 - **Status:** `COMPLETED`
-- **Current Goal:** MCP safety hardening, npm 0.3.0 publish, CI release repair, server.json registry metadata
+- **Current Goal:** v0.3.1: real-file 3D vault, structured MCP outputs, OIDC registry publishing
 - **Pending Tasks:**
-  - [ ] Rotate the npm token and LinkedIn/Gemini credentials pasted in chat
-  - [ ] Re-enable .git/hooks/pre-push only when a post is intended
-  - [ ] Optionally publish server.json via mcp-publisher to registry.modelcontextprotocol.io
+  - [ ] Confirm the v0.3.1 npm publish via OIDC trusted publishing and the MCP Registry listing
+  - [ ] Rotate any credential that was pasted into chat earlier
 - **Recently Touched:**
-  - `README.md`
-  - `README.tr.md`
   - `.gitattributes`
   - `src/core/storage.ts`
   - `server.json`
   - `src/mcp/safety.ts`
   - `.github/workflows/release.yml`
   - `.github/dependabot.yml`
-- **Notes:** v0.3.0 is live on npm and GitHub. The release workflow is now idempotent: a Release for an already-published version skips npm publish. server.json is schema-valid against the 2025-12-11 registry schema; description is capped at 100 chars. The pre-push LinkedIn poster hook is disabled (pre-push.disabled).
-- **Last Updated:** 2026-11-01T18:21:48.839Z
+  - `scripts/build-discovery.mjs`
+  - `.github/workflows/discoverability.yml`
+- **Notes:** Version 0.3.1. The discoverability workflow regenerates llms files, waits for npm, verifies mcp-publisher with cosign and publishes with GitHub OIDC. No stored registry secret. LinkedIn hooks deleted from .git.
+- **Last Updated:** 2026-11-05T15:06:39.039Z
 
 
 ---
@@ -118,6 +117,19 @@ under `.syncytium/memory/trash/`, and `syncytium_restore` (plus
 `listTrash`/`restoreFromTrash` in the library) can undo the operation.
 `doctor` is read-only: it reports remediation strings but never executes them.
 
+The contract is mechanical, not descriptive: every `inputSchema` is closed with
+`additionalProperties: false` and documents each property, and every stable read
+tool declares an `outputSchema` plus matching `structuredContent`. Mutation is
+never hidden behind a read annotation — `validate` is read-only and the separate
+`validate_fix` tool performs repairs.
+
+## Discovery
+
+`server.json` describes the npm package to `registry.modelcontextprotocol.io`,
+and `mcpName` in `package.json` proves npm ownership. `.github/workflows/discoverability.yml`
+regenerates `llms.txt` / `llms-full.txt`, validates the manifest, and publishes
+it with GitHub OIDC; no credential is stored in the repository.
+
 ## Directory Layout
 
 - `src/` — source code and adapters
@@ -198,7 +210,7 @@ A change is not done until all of these pass locally:
 ```bash
 npm run typecheck   # tsc --noEmit over src/ and tests/
 npm run build       # tsup, ESM + .d.ts
-npm test            # 118 tests, build-first + dist-tests (Node 20+)
+npm test            # 129 tests, build-first + dist-tests (Node 20+)
 npm run verify      # all three, in order
 ```
 
@@ -295,5 +307,5 @@ test asserts they match, and `--bump` updates both together.
 - **[ADR-006] Make the drift gate capable of failing:** Add diff --check, which exits 1 on any modified, missing or orphaned file. The CI template and the generated pre-commit hook both call it. doctor additionally inspects the workflow text and warns when it does not use --check, because an existing workflow silently keeps the old no-op behaviour. _(accepted, 2026-09-26)_
 - **[ADR-007] Never delete a directory that shares its name with a generated target:** clean now deletes only files carrying the Syncytium banner, file by file, and prunes a directory only once it is actually empty. sync additionally prunes banner-tagged files that the current rule set no longer generates, and diff reports them as 'unmanaged' with the reason. _(accepted, 2026-09-26)_
 - **[ADR-008] Escape every value that reaches the browser and stop inlining onclick handlers:** projectName is HTML-escaped; the bootstrap config is serialised with angle brackets, ampersand and the U+2028/9 line separators escaped; the category value is allow-listed; and every node id is escaped and carried in a data-node-id attribute handled by one delegated document listener. No inline handlers and no globals on window remain. _(accepted, 2026-09-26)_
-- _…and 4 more in `.syncytium/memory/decisions.md`_
+- _…and 7 more in `.syncytium/memory/decisions.md`_
 

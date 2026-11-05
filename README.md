@@ -65,7 +65,7 @@ Requires **Node.js 20+**. No global install needed; `npx` works.
 | **Multi-agent safety** | A lease-based workspace lock with heartbeat, a handoff baton, and a 100-entry audit trail |
 | **Drift detection** | Real unified diffs, orphan detection, and a `--check` flag that actually exits non-zero |
 | **Live 3D graph** | WebGL knowledge cosmos, vault explorer, Markdown document reader — bound to `127.0.0.1` |
-| **MCP server** | 22 tools with zod-validated inputs, honest safety annotations, built-in rate limits, and recoverable deletions |
+| **MCP server** | 23 tools with zod-validated inputs, honest safety annotations, built-in rate limits, and recoverable deletions |
 | **CI + git hooks** | `syncytium ci` and `syncytium hook install` both gate on zero drift |
 | **`--json` everywhere** | Every command emits machine-readable output for agents and CI |
 
@@ -142,6 +142,12 @@ The server binds to `127.0.0.1` and rejects non-loopback `Host` headers
 (DNS-rebinding guard). It refuses to serve `.env*`, `*.pem`, `*.key`, `.git/**`
 and other in-root secrets.
 
+Clicking a tool in the 3D galaxy opens the **actual Markdown files** it
+generates: directory targets such as `.cursor/rules/` become directory nodes
+that list their `.mdc` rules, each file opens in the document panel and is
+highlighted in 3D, and adapters are marked `USED` or `EMPTY` depending on
+whether their targets exist on disk.
+
 ### MCP
 
 ```jsonc
@@ -149,7 +155,7 @@ and other in-root secrets.
   "mcpServers": {
     "syncytium": {
       "command": "npx",
-      "args": ["--ignore-scripts", "-y", "-p", "syncytium-md@0.3.0", "syncytium-mcp"],
+      "args": ["--ignore-scripts", "-y", "-p", "syncytium-md@0.3.1", "syncytium-mcp"],
       "cwd": "${workspaceFolder}",
       "env": {
         "SYNCYTIUM_TOKEN": "${SYNCYTIUM_TOKEN}"
@@ -164,13 +170,16 @@ Hardening notes: pin the exact package version instead of `@latest`, pass
 connectors a workspace actually needs, and pass any short-lived, read-only
 credential through the `env` block rather than command arguments.
 
-Or `syncytium mcp` if you already have the CLI installed. Tools include
-`syncytium_get_context`, `syncytium_handoff`, `syncytium_create_rule`,
-`syncytium_update_rule`, `syncytium_remove_rule`, `syncytium_record_decision`,
-`syncytium_sync`, `syncytium_diff`, `syncytium_doctor`, `syncytium_validate`,
+Or `syncytium mcp` if you already have the CLI installed. The server exposes
+23 tools, including `syncytium_get_context`, `syncytium_handoff`,
+`syncytium_create_rule`, `syncytium_update_rule`, `syncytium_remove_rule`,
+`syncytium_record_decision`, `syncytium_sync`, `syncytium_diff`,
+`syncytium_doctor`, `syncytium_validate`, `syncytium_validate_fix`,
 `syncytium_lock_acquire/release/status`, `syncytium_get_graph`,
 `syncytium_list_trash`, `syncytium_restore` and more.
-Every input is zod-validated; every output is summarised rather than dumped.
+Every input is zod-validated and closed with `additionalProperties: false`;
+every property is documented; every stable read tool declares an `outputSchema`
+and returns matching `structuredContent`.
 
 **Built-in MCP safety.** Every tool advertises MCP `readOnlyHint`,
 `destructiveHint`, `idempotentHint` and `openWorldHint` annotations, and the
@@ -183,8 +192,11 @@ server-side, so they hold even when a client ignores the annotations.
 
 **MCP Registry.** The repository root carries a `server.json` manifest (official
 `registry.modelcontextprotocol.io` format) describing the npm package, the
-stdio transport and the `mcp` launch argument. A unit test pins its version to
-`package.json` so the registry never advertises stale metadata.
+stdio transport and the `mcp` launch argument. The
+`discoverability` workflow regenerates `llms.txt` and `llms-full.txt`, verifies
+the manifest against the package (including `mcpName`), and publishes it with
+GitHub OIDC - no stored secret and no manual step. A unit test pins the manifest
+version to `package.json` so the registry never advertises stale metadata.
 
 ## `.syncytiumignore`
 

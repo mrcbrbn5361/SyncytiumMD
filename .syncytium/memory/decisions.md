@@ -221,6 +221,63 @@ decisions:
       of everywhere. The roomodes file uses hash comments rather than the HTML
       banner so it stays valid YAML; the banner detector keys off the marker
       text, not the comment style.
+  - id: ADR-013
+    title: Real file and directory graph nodes for the 3D vault
+    status: accepted
+    date: '2026-11-05'
+    context: >-
+      v0.3.0 built file nodes from each adapter's defaultTargetFiles, which
+      includes directories such as .cursor/rules/. Clicking Cursor opened a dead
+      404 because /api/file cannot read a directory, and the seven generated
+      .mdc rules were absent from the graph entirely.
+    decision: >-
+      Generate the actual adapter output in memory and expose each generated
+      file as a file node, each declared or implied directory as a new dir node,
+      and an adapter 'used' flag derived from whether its targets exist on disk.
+      Add /api/list for directory contents and make /api/file return 400 with
+      isDirectory for a directory instead of a misleading 404.
+    consequences: >-
+      The Obsidian studio now lists real files per tool and opens their
+      Markdown. The graph does one extra generateAll per request, which is cheap
+      for ten adapters but adds work on very large rule sets.
+  - id: ADR-014
+    title: Structured MCP outputs and a read-only validate tool
+    status: accepted
+    date: '2026-11-05'
+    context: >-
+      Catalogue scanners grade a server by the honesty of its tool contract.
+      v0.3.0 advertised output-free read tools, closed nothing, and marked
+      syncytium_validate as a write tool even though it only mutated when
+      fix:true.
+    decision: >-
+      Declare outputSchema for every stable read tool and return matching
+      structuredContent, close every inputSchema with
+      additionalProperties:false, describe every property, and split mutation
+      into a separate syncytium_validate_fix write tool. syncytium_validate is
+      now strictly read-only.
+    consequences: >-
+      Scanners and clients can validate results mechanically and the annotations
+      match behaviour. The tool count grows from 22 to 23 and get_context stays
+      polymorphic, so it deliberately has no outputSchema.
+  - id: ADR-015
+    title: Publish MCP metadata from CI with OIDC only
+    status: accepted
+    date: '2026-11-05'
+    context: >-
+      Discovery by MCP catalogues and agents requires an official server.json at
+      registry.modelcontextprotocol.io. Manual publishing needs a long-lived
+      credential and drifts from the repository, and any secret posted in chat
+      must never be committed.
+    decision: >-
+      Add server.json plus deterministic llms.txt and llms-full.txt, and publish
+      both through a GitHub Actions workflow that uses GitHub OIDC with
+      id-token: write, verifies the mcp-publisher binary with cosign, waits for
+      npm to serve the version, and skips a version already listed. The npm
+      package declares mcpName so the registry can verify ownership.
+    consequences: >-
+      No stored secret, no third-party posting, and each release publishes
+      verifiable metadata. Publishing only happens for a release or an explicit
+      manual run, and the registry is in preview.
 ---
 # Architectural Decision Records (ADR)
 
@@ -401,6 +458,51 @@ Add two adapters, AgentsAdapter and GeminiAdapter, bringing the built-in set to 
 
 **Consequences:**
 Context reaches Codex-style and Gemini CLI agents without a manual copy-paste, and glob-scoped rules are enforced per path in Copilot instead of everywhere. The roomodes file uses hash comments rather than the HTML banner so it stays valid YAML; the banner detector keys off the marker text, not the comment style.
+
+---
+
+### [ADR-013] Real file and directory graph nodes for the 3D vault
+- **Status:** accepted
+- **Date:** 2026-11-05
+
+**Context:**
+v0.3.0 built file nodes from each adapter's defaultTargetFiles, which includes directories such as .cursor/rules/. Clicking Cursor opened a dead 404 because /api/file cannot read a directory, and the seven generated .mdc rules were absent from the graph entirely.
+
+**Decision:**
+Generate the actual adapter output in memory and expose each generated file as a file node, each declared or implied directory as a new dir node, and an adapter 'used' flag derived from whether its targets exist on disk. Add /api/list for directory contents and make /api/file return 400 with isDirectory for a directory instead of a misleading 404.
+
+**Consequences:**
+The Obsidian studio now lists real files per tool and opens their Markdown. The graph does one extra generateAll per request, which is cheap for ten adapters but adds work on very large rule sets.
+
+---
+
+### [ADR-014] Structured MCP outputs and a read-only validate tool
+- **Status:** accepted
+- **Date:** 2026-11-05
+
+**Context:**
+Catalogue scanners grade a server by the honesty of its tool contract. v0.3.0 advertised output-free read tools, closed nothing, and marked syncytium_validate as a write tool even though it only mutated when fix:true.
+
+**Decision:**
+Declare outputSchema for every stable read tool and return matching structuredContent, close every inputSchema with additionalProperties:false, describe every property, and split mutation into a separate syncytium_validate_fix write tool. syncytium_validate is now strictly read-only.
+
+**Consequences:**
+Scanners and clients can validate results mechanically and the annotations match behaviour. The tool count grows from 22 to 23 and get_context stays polymorphic, so it deliberately has no outputSchema.
+
+---
+
+### [ADR-015] Publish MCP metadata from CI with OIDC only
+- **Status:** accepted
+- **Date:** 2026-11-05
+
+**Context:**
+Discovery by MCP catalogues and agents requires an official server.json at registry.modelcontextprotocol.io. Manual publishing needs a long-lived credential and drifts from the repository, and any secret posted in chat must never be committed.
+
+**Decision:**
+Add server.json plus deterministic llms.txt and llms-full.txt, and publish both through a GitHub Actions workflow that uses GitHub OIDC with id-token: write, verifies the mcp-publisher binary with cosign, waits for npm to serve the version, and skips a version already listed. The npm package declares mcpName so the registry can verify ownership.
+
+**Consequences:**
+No stored secret, no third-party posting, and each release publishes verifiable metadata. Publishing only happens for a release or an explicit manual run, and the registry is in preview.
 
 ---
 

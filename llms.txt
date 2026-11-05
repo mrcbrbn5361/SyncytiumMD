@@ -1,0 +1,76 @@
+# SyncytiumMD
+
+> One canonical `.syncytium/` context transpiled into every AI coding tool,
+> with a multi-agent handoff baton and a lease-based workspace lock.
+
+- Version: 0.3.1
+- npm: https://www.npmjs.com/package/syncytium-md
+- Repository: https://github.com/mrcbrbn5361/SyncytiumMD
+- MCP Registry name: io.github.mrcbrbn5361/syncytiummd
+- License: MIT
+
+## Run the MCP server
+
+```json
+{
+  "mcpServers": {
+    "syncytium": {
+      "command": "npx",
+      "args": [
+        "--ignore-scripts",
+        "-y",
+        "-p",
+        "syncytium-md@0.3.1",
+        "syncytium-mcp"
+      ]
+    }
+  }
+}
+```
+
+```bash
+npx -y -p syncytium-md@0.3.1 syncytium-mcp
+```
+
+## Tools (23)
+
+Every input is validated with zod before it reaches the engine, every tool
+declares MCP safety annotations, and all calls are rate limited in-process.
+
+- `syncytium_create_rule` — Create a canonical rule (write)
+- `syncytium_diff` — Check context drift (read)
+- `syncytium_doctor` — Read-only workspace health check (read)
+- `syncytium_get_context` — Get canonical context (read)
+- `syncytium_get_graph` — Get the knowledge graph (read)
+- `syncytium_get_history` — Get handoff history (read)
+- `syncytium_handoff` — Record agent handoff (write)
+- `syncytium_import` — Import unmanaged rule files (write)
+- `syncytium_lint` — Lint canonical content (read)
+- `syncytium_list_decisions` — List ADRs (read)
+- `syncytium_list_rules` — List canonical rules (read)
+- `syncytium_list_trash` — List recoverable deletions (read)
+- `syncytium_lock_acquire` — Acquire the workspace lease (write)
+- `syncytium_lock_release` — Release the workspace lease (write)
+- `syncytium_lock_status` — Read lease status (read)
+- `syncytium_record_decision` — Record an ADR (write)
+- `syncytium_remove_decision` — Archive and remove an ADR (destructive)
+- `syncytium_remove_rule` — Archive and remove a canonical rule (destructive)
+- `syncytium_restore` — Restore an archived rule or ADR (write)
+- `syncytium_sync` — Regenerate bridge files and prune orphans (destructive)
+- `syncytium_update_rule` — Update a canonical rule (write)
+- `syncytium_validate` — Validate config and rule frontmatter (read)
+- `syncytium_validate_fix` — Repair invalid config or frontmatter (write)
+
+## Canonical workspace
+
+- `.syncytium/rules/` — stack-aware rules with zod-validated frontmatter
+- `.syncytium/memory/decisions.md` — architectural decision records
+- `.syncytium/HANDOFF.md` — live agent handoff baton
+- `.syncytium/memory/lock.json` — machine-local workspace lease
+- `syncytium sync` — regenerate bridge files; `syncytium diff --check` — drift gate
+
+## More
+
+- `llms-full.txt` — full rule and ADR text
+- `server.json` — MCP Registry manifest
+- `README.md` — setup and CLI reference

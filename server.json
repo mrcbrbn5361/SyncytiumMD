@@ -3,8 +3,17 @@
   "name": "io.github.mrcbrbn5361/syncytiummd",
   "title": "SyncytiumMD",
   "description": "One canonical context transpiled into Cursor, Claude, Copilot, Cline and more, with agent handoff.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "websiteUrl": "https://github.com/mrcbrbn5361/SyncytiumMD#readme",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/mrcbrbn5361/SyncytiumMD/main/docs/icon.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": [
+        "any"
+      ]
+    }
+  ],
   "repository": {
     "url": "https://github.com/mrcbrbn5361/SyncytiumMD",
     "source": "github",
@@ -15,7 +24,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "syncytium-md",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"

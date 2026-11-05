@@ -104,12 +104,39 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
   const engine = new SyncytiumEngine(rootDir);
 
   const server = new Server(
-    { name: 'syncytium-mcp', version: VERSION },
-    { capabilities: { tools: {} } }
+    {
+      name: 'syncytium-mcp',
+      title: 'SyncytiumMD',
+      version: VERSION,
+      description:
+        'Canonical context bridge: one .syncytium/ source of truth transpiled into every AI coding tool, with a multi-agent handoff baton and a lease-based workspace lock.',
+      websiteUrl: 'https://github.com/mrcbrbn5361/SyncytiumMD',
+      icons: [
+        {
+          src: 'https://raw.githubusercontent.com/mrcbrbn5361/SyncytiumMD/main/docs/icon.svg',
+          mimeType: 'image/svg+xml',
+          sizes: ['any']
+        }
+      ]
+    },
+    {
+      capabilities: { tools: {} },
+      instructions:
+        'Work read-only first. Call syncytium_get_context to load the project rules, architecture and ADRs, then syncytium_doctor or syncytium_diff before editing. Before you finish a turn, call syncytium_handoff with your name, the goal and the remaining tasks so the next agent inherits the baton. Destructive tools (syncytium_remove_rule, syncytium_remove_decision) default to dryRun and require confirm:true; deletions are archived and can be undone with syncytium_restore. Use syncytium_validate_fix only when you intend to rewrite config or frontmatter. Every tool call is rate limited in-process.'
+    }
   );
 
   const text = (body: string) => ({ content: [{ type: 'text' as const, text: body }] });
   const json = (value: unknown) => text(JSON.stringify(value, null, 2));
+  /** Text for humans plus machine-validated structured content for the declared outputSchema. */
+  const structured = (value: object) => ({
+    content: [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }],
+    structuredContent: value as Record<string, unknown>
+  });
+  const structuredList = (items: unknown[]) => ({
+    content: [{ type: 'text' as const, text: JSON.stringify(items, null, 2) }],
+    structuredContent: { count: items.length, items } as Record<string, unknown>
+  });
   const failure = (message: string) => ({
     isError: true,
     content: [{ type: 'text' as const, text: `Syncytium Error: ${message}` }]
@@ -117,6 +144,96 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
 
   const limiter = new RateLimiter();
   const ann = (name: string) => TOOL_SAFETY[name]?.annotations ?? {};
+
+  /**
+   * Declared output contracts for the read tools whose shape is stable. A
+   * catalogue or gateway can validate `structuredContent` against these; the
+   * text block stays human-readable and unchanged for existing clients.
+   */
+  const objectSchema = (
+    properties: Record<string, unknown>,
+    required: string[] = []
+  ): Record<string, unknown> => ({
+    type: 'object',
+    properties,
+    required,
+    additionalProperties: false
+  });
+
+  const listOutput = objectSchema(
+    {
+      count: { type: 'number', description: 'Number of returned records' },
+      items: { type: 'array', items: { type: 'object' }, description: 'The returned records' }
+    },
+    ['count', 'items']
+  );
+
+  const OUTPUT_SCHEMAS: Record<string, Record<string, unknown>> = {
+    syncytium_list_rules: listOutput,
+    syncytium_list_decisions: listOutput,
+    syncytium_list_trash: listOutput,
+    syncytium_get_history: listOutput,
+    syncytium_get_graph: objectSchema(
+      {
+        nodes: { type: 'array', items: { type: 'object' } },
+        edges: { type: 'array', items: { type: 'object' } },
+        stats: { type: 'object' }
+      },
+      ['nodes', 'edges', 'stats']
+    ),
+    syncytium_diff: objectSchema(
+      {
+        hasDrift: { type: 'boolean' },
+        summary: objectSchema({
+          identical: { type: 'number' },
+          modified: { type: 'number' },
+          missingOnDisk: { type: 'number' },
+          unmanaged: { type: 'number' }
+        }),
+        drifted: { type: 'array', items: { type: 'object' } }
+      },
+      ['hasDrift', 'summary', 'drifted']
+    ),
+    syncytium_doctor: objectSchema(
+      {
+        overallStatus: { type: 'string', enum: ['healthy', 'warning', 'unhealthy'] },
+        stats: { type: 'object' },
+        checks: { type: 'array', items: { type: 'object' } }
+      },
+      ['overallStatus', 'stats', 'checks']
+    ),
+    syncytium_lint: objectSchema(
+      {
+        valid: { type: 'boolean' },
+        totalChecked: { type: 'number' },
+        errorCount: { type: 'number' },
+        warningCount: { type: 'number' },
+        errors: { type: 'array', items: { type: 'object' } },
+        warnings: { type: 'array', items: { type: 'object' } }
+      },
+      ['valid', 'totalChecked', 'errorCount', 'warningCount', 'errors', 'warnings']
+    ),
+    syncytium_lock_status: objectSchema(
+      {
+        locked: { type: 'boolean' },
+        agent: { type: 'string' },
+        goal: { type: 'string' },
+        acquiredAt: { type: 'string' },
+        expiresAt: { type: 'string' },
+        isExpired: { type: 'boolean' },
+        host: { type: 'string' }
+      },
+      ['locked', 'isExpired']
+    ),
+    syncytium_validate: objectSchema(
+      {
+        valid: { type: 'boolean' },
+        issues: { type: 'array', items: { type: 'object' } },
+        warnings: { type: 'array', items: { type: 'object' } }
+      },
+      ['valid', 'issues', 'warnings']
+    )
+  };
 
   /**
    * Parses `raw` with `schema`, returning either the parsed value or a
@@ -138,7 +255,7 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
   };
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [
+    tools: ([
       {
         name: 'syncytium_get_context',
         description:
@@ -170,11 +287,27 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
           properties: {
             activeAgent: { type: 'string', description: 'Your name (e.g. Cursor, Claude Code, Antigravity)' },
             nextAgent: { type: 'string', description: 'Designated next agent, or omit' },
-            status: { type: 'string', enum: ['in_progress', 'ready_for_review', 'blocked', 'completed'] },
+            status: {
+              type: 'string',
+              enum: ['in_progress', 'ready_for_review', 'blocked', 'completed'],
+              description: 'Current task state for the next agent'
+            },
             goal: { type: 'string', description: 'Primary objective' },
-            completedWork: { type: 'array', items: { type: 'string' } },
-            pendingTasks: { type: 'array', items: { type: 'string' } },
-            touchedFiles: { type: 'array', items: { type: 'string' } },
+            completedWork: {
+              type: 'array',
+              items: { type: 'string', description: 'One completed work item' },
+              description: 'Work finished in this session'
+            },
+            pendingTasks: {
+              type: 'array',
+              items: { type: 'string', description: 'One pending task' },
+              description: 'Work the next agent must continue'
+            },
+            touchedFiles: {
+              type: 'array',
+              items: { type: 'string', description: 'Path of a touched file' },
+              description: 'Files recently modified'
+            },
             notes: { type: 'string', description: 'Context, warnings or rationale for the next agent' },
             force: { type: 'boolean', default: false, description: 'Ignore an active lease' }
           },
@@ -189,8 +322,13 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
           type: 'object',
           properties: {
             id: { type: 'string', description: 'ADR id; auto-allocated when omitted (ADR-002, ADR-003, …)' },
-            title: { type: 'string' },
-            status: { type: 'string', enum: ['proposed', 'accepted', 'superseded', 'deprecated'], default: 'accepted' },
+            title: { type: 'string', description: 'Short imperative title of the decision' },
+            status: {
+              type: 'string',
+              enum: ['proposed', 'accepted', 'superseded', 'deprecated'],
+              default: 'accepted',
+              description: 'Lifecycle status of the ADR'
+            },
             context: { type: 'string', description: 'Background problem' },
             decision: { type: 'string', description: 'The chosen solution' },
             consequences: { type: 'string', description: 'Pros, cons and implications' }
@@ -206,7 +344,7 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         inputSchema: {
           type: 'object',
           properties: {
-            id: { type: 'string' },
+            id: { type: 'string', description: 'ADR id to remove, e.g. ADR-003' },
             dryRun: {
               type: 'boolean',
               default: true,
@@ -228,9 +366,13 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         inputSchema: {
           type: 'object',
           properties: {
-            status: { type: 'string', enum: ['proposed', 'accepted', 'superseded', 'deprecated', 'all'] },
-            query: { type: 'string' },
-            limit: { type: 'number', default: 20 }
+            status: {
+              type: 'string',
+              enum: ['proposed', 'accepted', 'superseded', 'deprecated', 'all'],
+              description: 'Filter by ADR lifecycle status'
+            },
+            query: { type: 'string', description: 'Free-text search over title, context and decision' },
+            limit: { type: 'number', default: 20, description: 'Maximum number of ADRs to return' }
           }
         }
       },
@@ -243,12 +385,20 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
           type: 'object',
           properties: {
             id: { type: 'string', description: 'kebab-case id; derived from the title when omitted' },
-            title: { type: 'string' },
-            description: { type: 'string' },
+            title: { type: 'string', description: 'Human-readable rule title' },
+            description: { type: 'string', description: 'One-line summary shown in bridge files' },
             body: { type: 'string', description: 'Markdown body of the rule' },
-            globs: { type: 'array', items: { type: 'string' }, description: 'Makes the rule glob-scoped' },
-            tags: { type: 'array', items: { type: 'string' } },
-            alwaysApply: { type: 'boolean' },
+            globs: {
+              type: 'array',
+              items: { type: 'string', description: 'Glob pattern such as src/**/*.ts' },
+              description: 'Makes the rule glob-scoped instead of always-applied'
+            },
+            tags: {
+              type: 'array',
+              items: { type: 'string', description: 'Tag name without the leading #' },
+              description: 'Tags used for grouping and search'
+            },
+            alwaysApply: { type: 'boolean', description: 'Force the rule into every session' },
             sync: { type: 'boolean', default: true, description: 'Regenerate bridge files afterwards' }
           },
           required: ['title', 'body']
@@ -272,14 +422,22 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         inputSchema: {
           type: 'object',
           properties: {
-            id: { type: 'string' },
-            title: { type: 'string' },
-            description: { type: 'string' },
-            body: { type: 'string' },
-            globs: { type: 'array', items: { type: 'string' } },
-            tags: { type: 'array', items: { type: 'string' } },
-            alwaysApply: { type: 'boolean' },
-            sync: { type: 'boolean', default: true }
+            id: { type: 'string', description: 'Rule id to update' },
+            title: { type: 'string', description: 'New human-readable title' },
+            description: { type: 'string', description: 'New one-line summary' },
+            body: { type: 'string', description: 'New Markdown body' },
+            globs: {
+              type: 'array',
+              items: { type: 'string', description: 'Glob pattern such as src/**/*.ts' },
+              description: 'Replacement glob scope; pass [] to make the rule always-applied'
+            },
+            tags: {
+              type: 'array',
+              items: { type: 'string', description: 'Tag name without the leading #' },
+              description: 'Replacement tag list'
+            },
+            alwaysApply: { type: 'boolean', description: 'Force the rule into every session' },
+            sync: { type: 'boolean', default: true, description: 'Regenerate bridge files afterwards' }
           },
           required: ['id']
         }
@@ -292,7 +450,7 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         inputSchema: {
           type: 'object',
           properties: {
-            id: { type: 'string' },
+            id: { type: 'string', description: 'Rule id to remove' },
             dryRun: {
               type: 'boolean',
               default: true,
@@ -315,8 +473,12 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         inputSchema: {
           type: 'object',
           properties: {
-            targets: { type: 'array', items: { type: 'string' }, description: 'Restrict to specific adapter ids' },
-            force: { type: 'boolean', default: false },
+            targets: {
+              type: 'array',
+              items: { type: 'string', description: 'Adapter id such as cursor or claude' },
+              description: 'Restrict to specific adapter ids'
+            },
+            force: { type: 'boolean', default: false, description: 'Override an active workspace lease' },
             noPrune: {
               type: 'boolean',
               default: false,
@@ -331,7 +493,7 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         annotations: ann('syncytium_get_history'),
         inputSchema: {
           type: 'object',
-          properties: { limit: { type: 'number', default: 5 } }
+          properties: { limit: { type: 'number', default: 5, description: 'Maximum handoff entries to return' } }
         }
       },
       {
@@ -344,15 +506,22 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
       {
         name: 'syncytium_validate',
         description:
-          'Write only when fix:true; validates syncytium.config.json and every rule frontmatter against the zod schema.',
+          'Read-only. Validate syncytium.config.json and every rule frontmatter against the zod schema and report issues without changing anything.',
         annotations: ann('syncytium_validate'),
+        inputSchema: { type: 'object', properties: {} }
+      },
+      {
+        name: 'syncytium_validate_fix',
+        description:
+          'Write. Repair invalid config or rule frontmatter in place, then report what changed. Separate from syncytium_validate so a read-only scan can never mutate the workspace.',
+        annotations: ann('syncytium_validate_fix'),
         inputSchema: {
           type: 'object',
           properties: {
-            fix: {
+            dryRun: {
               type: 'boolean',
               default: false,
-              description: 'Repair config/frontmatter when they are invalid.'
+              description: 'Report the repairs that would be applied without writing them.'
             }
           }
         }
@@ -364,7 +533,13 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         annotations: ann('syncytium_diff'),
         inputSchema: {
           type: 'object',
-          properties: { targets: { type: 'array', items: { type: 'string' } } }
+          properties: {
+            targets: {
+              type: 'array',
+              items: { type: 'string', description: 'Adapter id such as cursor or claude' },
+              description: 'Restrict the drift check to specific adapter ids'
+            }
+          }
         }
       },
       {
@@ -381,10 +556,14 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         inputSchema: {
           type: 'object',
           properties: {
-            agent: { type: 'string' },
-            goal: { type: 'string' },
-            leaseMinutes: { type: 'number', default: 30 },
-            force: { type: 'boolean', default: false }
+            agent: { type: 'string', description: 'Your agent name, recorded as the lease holder' },
+            goal: { type: 'string', description: 'What you are working on while holding the lease' },
+            leaseMinutes: {
+              type: 'number',
+              default: 30,
+              description: 'Lease length in minutes (1-1440)'
+            },
+            force: { type: 'boolean', default: false, description: 'Take over an existing lease' }
           },
           required: ['agent']
         }
@@ -395,7 +574,10 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         annotations: ann('syncytium_lock_release'),
         inputSchema: {
           type: 'object',
-          properties: { agent: { type: 'string' }, force: { type: 'boolean', default: false } }
+          properties: {
+            agent: { type: 'string', description: 'Only release the lease if it is held by this agent' },
+            force: { type: 'boolean', default: false, description: 'Release a lease held by another agent' }
+          }
         }
       },
       {
@@ -412,8 +594,17 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         inputSchema: {
           type: 'object',
           properties: {
-            category: { type: 'string', enum: ['all', 'ide', 'cli', 'extension', 'agent', 'brain'], default: 'all' },
-            compact: { type: 'boolean', default: false }
+            category: {
+              type: 'string',
+              enum: ['all', 'ide', 'cli', 'extension', 'agent', 'brain', 'generic'],
+              default: 'all',
+              description: 'Perspective to isolate before building the graph'
+            },
+            compact: {
+              type: 'boolean',
+              default: false,
+              description: 'Hide file, directory and tag nodes for a smaller payload'
+            }
           }
         }
       },
@@ -441,8 +632,12 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         inputSchema: {
           type: 'object',
           properties: {
-            kind: { type: 'string', enum: ['rule', 'decision'] },
-            limit: { type: 'number', default: 50 }
+            kind: {
+              type: 'string',
+              enum: ['rule', 'decision'],
+              description: 'Restrict to archived rules or archived ADRs'
+            },
+            limit: { type: 'number', default: 50, description: 'Maximum number of entries to return' }
           }
         }
       },
@@ -454,13 +649,24 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         inputSchema: {
           type: 'object',
           properties: {
-            kind: { type: 'string', enum: ['rule', 'decision'] },
-            id: { type: 'string' }
+            kind: { type: 'string', enum: ['rule', 'decision'], description: 'Kind of archived item to restore' },
+            id: { type: 'string', description: 'Id of the archived rule or ADR' }
           },
           required: ['kind', 'id']
         }
       }
-    ]
+    ] as Array<{
+      name: string;
+      description: string;
+      annotations: Record<string, unknown>;
+      inputSchema: Record<string, unknown>;
+    }>).map(tool => ({
+      ...tool,
+      // Every input is closed: an unexpected argument is a client bug, not
+      // something the server should silently ignore.
+      inputSchema: { ...tool.inputSchema, additionalProperties: false },
+      ...(OUTPUT_SCHEMAS[tool.name] ? { outputSchema: OUTPUT_SCHEMAS[tool.name] } : {})
+    }))
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async request => {
@@ -555,7 +761,8 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
             status: typeof args.status === 'string' ? args.status : undefined,
             query: typeof args.query === 'string' ? args.query : undefined
           });
-          return json(decisions.slice(0, limitResult.success ? limitResult.data : 20));
+          const rows = decisions.slice(0, limitResult.success ? limitResult.data : 20);
+          return structuredList(rows);
         }
 
         case 'syncytium_remove_decision': {
@@ -610,7 +817,7 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
           const rules = await engine.listRules(
             typeof args.query === 'string' && args.query.trim() ? args.query : undefined
           );
-          return json(
+          return structuredList(
             rules.map(r => ({
               id: r.id,
               title: r.title,
@@ -686,7 +893,7 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         case 'syncytium_get_history': {
           const parsed = limitSchema.safeParse(args.limit ?? 5);
           const history = await engine.getHandoffHistory(parsed.success ? parsed.data : 5);
-          return json(history);
+          return structuredList(history);
         }
 
         // ------------------------------------------------- diagnostics ---
@@ -696,7 +903,7 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
           const warnings = report.issues.filter(i => i.type === 'warning');
           // Summarised on purpose: dumping every issue would burn the context
           // window the caller is trying to protect.
-          return json({
+          return structured({
             valid: report.valid,
             totalChecked: report.totalChecked,
             errorCount: errors.length,
@@ -707,15 +914,29 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         }
 
         case 'syncytium_validate': {
-          const result = await engine.validate({ fix: args.fix === true });
-          return json(result);
+          return structured(await engine.validate({ fix: false }));
+        }
+
+        case 'syncytium_validate_fix': {
+          const dryRun = args.dryRun === true;
+          if (dryRun) {
+            const preview = await engine.validate({ fix: false });
+            return structured({
+              dryRun: true,
+              valid: preview.valid,
+              issues: preview.issues,
+              warnings: preview.warnings,
+              next: 'Call again with dryRun:false to repair config/frontmatter in place.'
+            } as object);
+          }
+          return structured(await engine.validate({ fix: true }));
         }
 
         case 'syncytium_diff': {
           const report = await engine.diff(
             Array.isArray(args.targets) ? (args.targets as string[]) : undefined
           );
-          return json({
+          return structured({
             hasDrift: report.hasDrift,
             summary: report.summary,
             // Patches are omitted here; run `syncytium diff` in the shell for them.
@@ -727,7 +948,7 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
 
         case 'syncytium_doctor': {
           const report = await engine.doctor();
-          return json({
+          return structured({
             overallStatus: report.overallStatus,
             stats: report.stats,
             checks: report.checks.map(c => ({
@@ -757,7 +978,7 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
         }
 
         case 'syncytium_lock_status': {
-          return json(await engine.getLockStatus());
+          return structured(await engine.getLockStatus());
         }
 
         // -------------------------------------------------------- graph ---
@@ -766,7 +987,7 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
             category: typeof args.category === 'string' ? args.category : 'all',
             compact: args.compact === true
           });
-          return json(graph);
+          return structured(graph);
         }
 
         case 'syncytium_import': {
@@ -778,7 +999,7 @@ export function createSyncytiumMcpServer(rootDir: string = process.cwd()) {
           const parsed = parse(args, ListTrashInput);
           if (!parsed.ok) return parsed.error;
           const entries = await engine.listTrash(parsed.value.kind);
-          return json(entries.slice(0, parsed.value.limit));
+          return structuredList(entries.slice(0, parsed.value.limit));
         }
 
         case 'syncytium_restore': {

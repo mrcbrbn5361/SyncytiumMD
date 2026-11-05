@@ -66,7 +66,7 @@ npx syncytium graph         # 3D bilgi grafiğini tarayıcıda aç
 | **Çoklu ajan güvenliği** | Kalp atışı olan kiralama tabanlı çalışma alanı kilidi, handoff sopası, 100 kayıtlık denetim izi |
 | **Sapma tespiti** | Gerçek unified diff'ler, sahipsiz dosya tespiti ve CI'da gerçekten hata kodu döndüren `--check` |
 | **Canlı 3D grafik** | WebGL bilgi kozmosu, vault gezgini, Markdown belge okuyucu — `127.0.0.1`'e bağlı |
-| **MCP sunucusu** | zod doğrulamalı girdi, dürüst güvenlik etiketleri, yerleşik hız sınırları ve geri alınabilir silmeler ile 22 araç |
+| **MCP sunucusu** | zod doğrulamalı girdi, dürüst güvenlik etiketleri, yerleşik hız sınırları ve geri alınabilir silmeler ile 23 araç |
 | **CI + git hook** | `syncytium ci` ve `syncytium hook install` ikisi de sıfır sapmayı zorunlu kılar |
 | **Her yerde `--json`** | Her komut makine tarafından okunabilir çıktı üretir |
 
@@ -143,6 +143,12 @@ Sunucu `127.0.0.1`'e bağlanır ve döngü dışı `Host` başlıklarını redde
 (DNS-rebinding koruması). `.env*`, `*.pem`, `*.key`, `.git/**` gibi kök
 içindeki sırları sunmayı reddeder.
 
+3D galakside bir araca tıklamak, o aracın ürettiği **gerçek Markdown
+dosyalarını** açar: `.cursor/rules/` gibi dizin hedefleri, içindeki `.mdc`
+kurallarını listeleyen dizin düğümlerine dönüşür; her dosya belge panelinde
+açılır ve 3D sahnede vurgulanır; adaptörler hedefleri diskte varsa `USED`,
+yoksa `EMPTY` olarak işaretlenir.
+
 ### MCP
 
 ```jsonc
@@ -150,7 +156,7 @@ içindeki sırları sunmayı reddeder.
   "mcpServers": {
     "syncytium": {
       "command": "npx",
-      "args": ["--ignore-scripts", "-y", "-p", "syncytium-md@0.3.0", "syncytium-mcp"],
+      "args": ["--ignore-scripts", "-y", "-p", "syncytium-md@0.3.1", "syncytium-mcp"],
       "cwd": "${workspaceFolder}",
       "env": {
         "SYNCYTIUM_TOKEN": "${SYNCYTIUM_TOKEN}"
@@ -165,13 +171,15 @@ ile başlatırken `--ignore-scripts` geçin, bir çalışma alanında gerçekten
 ihtiyaç duyulan 3-5 MCP bağlayıcısını açık tutun ve kısa ömürlü, salt-okunur
 kimlik bilgisini komut argümanları yerine `env` bloğu üzerinden iletin.
 
-CLI zaten kuruluysa `syncytium mcp` de olur. Araçlar arasında
+CLI zaten kuruluysa `syncytium mcp` de olur. Sunucu 23 araç sunar:
 `syncytium_get_context`, `syncytium_handoff`, `syncytium_create_rule`,
 `syncytium_update_rule`, `syncytium_remove_rule`, `syncytium_record_decision`,
 `syncytium_sync`, `syncytium_diff`, `syncytium_doctor`, `syncytium_validate`,
-`syncytium_lock_acquire/release/status`, `syncytium_get_graph`,
-`syncytium_list_trash`, `syncytium_restore` ve fazlası var.
-Her girdi zod ile doğrulanır; her çıktı dökülmek yerine özetlenir.
+`syncytium_validate_fix`, `syncytium_lock_acquire/release/status`,
+`syncytium_get_graph`, `syncytium_list_trash`, `syncytium_restore` ve fazlası.
+Her girdi zod ile doğrulanır ve `additionalProperties: false` ile kapatılır; her
+alan belgelenir; kararlı her salt-okunur araç bir `outputSchema` bildirir ve
+buna uyan `structuredContent` döndürür.
 
 **Yerleşik MCP güvenliği.** Her araç MCP `readOnlyHint`, `destructiveHint`,
 `idempotentHint` ve `openWorldHint` etiketlerini bildirir; sunucu ayrıca araç
@@ -184,8 +192,11 @@ etiketleri yok saysa bile sunucu tarafında uygulanır.
 
 **MCP Registry.** Depo kökünde resmî `registry.modelcontextprotocol.io`
 formatında bir `server.json` bildirimi var; npm paketini, stdio taşımını ve
-`mcp` başlatma argümanını tanımlar. Birim testi sürümünü `package.json`'a
-sabitlediği için registry asla bayat meta veri yayınlamaz.
+`mcp` başlatma argümanını tanımlar. `discoverability` iş akışı `llms.txt` ve
+`llms-full.txt` dosyalarını yeniden üretir, bildirimi `mcpName` ile pakete karşı
+doğrular ve GitHub OIDC ile yayınlar — saklı sır yok, elle adım yok. Birim testi
+sürümünü `package.json`'a sabitlediği için registry asla bayat meta veri
+yayınlamaz.
 
 ## `.syncytiumignore`
 

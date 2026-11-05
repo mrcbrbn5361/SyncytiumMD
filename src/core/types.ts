@@ -173,6 +173,7 @@ export type GraphNodeType =
   | 'agent'
   | 'adapter'
   | 'file'
+  | 'dir'
   | 'doc';
 
 export interface GraphNode {
