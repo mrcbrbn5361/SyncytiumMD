@@ -7,14 +7,14 @@ today. One list per PR. Track everything in the table at the bottom.
 
 | # | Target | Stars | Submission path | Fit | Status |
 |---|---|---|---|---|---|
-| 1 | punkpeye/awesome-mcp-servers | 97,727 | PR (agent-authored PRs explicitly fast-tracked) | strong — 23-tool stdio MCP server | ☐ pending |
-| 2 | hesreallyhim/awesome-claude-code | 58,054 | issue form ONLY (PRs closed unread); needs a qualifying issue first | strong | ☐ pending |
-| 3 | yzfly/Awesome-MCP-ZH | 7,835 | PR, Chinese-language list | strong (CN discoverability) | ☐ pending |
-| 4 | wong2/awesome-mcp-servers | 4,409 | PR | strong | ☐ pending |
-| 5 | bradAGI/awesome-cli-coding-agents | 1,482 | PR | strong (active Nov 2026) | ☐ pending |
+| 1 | punkpeye/awesome-mcp-servers | 97,727 | PR (agent-authored PRs explicitly fast-tracked) | strong — 23-tool stdio MCP server | ✅ **SUBMITTED 2026-11-15** — revived stalled PR [#14698](https://github.com/punkpeye/awesome-mcp-servers/pull/14698): rebased clean onto latest main, moved to Developer Tools, **removed the Glama badge that was blocking the bot** (Glama never evaluated), title now carries the `🤖🤖🤖` fast-track marker → state OPEN + MERGEABLE/CLEAN |
+| 2 | hesreallyhim/awesome-claude-code | 58,054 | issue form ONLY (PRs closed unread); needs a qualifying issue first | strong | ❌ **CLOSED TO OUTSIDERS 2026-11-15** — issue creation returns `Interactions restricted to collaborators only`; form is unusable, the list no longer accepts external submissions. Do not retry. |
+| 3 | yzfly/Awesome-MCP-ZH | 7,835 | PR, Chinese-language list | strong (CN discoverability) | ✅ **SUBMITTED 2026-11-15** — PR [#1069](https://github.com/yzfly/Awesome-MCP-ZH/pull/1069) (Chinese entry, 开发与代码执行 table, format-compliant). OPEN + MERGEABLE |
+| 4 | wong2/awesome-mcp-servers | 4,409 | ~~PR~~ — README says NO PRs; submit at https://mcpservers.org/submit instead | strong | ☐ **manual web form** — cannot be automated |
+| 5 | bradAGI/awesome-cli-coding-agents | 1,482 | PR | strong (active Nov 2026) | ✅ **SUBMITTED 2026-11-15** — PR [#660](https://github.com/bradAGI/awesome-cli-coding-agents/pull/660) (Agent infrastructure, star-ordered position). OPEN + MERGEABLE |
 | 6 | e2b-dev/awesome-ai-agents | 30,941 | PR | medium — agent-infra, verify section fit before opening | ☐ research |
 | 7 | PatrickJS/awesome-cursorrules | 41,159 | PR of Cursor RULE FILES only; list stale since May 2026 | weak — skip unless contributing a rules file | ☐ skip/optional |
-| 8 | MCP client directories: Smithery, Glama, mcp.so, cursor.directory | — | each has a free add-listing flow; official registry already lists `io.github.mrcbrbn5361/syncytiummd` (active, verified) | strong | ☐ pending |
+| 8 | MCP client directories: Smithery, Glama, mcp.so, cursor.directory | — | each has a free add-listing flow; official registry already lists `io.github.mrcbrbn5361/syncytiummd` (active, verified) | strong | ☐ **manual web forms** — Glama evaluation is ALSO the unblock path for punkpeye's badge (nice-to-have, entry no longer depends on it) |
 
 ## Ready entry text (one line — adapt format per list)
 

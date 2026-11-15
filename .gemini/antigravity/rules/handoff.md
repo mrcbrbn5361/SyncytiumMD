@@ -10,14 +10,14 @@
 ### 🤝 Live Handoff Status
 - **Active Agent:** `opencode` (Next: `Human`)
 - **Status:** `READY_FOR_REVIEW`
-- **Current Goal:** Execute launch plan per writing-block.md: Phase 0 showcase done locally; external submissions need owner approval
+- **Current Goal:** Phase 1: monitor the 3 open awesome-list PRs to merge, complete manual directory submissions, then launch (Show HN Tue-Thu 14:00-15:00 UTC) once list merges land
 - **Pending Tasks:**
-  - [ ] gh auth login, then run docs/github-setup.md (homepage, discussions, labels, good-first-issues, release notes)
-  - [ ] Ship a v0.3.2 patch with the 3 bugfixes so npm users get the fixed handoff (needs npm publish approval)
-  - [ ] Submit the 5 verified awesome lists + MCP directories; then Show HN on Tue-Thu 14:00-15:00 UTC
+  - [ ] Monitor + gently follow up on punkpeye #14698, bradAGI #660, yzfly #1069 until merged
+  - [ ] Manual web submissions: mcpservers.org (wong2), Smithery, Glama (also gives the Glama badge back), mcp.so, cursor.directory
+  - [ ] Ship v0.3.2 patch with the 3 CLI bugfixes (needs npm publish approval; OIDC trusted-publisher needs --allow-publish)
+  - [ ] Launch window after merges: docs/show-hn-draft.md Tue-Thu 14:00-15:00 UTC; docs/launch/ has all copy
   - [ ] Rotate any credential pasted into chat earlier
 - **Recently Touched:**
-  - `.gitattributes`
   - `src/core/storage.ts`
   - `server.json`
   - `src/mcp/safety.ts`
@@ -25,6 +25,7 @@
   - `.github/dependabot.yml`
   - `scripts/build-discovery.mjs`
   - `.github/workflows/discoverability.yml`
-- **Notes:** Root cause of E403 'OIDC permission denied for this action': trusted publisher configs created after 2026-09-03 default to stage-publish only; recreate with npm trust github --allow-publish. No repo files changed this turn.
-- **Last Updated:** 2026-11-15T16:37:10.240Z
+  - `docs/launch/awesome-lists.md`
+- **Notes:** hesreallyhim/awesome-claude-code now returns 'interactions restricted to collaborators only' - external submission impossible, do not retry.
+- **Last Updated:** 2026-11-15T17:46:01.123Z
 

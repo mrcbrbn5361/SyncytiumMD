@@ -3,17 +3,10 @@ activeAgent: opencode
 nextAgent: Human
 status: ready_for_review
 goal: >-
-  Execute launch plan per writing-block.md: Phase 0 showcase done locally;
-  external submissions need owner approval
+  Phase 1: monitor the 3 open awesome-list PRs to merge, complete manual
+  directory submissions, then launch (Show HN Tue-Thu 14:00-15:00 UTC) once list
+  merges land
 completedWork:
-  - Achieved 21/21 passing unit tests
-  - 'Fixed the diff --check gate, orphan pruning and destructive clean'
-  - >-
-    Eliminated stored XSS in the Obsidian Studio UI and hardened the local
-    server
-  - >-
-    Added zod validation, rule/ADR CRUD, export, validate, lock heartbeat,
-    --json
   - 'Added AGENTS.md, GEMINI.md, Copilot path instructions and Roo Code adapters'
   - Replaced substring ignore matching with a real gitignore glob engine
   - Grew the suite from 22 to 114 tests covering every regression above
@@ -84,16 +77,37 @@ completedWork:
     docs/launch campaign (show-hn, awesome lists verified,
     reddit/x/linkedin/TR/newsletter/dev.to) + good-first-issues + github-setup +
     release notes + competitive-analysis + metrics baseline
+  - >-
+    gh device-flow auth completed; pushed Phase 0 commit 0bddb02; repo settings
+    done via gh (description, homepage, topics agents-md+coding-agents,
+    Discussions enabled, 8 labels, 10 good-first-issues #10-19, 3 release notes
+    rewritten)
+  - >-
+    Phase 1 awesome-lists: punkpeye PR #14698 revived (rebased clean, badge
+    removed, fast-track marker, MERGEABLE/CLEAN); bradAGI PR #660 and yzfly PR
+    #1069 opened (both OPEN/MERGEABLE); hesreallyhim frozen to outsiders -
+    dropped; wong2 wants web form not PR
+  - >-
+    gh device-flow auth + repo settings: description, homepage, topics,
+    Discussions ON, 8 labels, good-first-issues #10-19, 3 release notes
+    rewritten
+  - >-
+    punkpeye PR #14698 revived to OPEN/MERGEABLE/CLEAN with fast-track marker;
+    bradAGI #660 and yzfly #1069 opened; hesreallyhim dropped (frozen);
+    docs/launch/awesome-lists.md updated to live status
 pendingTasks:
   - >-
-    gh auth login, then run docs/github-setup.md (homepage, discussions, labels,
-    good-first-issues, release notes)
+    Monitor + gently follow up on punkpeye #14698, bradAGI #660, yzfly #1069
+    until merged
   - >-
-    Ship a v0.3.2 patch with the 3 bugfixes so npm users get the fixed handoff
-    (needs npm publish approval)
+    Manual web submissions: mcpservers.org (wong2), Smithery, Glama (also gives
+    the Glama badge back), mcp.so, cursor.directory
   - >-
-    Submit the 5 verified awesome lists + MCP directories; then Show HN on
-    Tue-Thu 14:00-15:00 UTC
+    Ship v0.3.2 patch with the 3 CLI bugfixes (needs npm publish approval; OIDC
+    trusted-publisher needs --allow-publish)
+  - >-
+    Launch window after merges: docs/show-hn-draft.md Tue-Thu 14:00-15:00 UTC;
+    docs/launch/ has all copy
   - Rotate any credential pasted into chat earlier
 touchedFiles:
   - package.json
@@ -123,27 +137,23 @@ touchedFiles:
   - .github/dependabot.yml
   - scripts/build-discovery.mjs
   - .github/workflows/discoverability.yml
+  - docs/launch/awesome-lists.md
 contextNotes: >-
-  Root cause of E403 'OIDC permission denied for this action': trusted publisher
-  configs created after 2026-09-03 default to stage-publish only; recreate with
-  npm trust github --allow-publish. No repo files changed this turn.
-lastUpdated: '2026-11-15T16:37:10.240Z'
+  hesreallyhim/awesome-claude-code now returns 'interactions restricted to
+  collaborators only' - external submission impossible, do not retry.
+lastUpdated: '2026-11-15T17:46:01.123Z'
 ---
 # 🤝 Syncytium Handoff & Live State
 
 > **Active Agent:** `opencode`
 > **Next Recommended Agent:** `Human`
 > **Status:** `READY_FOR_REVIEW`
-> **Last Updated:** `2026-11-15T16:37:10.240Z`
+> **Last Updated:** `2026-11-15T17:46:01.123Z`
 
 ## 🎯 Current Goal
-Execute launch plan per writing-block.md: Phase 0 showcase done locally; external submissions need owner approval
+Phase 1: monitor the 3 open awesome-list PRs to merge, complete manual directory submissions, then launch (Show HN Tue-Thu 14:00-15:00 UTC) once list merges land
 
 ## ✅ Completed in Recent Turns
-- Achieved 21/21 passing unit tests
-- Fixed the diff --check gate, orphan pruning and destructive clean
-- Eliminated stored XSS in the Obsidian Studio UI and hardened the local server
-- Added zod validation, rule/ADR CRUD, export, validate, lock heartbeat, --json
 - Added AGENTS.md, GEMINI.md, Copilot path instructions and Roo Code adapters
 - Replaced substring ignore matching with a real gitignore glob engine
 - Grew the suite from 22 to 114 tests covering every regression above
@@ -180,11 +190,16 @@ Execute launch plan per writing-block.md: Phase 0 showcase done locally; externa
 - demo.gif/graph.gif/graph.png/terminal.png recorded from the real CLI via scripts/record-demo.mjs
 - README EN+TR showcase: hero GIF, AGENTS.md & rulesync comparison tables
 - docs/launch campaign (show-hn, awesome lists verified, reddit/x/linkedin/TR/newsletter/dev.to) + good-first-issues + github-setup + release notes + competitive-analysis + metrics baseline
+- gh device-flow auth completed; pushed Phase 0 commit 0bddb02; repo settings done via gh (description, homepage, topics agents-md+coding-agents, Discussions enabled, 8 labels, 10 good-first-issues #10-19, 3 release notes rewritten)
+- Phase 1 awesome-lists: punkpeye PR #14698 revived (rebased clean, badge removed, fast-track marker, MERGEABLE/CLEAN); bradAGI PR #660 and yzfly PR #1069 opened (both OPEN/MERGEABLE); hesreallyhim frozen to outsiders - dropped; wong2 wants web form not PR
+- gh device-flow auth + repo settings: description, homepage, topics, Discussions ON, 8 labels, good-first-issues #10-19, 3 release notes rewritten
+- punkpeye PR #14698 revived to OPEN/MERGEABLE/CLEAN with fast-track marker; bradAGI #660 and yzfly #1069 opened; hesreallyhim dropped (frozen); docs/launch/awesome-lists.md updated to live status
 
 ## 📋 Pending Tasks (Next Agent Action Items)
-- [ ] gh auth login, then run docs/github-setup.md (homepage, discussions, labels, good-first-issues, release notes)
-- [ ] Ship a v0.3.2 patch with the 3 bugfixes so npm users get the fixed handoff (needs npm publish approval)
-- [ ] Submit the 5 verified awesome lists + MCP directories; then Show HN on Tue-Thu 14:00-15:00 UTC
+- [ ] Monitor + gently follow up on punkpeye #14698, bradAGI #660, yzfly #1069 until merged
+- [ ] Manual web submissions: mcpservers.org (wong2), Smithery, Glama (also gives the Glama badge back), mcp.so, cursor.directory
+- [ ] Ship v0.3.2 patch with the 3 CLI bugfixes (needs npm publish approval; OIDC trusted-publisher needs --allow-publish)
+- [ ] Launch window after merges: docs/show-hn-draft.md Tue-Thu 14:00-15:00 UTC; docs/launch/ has all copy
 - [ ] Rotate any credential pasted into chat earlier
 
 ## 📂 Recently Touched Files
@@ -215,6 +230,7 @@ Execute launch plan per writing-block.md: Phase 0 showcase done locally; externa
 - `.github/dependabot.yml`
 - `scripts/build-discovery.mjs`
 - `.github/workflows/discoverability.yml`
+- `docs/launch/awesome-lists.md`
 
 ## 🧠 Context & Handoff Notes for Next Agent
-Root cause of E403 'OIDC permission denied for this action': trusted publisher configs created after 2026-09-03 default to stage-publish only; recreate with npm trust github --allow-publish. No repo files changed this turn.
+hesreallyhim/awesome-claude-code now returns 'interactions restricted to collaborators only' - external submission impossible, do not retry.
