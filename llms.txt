@@ -3,7 +3,7 @@
 > One canonical `.syncytium/` context transpiled into every AI coding tool,
 > with a multi-agent handoff baton and a lease-based workspace lock.
 
-- Version: 0.3.1
+- Version: 0.3.2
 - npm: https://www.npmjs.com/package/syncytium-md
 - Repository: https://github.com/mrcbrbn5361/SyncytiumMD
 - MCP Registry name: io.github.mrcbrbn5361/syncytiummd
@@ -20,7 +20,7 @@
         "--ignore-scripts",
         "-y",
         "-p",
-        "syncytium-md@0.3.1",
+        "syncytium-md@0.3.2",
         "syncytium-mcp"
       ]
     }
@@ -29,7 +29,7 @@
 ```
 
 ```bash
-npx -y -p syncytium-md@0.3.1 syncytium-mcp
+npx -y -p syncytium-md@0.3.2 syncytium-mcp
 ```
 
 ## Tools (23)

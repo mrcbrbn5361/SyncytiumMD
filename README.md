@@ -212,7 +212,7 @@ whether their targets exist on disk.
   "mcpServers": {
     "syncytium": {
       "command": "npx",
-      "args": ["--ignore-scripts", "-y", "-p", "syncytium-md@0.3.1", "syncytium-mcp"],
+      "args": ["--ignore-scripts", "-y", "-p", "syncytium-md@0.3.2", "syncytium-mcp"],
       "cwd": "${workspaceFolder}",
       "env": {
         "SYNCYTIUM_TOKEN": "${SYNCYTIUM_TOKEN}"
