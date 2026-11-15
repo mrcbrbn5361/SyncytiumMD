@@ -28,6 +28,8 @@
     "verify": "npm run build && npm run typecheck && npm test",
     "release": "node scripts/release.mjs",
     "discovery": "npm run build && node scripts/build-discovery.mjs",
+    "demo": "node scripts/record-demo.mjs",
+    "sync:repo": "npm run build && node dist/cli/index.js sync",
     "prepublishOnly": "npm run verify"
   },
   "keywords": [
@@ -74,6 +76,8 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
+    "ansi_up": "^6.0.6",
+    "playwright-core": "^1.65.1",
     "tsup": "^8.4.0",
     "typescript": "^5.8.2"
   }

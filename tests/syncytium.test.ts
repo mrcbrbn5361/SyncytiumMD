@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 import { request as httpRequest } from 'node:http';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
@@ -41,7 +44,7 @@ async function tmpdir(prefix: string): Promise<string> {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
 }
 
-describe('SyncytiumMD v0.2.0 — full test suite', () => {
+describe('SyncytiumMD — full test suite', () => {
   let tempDir: string;
   let engine: SyncytiumEngine;
 
@@ -2314,6 +2317,84 @@ describe('SyncytiumMD v0.2.0 — full test suite', () => {
 
       now += policy.windowMs + 1;
       assert.equal(limiter.consume('syncytium_remove_rule').allowed, true);
+    });
+  });
+
+  // ======================================================================
+  describe('CLI regressions (spawned, covers option-parsing gaps)', () => {
+    const exec = promisify(execFile);
+    const cliPath = fileURLToPath(new URL('../dist/cli/index.js', import.meta.url));
+
+    async function runCli(args: string[], cwd: string): Promise<{ stdout: string; code: number }> {
+      try {
+        const { stdout } = await exec(process.execPath, [cliPath, ...args], {
+          cwd,
+          windowsHide: true,
+          env: { ...process.env, NO_COLOR: '1' }
+        });
+        return { stdout, code: 0 };
+      } catch (err) {
+        const e = err as { stdout?: string; code?: number };
+        return { stdout: e.stdout ?? '', code: e.code ?? 1 };
+      }
+    }
+
+    test('`handoff` propagates to bridge files by default (regression: --no-sync default)', async () => {
+      const dir = await tmpdir('syncytium-cli-handoff-');
+      try {
+        await runCli(['init', 'P', '--template', 'generic'], dir);
+        const { code } = await runCli(
+          ['handoff', '--from', 'Claude', '--to', 'Cursor', '-g', 'CLI-BATON-GOAL'],
+          dir
+        );
+        assert.equal(code, 0);
+        const agents = await fs.readFile(path.join(dir, 'AGENTS.md'), 'utf-8');
+        assert.ok(
+          agents.includes('CLI-BATON-GOAL'),
+          'a plain `syncytium handoff` must re-sync bridge files without --no-sync being passed'
+        );
+        const check = await runCli(['diff', '--check'], dir);
+        assert.equal(check.code, 0, 'after CLI handoff the drift gate must stay green');
+      } finally {
+        await fs.rm(dir, { recursive: true, force: true });
+      }
+    });
+
+    test('`handoff --no-sync` updates state without touching bridge files', async () => {
+      const dir = await tmpdir('syncytium-cli-nosync-');
+      try {
+        await runCli(['init', 'P', '--template', 'generic'], dir);
+        await runCli(['sync'], dir);
+        await runCli(['handoff', '--from', 'Claude', '--no-sync', '-g', 'OFF-BATON'], dir);
+        const canonical = await fs.readFile(path.join(dir, '.syncytium', 'HANDOFF.md'), 'utf-8');
+        assert.ok(canonical.includes('OFF-BATON'), 'canonical state must still update');
+        const agents = await fs.readFile(path.join(dir, 'AGENTS.md'), 'utf-8');
+        assert.ok(!agents.includes('OFF-BATON'), '--no-sync must skip propagation');
+      } finally {
+        await fs.rm(dir, { recursive: true, force: true });
+      }
+    });
+
+    test('`diff --full` renders whole patch lines, not one character per line (regression)', async () => {
+      const dir = await tmpdir('syncytium-cli-difffull-');
+      try {
+        await runCli(['init', 'P', '--template', 'generic'], dir);
+        await runCli(['sync'], dir);
+        await fs.appendFile(
+          path.join(dir, '.syncytium', 'rules', 'code-style.md'),
+          '\n- Never use default exports.\n',
+          'utf-8'
+        );
+        const { stdout } = await runCli(['diff', '--full'], dir);
+        assert.ok(stdout.includes('+++ b/'), 'patch header must be rendered as a whole line');
+        assert.ok(stdout.includes('@@ -'), 'hunk header must be rendered as a whole line');
+        assert.ok(
+          /\n\s+[ +-].{4,}/m.test(stdout.replace(/\r/g, '')),
+          'hunk body lines must contain real text, not isolated characters'
+        );
+      } finally {
+        await fs.rm(dir, { recursive: true, force: true });
+      }
     });
   });
 

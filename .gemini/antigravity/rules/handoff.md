@@ -9,12 +9,13 @@
 
 ### 🤝 Live Handoff Status
 - **Active Agent:** `opencode` (Next: `Human`)
-- **Status:** `BLOCKED`
-- **Current Goal:** v0.3.1 npm publish and MCP Registry listing are blocked on npm OIDC trusted-publisher setup
+- **Status:** `READY_FOR_REVIEW`
+- **Current Goal:** Execute launch plan per writing-block.md: Phase 0 showcase done locally; external submissions need owner approval
 - **Pending Tasks:**
-  - [ ] On npmjs.com add a Trusted Publisher for syncytium-md: GitHub Actions, owner mrcbrbn5361, repo SyncytiumMD, workflow release.yml
-  - [ ] Re-run Release run 42053623967, then run the MCP Discovery workflow (or re-run 42053623576)
-  - [ ] Rotate any credential that was pasted into chat earlier
+  - [ ] gh auth login, then run docs/github-setup.md (homepage, discussions, labels, good-first-issues, release notes)
+  - [ ] Ship a v0.3.2 patch with the 3 bugfixes so npm users get the fixed handoff (needs npm publish approval)
+  - [ ] Submit the 5 verified awesome lists + MCP directories; then Show HN on Tue-Thu 14:00-15:00 UTC
+  - [ ] Rotate any credential pasted into chat earlier
 - **Recently Touched:**
   - `.gitattributes`
   - `src/core/storage.ts`
@@ -24,6 +25,6 @@
   - `.github/dependabot.yml`
   - `scripts/build-discovery.mjs`
   - `.github/workflows/discoverability.yml`
-- **Notes:** No npm credential exists locally or in GitHub secrets, so 0.3.1 cannot be published until the npm-side trusted publisher exists. After that, both workflows are idempotent and need no secrets.
-- **Last Updated:** 2026-11-05T15:24:48.885Z
+- **Notes:** Root cause of E403 'OIDC permission denied for this action': trusted publisher configs created after 2026-09-03 default to stage-publish only; recreate with npm trust github --allow-publish. No repo files changed this turn.
+- **Last Updated:** 2026-11-15T16:37:10.240Z
 

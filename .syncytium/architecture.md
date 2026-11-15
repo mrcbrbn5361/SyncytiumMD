@@ -44,7 +44,7 @@ visual knowledge graph.
 | `src/adapters/builtin/` | 10 built-in adapters + `GenericAdapter` for config-declared tools |
 | `src/ui/markdown.ts` | Canonical Markdown → HTML renderer (injected into the browser bundle) |
 | `src/ui/template.ts` | Obsidian Studio HTML: 3D graph, vault explorer, document reader |
-| `src/mcp/server.ts` | 22 MCP tools, every input zod-validated, output token-budgeted |
+| `src/mcp/server.ts` | 23 MCP tools, every input zod-validated, output token-budgeted |
 | `src/mcp/safety.ts` | Tool annotations, per-tool rate limits, effect classification |
 | `src/cli/index.ts` | 22 CLI commands with a global `--json` mode |
 

@@ -2,10 +2,14 @@
 
 # 🧬 SyncytiumMD
 
-**Tek bağlam. Her AI kodlama aracı. Sıfır kopyala-yapıştır.**
+**Tek bağlam. Her AI kodlama aracı. Koordine ajanlar. Sıfır sapma.**
+
+*AGENTS.md talimat standardıdır. SyncytiumMD onun etrafındaki iş akışı
+altyapısıdır.*
 
 [![npm](https://img.shields.io/npm/v/syncytium-md)](https://www.npmjs.com/package/syncytium-md)
 [![CI](https://github.com/mrcbrbn5361/SyncytiumMD/actions/workflows/syncytium.yml/badge.svg)](https://github.com/mrcbrbn5361/SyncytiumMD/actions/workflows/syncytium.yml)
+[![MCP Registry](https://img.shields.io/badge/MCP-Registry-active-7c3aed)](https://registry.modelcontextprotocol.io/)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-5FA04E)](https://nodejs.org)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
@@ -13,6 +17,14 @@
 [English](./README.md) · [Türkçe](./README.tr.md)
 
 </div>
+
+---
+
+![SyncytiumMD uygulamada](./docs/assets/demo.gif)
+
+*Tek `init` ile `.syncytium/` oluşur, `sync` her araç için 25 köprü dosyası
+üretir, `handoff` sopayı devreder ve `diff --check` üretilen bir dosya kaynaktan
+ayrıştığı anda CI'ı düşürür.*
 
 ---
 
@@ -46,6 +58,43 @@ CLAUDE.md   AGENTS.md   GEMINI.md   AGENT.md   CONVENTIONS.md
 `syncytium diff --check` herhangi bir sapmada CI'ınızı başarısız kılar.
 `syncytium clean` yalnızca banner'lı dosyaları siler — kendi yazdığınız
 kurallara asla dokunmaz.
+
+## Neden sadece AGENTS.md kullanmıyoruz?
+
+AGENTS.md kullanmalısınız — *paylaşılan talimatlar* için doğru standarttır ve
+SyncytiumMD onu da üretir (diğer tüm biçimlerle birlikte). Ama bir standart
+dosya şu soruları yanıtlayamaz:
+
+- **Şu anda workspace'in hakkı kimde?** Cursor ve Claude Code aynı dosyayı
+  aynı anda düzenlerse sessiz ve pahalı çakışmalar çıkar.
+- **Son ajan gerçekte neyi bitirdi — bana ne bıraktı?**
+- **Birisi üretilen kopyalardan birini elle düzenleyip diğerlerini unutmuş mu?**
+
+SyncytiumMD bu soruları yanıtlayan iş akışı katmanıdır: **handoff sopası**,
+**kiralama tabanlı kilit** ve **CI sapma kapısı** — hepsi yerel öncelikli, hepsi
+git'te, hepsi ajanların kendisinin kullanabilmesi için MCP aracı olarak açık.
+
+| Yetenek | Sadece AGENTS.md | SyncytiumMD |
+|---|---|---|
+| Araçlar arası paylaşılan talimatlar | ✅ (tek dosya) | ✅ (25 dosya, her aracın kendi biçimi) |
+| Denetim izli ajan devri | ❌ | ✅ |
+| Kiralama tabanlı workspace kilidi | ❌ | ✅ |
+| CI sapma kapısı (gerçek unified diff, exit 1) | ❌ | ✅ |
+| Ajanların kendi kendine kullandığı MCP sunucusu | ❌ | ✅ (23 zod doğrulamalı araç) |
+| Geri alınabilir kural/ADR silme | ❌ | ✅ (çöp kutusu + geri yükle) |
+| Tüm bağlamın 3D bilgi grafiği | ❌ | ✅ |
+| Mevcut yapılandırmaları geri içe aktarma | ❌ | ✅ |
+
+## Rulesync, Ruler veya conforme'den farkı ne?
+
+Bu araçlar mükemmel **kural derleyicileridir**: tek kaynak, çok araç
+yapılandırması. SyncytiumMD de yapılandırma üretir — ama iddia farklı:
+**zor çoklu-ajan problemi talimatları *biçimlendirmek* değil, onları okuyan
+ajanları *koordine etmektir*.** Bu alanda tek CLI'da denetlenmiş bir devir
+sopası, ajanın yenileyebildiği bir workspace kirası, kanonik bağlamı
+kendisinin işlettiği bir MCP sunucusu ve tüm iş alanının 3D görünümünü
+birlikte sunan başka kimse yok. İhtiyacınız sadece araç kapsamasıysa onları
+kullanın — ve `syncytium import` onların ürettiklerini memnuniyetle devralır.
 
 ## Hızlı başlangıç
 
@@ -138,6 +187,12 @@ syncytium graph --category ide         # yalnızca IDE adaptörleri
 syncytium graph --compact              # dosya ve etiket düğümlerini gizle
 syncytium graph --no-open --port 4000
 ```
+
+![SyncytiumMD 3D bilgi grafiği](./docs/assets/graph.png)
+
+*Üretilmiş bir projeye ait gerçek `syncytium graph` kozmosu: kategoriye göre
+renklendirilmiş kural düğümleri, adaptörler, üretilen dosyalar, handoff ve ADR
+düğümleri — herhangi bir düğüme tıklayarak alttaki Markdown'u açın.*
 
 Sunucu `127.0.0.1`'e bağlanır ve döngü dışı `Host` başlıklarını reddeder
 (DNS-rebinding koruması). `.env*`, `*.pem`, `*.key`, `.git/**` gibi kök

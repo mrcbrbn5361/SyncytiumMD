@@ -1,5 +1,9 @@
 # Awesome-list PR draft — SyncytiumMD
 
+> Superseded by [docs/launch/awesome-lists.md](./launch/awesome-lists.md),
+> which carries live-verified targets, star counts and submission rules
+> (2026-11-15). This template below stays valid for lists not covered there.
+
 Copy-paste template for submitting SyncytiumMD to awesome lists
 (e.g. awesome-mcp-servers, awesome-claude-code, awesome-ai-coding).
 Pick ONE list per PR, adjust the section to that list's format.
@@ -27,10 +31,12 @@ drift gate for CI.
 Why it fits this list:
 
 - Directly useful to the list's audience (AI coding tool / MCP users).
-- Maintained, MIT-licensed, published on npm as `syncytium-md`.
-- Docs + 118-test suite + Node 20.x/22.x CI matrix
+- Maintained, MIT-licensed, published on npm as `syncytium-md` (provenance).
+- Docs + 132-test suite + Node 22.x/24.x CI matrix
   (`.github/workflows/syncytium.yml`).
-- MCP server: 18 zod-validated tools, stdio transport, token-budgeted output.
+- MCP server: 23 zod-validated tools with honest safety annotations and
+  in-process rate limits, stdio transport, token-budgeted output. Listed in the
+  official MCP Registry as `io.github.mrcbrbn5361/syncytiummd` (active).
 
 Links:
 

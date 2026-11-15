@@ -1,22 +1,11 @@
 ---
 activeAgent: opencode
 nextAgent: Human
-status: blocked
+status: ready_for_review
 goal: >-
-  v0.3.1 npm publish and MCP Registry listing are blocked on npm OIDC
-  trusted-publisher setup
+  Execute launch plan per writing-block.md: Phase 0 showcase done locally;
+  external submissions need owner approval
 completedWork:
-  - >-
-    Enhanced SyncytiumMD self-hosting (.syncytium/ architecture, ADRs, and
-    adapter standards)
-  - 'Added unit tests: 20/20 tests passing'
-  - Optimized 3D WebGL knowledge graph with Three.js geometry/material pooling
-  - Implemented physics alpha decay with auto-sleep (0% idle CPU)
-  - Added selective LOD text sprite labels and cursor hover tooltips
-  - >-
-    Added compact view button in UI and --compact, --no-files, --no-tags flags
-    in CLI
-  - Enhanced scripts/release.mjs with resilient npm publish retry loop
   - Achieved 21/21 passing unit tests
   - 'Fixed the diff --check gate, orphan pruning and destructive clean'
   - >-
@@ -74,14 +63,38 @@ completedWork:
   - >-
     Release workflow failed with npm ENEEDAUTH because the npm package has no
     Trusted Publisher registered for this repository
+  - >-
+    Added npm trusted publisher mrcbrbn5361/SyncytiumMD release.yml with
+    publish+stage permissions via npm trust
+  - >-
+    Re-ran Release run 42053623967: syncytium-md@0.3.1 published with
+    provenance, version live on registry
+  - >-
+    Re-ran MCP Discovery run 42053623576:
+    io.github.mrcbrbn5361/syncytiummd@0.3.1 successfully published to
+    registry.modelcontextprotocol.io
+  - >-
+    3 real CLI bugs fixed (handoff --no-sync default, diff --full char
+    rendering, graph --no-files/tags/open) + 3 regression tests (132 green)
+  - >-
+    demo.gif/graph.gif/graph.png/terminal.png recorded from the real CLI via
+    scripts/record-demo.mjs
+  - 'README EN+TR showcase: hero GIF, AGENTS.md & rulesync comparison tables'
+  - >-
+    docs/launch campaign (show-hn, awesome lists verified,
+    reddit/x/linkedin/TR/newsletter/dev.to) + good-first-issues + github-setup +
+    release notes + competitive-analysis + metrics baseline
 pendingTasks:
   - >-
-    On npmjs.com add a Trusted Publisher for syncytium-md: GitHub Actions, owner
-    mrcbrbn5361, repo SyncytiumMD, workflow release.yml
+    gh auth login, then run docs/github-setup.md (homepage, discussions, labels,
+    good-first-issues, release notes)
   - >-
-    Re-run Release run 42053623967, then run the MCP Discovery workflow (or
-    re-run 42053623576)
-  - Rotate any credential that was pasted into chat earlier
+    Ship a v0.3.2 patch with the 3 bugfixes so npm users get the fixed handoff
+    (needs npm publish approval)
+  - >-
+    Submit the 5 verified awesome lists + MCP directories; then Show HN on
+    Tue-Thu 14:00-15:00 UTC
+  - Rotate any credential pasted into chat earlier
 touchedFiles:
   - package.json
   - src/core/types.ts
@@ -111,29 +124,22 @@ touchedFiles:
   - scripts/build-discovery.mjs
   - .github/workflows/discoverability.yml
 contextNotes: >-
-  No npm credential exists locally or in GitHub secrets, so 0.3.1 cannot be
-  published until the npm-side trusted publisher exists. After that, both
-  workflows are idempotent and need no secrets.
-lastUpdated: '2026-11-05T15:24:48.885Z'
+  Root cause of E403 'OIDC permission denied for this action': trusted publisher
+  configs created after 2026-09-03 default to stage-publish only; recreate with
+  npm trust github --allow-publish. No repo files changed this turn.
+lastUpdated: '2026-11-15T16:37:10.240Z'
 ---
 # 🤝 Syncytium Handoff & Live State
 
 > **Active Agent:** `opencode`
 > **Next Recommended Agent:** `Human`
-> **Status:** `BLOCKED`
-> **Last Updated:** `2026-11-05T15:24:48.885Z`
+> **Status:** `READY_FOR_REVIEW`
+> **Last Updated:** `2026-11-15T16:37:10.240Z`
 
 ## 🎯 Current Goal
-v0.3.1 npm publish and MCP Registry listing are blocked on npm OIDC trusted-publisher setup
+Execute launch plan per writing-block.md: Phase 0 showcase done locally; external submissions need owner approval
 
 ## ✅ Completed in Recent Turns
-- Enhanced SyncytiumMD self-hosting (.syncytium/ architecture, ADRs, and adapter standards)
-- Added unit tests: 20/20 tests passing
-- Optimized 3D WebGL knowledge graph with Three.js geometry/material pooling
-- Implemented physics alpha decay with auto-sleep (0% idle CPU)
-- Added selective LOD text sprite labels and cursor hover tooltips
-- Added compact view button in UI and --compact, --no-files, --no-tags flags in CLI
-- Enhanced scripts/release.mjs with resilient npm publish retry loop
 - Achieved 21/21 passing unit tests
 - Fixed the diff --check gate, orphan pruning and destructive clean
 - Eliminated stored XSS in the Obsidian Studio UI and hardened the local server
@@ -167,11 +173,19 @@ v0.3.1 npm publish and MCP Registry listing are blocked on npm OIDC trusted-publ
 - v0.3.1 code, docs, tag and GitHub Release are complete; verification run 42052911220 is green
 - MCP Discovery workflow validated the manifest, discovery files and registry lookup before waiting on npm
 - Release workflow failed with npm ENEEDAUTH because the npm package has no Trusted Publisher registered for this repository
+- Added npm trusted publisher mrcbrbn5361/SyncytiumMD release.yml with publish+stage permissions via npm trust
+- Re-ran Release run 42053623967: syncytium-md@0.3.1 published with provenance, version live on registry
+- Re-ran MCP Discovery run 42053623576: io.github.mrcbrbn5361/syncytiummd@0.3.1 successfully published to registry.modelcontextprotocol.io
+- 3 real CLI bugs fixed (handoff --no-sync default, diff --full char rendering, graph --no-files/tags/open) + 3 regression tests (132 green)
+- demo.gif/graph.gif/graph.png/terminal.png recorded from the real CLI via scripts/record-demo.mjs
+- README EN+TR showcase: hero GIF, AGENTS.md & rulesync comparison tables
+- docs/launch campaign (show-hn, awesome lists verified, reddit/x/linkedin/TR/newsletter/dev.to) + good-first-issues + github-setup + release notes + competitive-analysis + metrics baseline
 
 ## 📋 Pending Tasks (Next Agent Action Items)
-- [ ] On npmjs.com add a Trusted Publisher for syncytium-md: GitHub Actions, owner mrcbrbn5361, repo SyncytiumMD, workflow release.yml
-- [ ] Re-run Release run 42053623967, then run the MCP Discovery workflow (or re-run 42053623576)
-- [ ] Rotate any credential that was pasted into chat earlier
+- [ ] gh auth login, then run docs/github-setup.md (homepage, discussions, labels, good-first-issues, release notes)
+- [ ] Ship a v0.3.2 patch with the 3 bugfixes so npm users get the fixed handoff (needs npm publish approval)
+- [ ] Submit the 5 verified awesome lists + MCP directories; then Show HN on Tue-Thu 14:00-15:00 UTC
+- [ ] Rotate any credential pasted into chat earlier
 
 ## 📂 Recently Touched Files
 - `package.json`
@@ -203,4 +217,4 @@ v0.3.1 npm publish and MCP Registry listing are blocked on npm OIDC trusted-publ
 - `.github/workflows/discoverability.yml`
 
 ## 🧠 Context & Handoff Notes for Next Agent
-No npm credential exists locally or in GitHub secrets, so 0.3.1 cannot be published until the npm-side trusted publisher exists. After that, both workflows are idempotent and need no secrets.
+Root cause of E403 'OIDC permission denied for this action': trusted publisher configs created after 2026-09-03 default to stage-publish only; recreate with npm trust github --allow-publish. No repo files changed this turn.

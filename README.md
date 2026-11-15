@@ -2,10 +2,14 @@
 
 # 🧬 SyncytiumMD
 
-**One context. Every AI coding tool. Zero copy-paste.**
+**One context. Every AI coding tool. Coordinated agents. Zero drift.**
+
+*AGENTS.md is the instruction standard. SyncytiumMD is the workflow
+infrastructure around it.*
 
 [![npm](https://img.shields.io/npm/v/syncytium-md)](https://www.npmjs.com/package/syncytium-md)
 [![CI](https://github.com/mrcbrbn5361/SyncytiumMD/actions/workflows/syncytium.yml/badge.svg)](https://github.com/mrcbrbn5361/SyncytiumMD/actions/workflows/syncytium.yml)
+[![MCP Registry](https://img.shields.io/badge/MCP-Registry-active-7c3aed)](https://registry.modelcontextprotocol.io/)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-5FA04E)](https://nodejs.org)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
@@ -13,6 +17,14 @@
 [English](./README.md) · [Türkçe](./README.tr.md)
 
 </div>
+
+---
+
+![SyncytiumMD in action](./docs/assets/demo.gif)
+
+*One `init` scaffolds `.syncytium/`, `sync` generates 25 bridge files across
+every tool, `handoff` passes the baton, and `diff --check` fails CI the moment a
+generated file drifts from the source of truth.*
 
 ---
 
@@ -45,6 +57,45 @@ CLAUDE.md   AGENTS.md   GEMINI.md   AGENT.md   CONVENTIONS.md
 Every generated file carries a banner saying where it came from, and
 `syncytium diff --check` fails your CI if any of them drift. `syncytium clean`
 removes only banner-tagged files — your hand-written rules are never touched.
+
+## Why not just use AGENTS.md?
+
+You should use AGENTS.md — it is the right standard for *shared instructions*,
+and SyncytiumMD generates it for you (alongside every other format). But a
+standard file cannot answer these questions:
+
+- **Which agent has the workspace right now?** Cursor and Claude Code editing
+  the same file at the same time produce silent, expensive conflicts.
+- **What did the last agent actually finish — and what did it leave for me?**
+- **Did someone hand-edit one generated copy and forget the others?**
+
+SyncytiumMD is the workflow layer that answers them: a **handoff baton**, a
+**lease-based lock**, and a **CI drift gate** — all local-first, all git-tracked,
+all exposed as MCP tools so the agents can operate them themselves.
+
+| Capability | AGENTS.md alone | SyncytiumMD |
+|---|---|---|
+| Shared instructions across tools | ✅ (one file, per-tool agents re-read it) | ✅ (25 files, every tool's native format) |
+| Agent handoff with audit trail | ❌ | ✅ |
+| Lease-based workspace lock | ❌ | ✅ |
+| CI drift gate (real unified diffs, exit 1) | ❌ | ✅ |
+| MCP server so agents self-serve | ❌ | ✅ (23 zod-validated tools) |
+| Recoverable deletion of rules/ADRs | ❌ | ✅ (trash + restore) |
+| 3D knowledge graph of the whole context | ❌ | ✅ |
+| Reverse-import existing configs | ❌ | ✅ |
+
+## How is this different from Rulesync, Ruler or conforme?
+
+Those tools (and peers like them) are excellent **rules compilers**: one source,
+many tool configs. SyncytiumMD generates configs too — but the bet is different:
+**the hard multi-agent problem is not *formatting* instructions, it is
+*coordinating the agents that read them*.** Nobody else in this space ships an
+audited handoff baton, an agent-renewable workspace lease, an MCP server that
+operates the canonical context itself, and a 3D view of the whole workspace
+context in one CLI. Rulesync has 66 tool targets and no coordination; SyncytiumMD
+has 10 adapters and the coordination the incumbents skip. If tool coverage is all
+you need, use them — and `syncytium import` will happily absorb what they
+generated.
 
 ## Quick start
 
@@ -137,6 +188,12 @@ syncytium graph --category ide         # isolate IDE adapters
 syncytium graph --compact              # hide file and tag nodes
 syncytium graph --no-open --port 4000
 ```
+
+![SyncytiumMD 3D knowledge graph](./docs/assets/graph.png)
+
+*The real `syncytium graph` cosmos for a generated project: rule nodes colored
+by category, adapters, generated files, handoff and ADR nodes — click any node
+to open the underlying Markdown.*
 
 The server binds to `127.0.0.1` and rejects non-loopback `Host` headers
 (DNS-rebinding guard). It refuses to serve `.env*`, `*.pem`, `*.key`, `.git/**`
@@ -246,8 +303,12 @@ const graph = await engine.getKnowledgeGraph({ category: 'ide' });
 
 ```bash
 npm install
-npm run verify      # typecheck -> build -> 114 tests
+npm run verify      # typecheck -> build -> test (Node 20+)
 ```
+
+Demo assets are reproducible: `node scripts/record-demo.mjs` re-records the real
+CLI session and the live 3D graph into `docs/assets/` (needs ffmpeg + a local
+Chromium; see the header comment in the script).
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) and
 [`.syncytium/architecture.md`](./.syncytium/architecture.md).

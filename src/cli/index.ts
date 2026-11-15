@@ -224,7 +224,8 @@ function printDiff(diffResult: DiffReport, full: boolean): void {
     const icon = item.status === 'modified' ? pc.yellow('⚠ Modified:   ') : pc.red('✗ Missing:    ');
     console.log(`  ${icon} ${item.relativePath} ${pc.dim('(' + (item.driftSummary ?? '') + ')')}`);
     if (item.patch) {
-      for (const line of (full ? item.patch : item.patch.split('\n')).slice(0, full ? 200 : 18)) {
+      // Iterating a raw string yields single characters, so split first.
+      for (const line of item.patch.split('\n').slice(0, full ? 200 : 18)) {
         console.log(pc.dim('      ' + line));
       }
       if (!full) console.log(pc.dim('      … (use --full for the complete patch)'));
@@ -303,7 +304,7 @@ program
   .option('-d, --done <completed...>', 'Completed work items')
   .option('-f, --file <files...>', 'Recently touched / modified files')
   .option('-n, --notes <notes>', 'Contextual guidance or warnings for next agent')
-  .option('--no-sync', 'Update state without propagating to bridge files', false)
+  .option('--no-sync', 'Update state without propagating to bridge files')
   .option('-F, --force', 'Ignore an active multi-agent lock', false)
   .action(async (options) => {
     try {
@@ -1170,9 +1171,9 @@ program
       .default('all')
   )
   .option('-c, --compact', 'Start in compact view (hides file and tag nodes)', false)
-  .option('--no-files', 'Hide generated AI tool file nodes', false)
-  .option('--no-tags', 'Hide tag category nodes', false)
-  .option('--no-open', 'Start the server without opening a browser', false)
+  .option('--no-files', 'Hide generated AI tool file nodes')
+  .option('--no-tags', 'Hide tag category nodes')
+  .option('--no-open', 'Start the server without opening a browser')
   .option('--allow-remote', 'Accept requests from non-loopback hosts (unsafe)', false)
   .action(async (options) => {
     try {
