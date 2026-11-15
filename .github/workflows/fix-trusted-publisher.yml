@@ -1,0 +1,53 @@
+name: Fix Trusted Publisher
+
+# One-shot maintenance workflow. npm trusted publishers created before the
+# "allow publish" permission existed are stage-publish only, which makes the
+# OIDC fallback in Release fail with E403. `npm trust` can be bootstrapped
+# without a login when it runs inside this repository's GitHub Actions, so a
+# dispatch here recreates the relationship with full publish rights.
+#
+# Runs from the default branch only (npm checks the OIDC claims).
+
+on:
+  workflow_dispatch:
+    inputs:
+      revoke-id:
+        description: Optional trust id to revoke BEFORE recreating (from `npm trust list` output)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  fix:
+    name: Grant publish rights to the Release workflow
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Upgrade npm for the trust commands
+        run: npm install -g npm@latest
+
+      - name: Current trusted publishers
+        run: npm trust list syncytium-md || true
+
+      - name: Revoke stale trust (when an id was supplied)
+        if: inputs.revoke-id != ''
+        run: npm trust revoke syncytium-md --id="${{ inputs.revoke-id }}"
+
+      - name: Create trusted publisher with publish rights
+        run: >
+          npm trust github syncytium-md
+          --repo mrcbrbn5361/SyncytiumMD
+          --file .github/workflows/release.yml
+          --allow-publish
+          --yes
+
+      - name: Verify
+        run: npm trust list syncytium-md
