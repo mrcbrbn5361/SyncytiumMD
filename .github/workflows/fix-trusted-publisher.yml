@@ -45,7 +45,7 @@ jobs:
         run: >
           npm trust github syncytium-md
           --repo mrcbrbn5361/SyncytiumMD
-          --file .github/workflows/release.yml
+          --file release.yml
           --allow-publish
           --yes
 
