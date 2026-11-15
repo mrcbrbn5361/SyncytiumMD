@@ -10,15 +10,13 @@
 ### 🤝 Live Handoff Status
 - **Active Agent:** `opencode` (Next: `Human`)
 - **Status:** `READY_FOR_REVIEW`
-- **Current Goal:** Phase 1: monitor the 3 open awesome-list PRs to merge, complete manual directory submissions, then launch (Show HN Tue-Thu 14:00-15:00 UTC) once list merges land
+- **Current Goal:** Phase 1: monitor the 3 open awesome-list PRs to merge, complete manual directory submissions (mcpservers.org/Smithery/Glama/mcp.so/cursor.directory), then launch (Show HN Tue-Thu 14:00-15:00 UTC)
 - **Pending Tasks:**
   - [ ] Monitor + gently follow up on punkpeye #14698, bradAGI #660, yzfly #1069 until merged
-  - [ ] Manual web submissions: mcpservers.org (wong2), Smithery, Glama (also gives the Glama badge back), mcp.so, cursor.directory
-  - [ ] Ship v0.3.2 patch with the 3 CLI bugfixes (needs npm publish approval; OIDC trusted-publisher needs --allow-publish)
-  - [ ] Launch window after merges: docs/show-hn-draft.md Tue-Thu 14:00-15:00 UTC; docs/launch/ has all copy
+  - [ ] Manual web submissions: mcpservers.org (wong2), Smithery, Glama, mcp.so, cursor.directory
+  - [ ] Launch window after merges: docs/show-hn-draft.md Tue-Thu 14:00-15:00 UTC
   - [ ] Rotate any credential pasted into chat earlier
 - **Recently Touched:**
-  - `src/core/storage.ts`
   - `server.json`
   - `src/mcp/safety.ts`
   - `.github/workflows/release.yml`
@@ -26,6 +24,7 @@
   - `scripts/build-discovery.mjs`
   - `.github/workflows/discoverability.yml`
   - `docs/launch/awesome-lists.md`
-- **Notes:** hesreallyhim/awesome-claude-code now returns 'interactions restricted to collaborators only' - external submission impossible, do not retry.
-- **Last Updated:** 2026-11-15T17:46:01.123Z
+  - `docs/release-notes/v0.3.2.md`
+- **Notes:** README npx pins now reference 0.3.2; llms(-full).txt regenerated via scripts/build-discovery.mjs.
+- **Last Updated:** 2026-11-15T18:20:31.615Z
 

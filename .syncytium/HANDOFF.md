@@ -4,11 +4,9 @@ nextAgent: Human
 status: ready_for_review
 goal: >-
   Phase 1: monitor the 3 open awesome-list PRs to merge, complete manual
-  directory submissions, then launch (Show HN Tue-Thu 14:00-15:00 UTC) once list
-  merges land
+  directory submissions (mcpservers.org/Smithery/Glama/mcp.so/cursor.directory),
+  then launch (Show HN Tue-Thu 14:00-15:00 UTC)
 completedWork:
-  - 'Added AGENTS.md, GEMINI.md, Copilot path instructions and Roo Code adapters'
-  - Replaced substring ignore matching with a real gitignore glob engine
   - Grew the suite from 22 to 114 tests covering every regression above
   - npm run verify passes (119/119 tests)
   - 'Repository paths, adapters and UI security hardening reviewed'
@@ -95,19 +93,22 @@ completedWork:
     punkpeye PR #14698 revived to OPEN/MERGEABLE/CLEAN with fast-track marker;
     bradAGI #660 and yzfly #1069 opened; hesreallyhim dropped (frozen);
     docs/launch/awesome-lists.md updated to live status
+  - >-
+    v0.3.2 shipped end-to-end: tag + GitHub Release + CI OIDC publish (+
+    syncytium-md@0.3.2, provenance sigstore 3907611038), MCP Discovery
+    republished registry manifest, global install verified 0.3.2, lockfile gate
+    re-green on 1bb7a24
+  - >-
+    npm trusted-publisher now has --allow-publish (granted via website);
+    fix-trusted-publisher.yml removed as dead surface
 pendingTasks:
   - >-
     Monitor + gently follow up on punkpeye #14698, bradAGI #660, yzfly #1069
     until merged
   - >-
-    Manual web submissions: mcpservers.org (wong2), Smithery, Glama (also gives
-    the Glama badge back), mcp.so, cursor.directory
-  - >-
-    Ship v0.3.2 patch with the 3 CLI bugfixes (needs npm publish approval; OIDC
-    trusted-publisher needs --allow-publish)
-  - >-
-    Launch window after merges: docs/show-hn-draft.md Tue-Thu 14:00-15:00 UTC;
-    docs/launch/ has all copy
+    Manual web submissions: mcpservers.org (wong2), Smithery, Glama, mcp.so,
+    cursor.directory
+  - 'Launch window after merges: docs/show-hn-draft.md Tue-Thu 14:00-15:00 UTC'
   - Rotate any credential pasted into chat earlier
 touchedFiles:
   - package.json
@@ -138,24 +139,23 @@ touchedFiles:
   - scripts/build-discovery.mjs
   - .github/workflows/discoverability.yml
   - docs/launch/awesome-lists.md
+  - docs/release-notes/v0.3.2.md
 contextNotes: >-
-  hesreallyhim/awesome-claude-code now returns 'interactions restricted to
-  collaborators only' - external submission impossible, do not retry.
-lastUpdated: '2026-11-15T17:46:01.123Z'
+  README npx pins now reference 0.3.2; llms(-full).txt regenerated via
+  scripts/build-discovery.mjs.
+lastUpdated: '2026-11-15T18:20:31.615Z'
 ---
 # 🤝 Syncytium Handoff & Live State
 
 > **Active Agent:** `opencode`
 > **Next Recommended Agent:** `Human`
 > **Status:** `READY_FOR_REVIEW`
-> **Last Updated:** `2026-11-15T17:46:01.123Z`
+> **Last Updated:** `2026-11-15T18:20:31.615Z`
 
 ## 🎯 Current Goal
-Phase 1: monitor the 3 open awesome-list PRs to merge, complete manual directory submissions, then launch (Show HN Tue-Thu 14:00-15:00 UTC) once list merges land
+Phase 1: monitor the 3 open awesome-list PRs to merge, complete manual directory submissions (mcpservers.org/Smithery/Glama/mcp.so/cursor.directory), then launch (Show HN Tue-Thu 14:00-15:00 UTC)
 
 ## ✅ Completed in Recent Turns
-- Added AGENTS.md, GEMINI.md, Copilot path instructions and Roo Code adapters
-- Replaced substring ignore matching with a real gitignore glob engine
 - Grew the suite from 22 to 114 tests covering every regression above
 - npm run verify passes (119/119 tests)
 - Repository paths, adapters and UI security hardening reviewed
@@ -194,12 +194,13 @@ Phase 1: monitor the 3 open awesome-list PRs to merge, complete manual directory
 - Phase 1 awesome-lists: punkpeye PR #14698 revived (rebased clean, badge removed, fast-track marker, MERGEABLE/CLEAN); bradAGI PR #660 and yzfly PR #1069 opened (both OPEN/MERGEABLE); hesreallyhim frozen to outsiders - dropped; wong2 wants web form not PR
 - gh device-flow auth + repo settings: description, homepage, topics, Discussions ON, 8 labels, good-first-issues #10-19, 3 release notes rewritten
 - punkpeye PR #14698 revived to OPEN/MERGEABLE/CLEAN with fast-track marker; bradAGI #660 and yzfly #1069 opened; hesreallyhim dropped (frozen); docs/launch/awesome-lists.md updated to live status
+- v0.3.2 shipped end-to-end: tag + GitHub Release + CI OIDC publish (+ syncytium-md@0.3.2, provenance sigstore 3907611038), MCP Discovery republished registry manifest, global install verified 0.3.2, lockfile gate re-green on 1bb7a24
+- npm trusted-publisher now has --allow-publish (granted via website); fix-trusted-publisher.yml removed as dead surface
 
 ## 📋 Pending Tasks (Next Agent Action Items)
 - [ ] Monitor + gently follow up on punkpeye #14698, bradAGI #660, yzfly #1069 until merged
-- [ ] Manual web submissions: mcpservers.org (wong2), Smithery, Glama (also gives the Glama badge back), mcp.so, cursor.directory
-- [ ] Ship v0.3.2 patch with the 3 CLI bugfixes (needs npm publish approval; OIDC trusted-publisher needs --allow-publish)
-- [ ] Launch window after merges: docs/show-hn-draft.md Tue-Thu 14:00-15:00 UTC; docs/launch/ has all copy
+- [ ] Manual web submissions: mcpservers.org (wong2), Smithery, Glama, mcp.so, cursor.directory
+- [ ] Launch window after merges: docs/show-hn-draft.md Tue-Thu 14:00-15:00 UTC
 - [ ] Rotate any credential pasted into chat earlier
 
 ## 📂 Recently Touched Files
@@ -231,6 +232,7 @@ Phase 1: monitor the 3 open awesome-list PRs to merge, complete manual directory
 - `scripts/build-discovery.mjs`
 - `.github/workflows/discoverability.yml`
 - `docs/launch/awesome-lists.md`
+- `docs/release-notes/v0.3.2.md`
 
 ## 🧠 Context & Handoff Notes for Next Agent
-hesreallyhim/awesome-claude-code now returns 'interactions restricted to collaborators only' - external submission impossible, do not retry.
+README npx pins now reference 0.3.2; llms(-full).txt regenerated via scripts/build-discovery.mjs.

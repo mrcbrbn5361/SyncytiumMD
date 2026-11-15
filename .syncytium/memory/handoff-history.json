@@ -1,5 +1,29 @@
 [
   {
+    "id": "HND-MWI5TYBO",
+    "timestamp": "2026-11-15T18:20:31.615Z",
+    "fromAgent": "opencode",
+    "toAgent": "opencode",
+    "status": "ready_for_review",
+    "goal": "Phase 1: monitor the 3 open awesome-list PRs to merge, complete manual directory submissions (mcpservers.org/Smithery/Glama/mcp.so/cursor.directory), then launch (Show HN Tue-Thu 14:00-15:00 UTC)",
+    "tasksDone": [
+      "v0.3.2 shipped end-to-end: tag + GitHub Release + CI OIDC publish (+ syncytium-md@0.3.2, provenance sigstore 3907611038), MCP Discovery republished registry manifest, global install verified 0.3.2, lockfile gate re-green on 1bb7a24",
+      "npm trusted-publisher now has --allow-publish (granted via website); fix-trusted-publisher.yml removed as dead surface"
+    ],
+    "nextTasks": [
+      "Monitor + gently follow up on punkpeye #14698, bradAGI #660, yzfly #1069 until merged",
+      "Manual web submissions: mcpservers.org (wong2), Smithery, Glama, mcp.so, cursor.directory",
+      "Launch window after merges: docs/show-hn-draft.md Tue-Thu 14:00-15:00 UTC",
+      "Rotate any credential pasted into chat earlier"
+    ],
+    "activeFiles": [
+      "docs/release-notes/v0.3.2.md",
+      "package.json",
+      "server.json"
+    ],
+    "notes": "README npx pins now reference 0.3.2; llms(-full).txt regenerated via scripts/build-discovery.mjs."
+  },
+  {
     "id": "HND-MWI4LKQ1",
     "timestamp": "2026-11-15T17:46:01.123Z",
     "fromAgent": "opencode",
