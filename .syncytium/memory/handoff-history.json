@@ -1,5 +1,27 @@
 [
   {
+    "id": "HND-MWI6T4TO",
+    "timestamp": "2026-11-15T18:47:52.999Z",
+    "fromAgent": "opencode",
+    "toAgent": "opencode",
+    "status": "ready_for_review",
+    "goal": "Phase 1: wait for awesome-list merges (punkpeye #14698 fully unblocked: has-glama/has-emoji/valid-name), complete remaining manual submissions (mcpservers.org/Smithery/mcp.so/cursor.directory), then launch (Show HN Tue-Thu 14:00-15:00 UTC)",
+    "tasksDone": [
+      "v0.3.2 shipped end-to-end via CI OIDC publish (npm latest=0.3.2, provenance, MCP Discovery green, global install verified, lockfile gate re-green)",
+      "Glama evaluation now live (rated B); punkpeye #14698 label flipped missing-glama to has-glama, score badge + TS emoji added, all listing requirements satisfied"
+    ],
+    "nextTasks": [
+      "If #14698 not merged within 3-4 days post-unblock, one polite ping to @punkpeye; same cadence for bradAGI #660 and yzfly #1069 (opened 2026-11-15)",
+      "Manual web submissions pending: mcpservers.org (wong2), Smithery, mcp.so, cursor.directory",
+      "Launch window after merges: docs/show-hn-draft.md Tue-Thu 14:00-15:00 UTC",
+      "Rotate any credential pasted into chat earlier"
+    ],
+    "activeFiles": [
+      "docs/release-notes/v0.3.2.md"
+    ],
+    "notes": "Glama submit was already done by human in September; evaluation simply took time to complete."
+  },
+  {
     "id": "HND-MWI5TYBO",
     "timestamp": "2026-11-15T18:20:31.615Z",
     "fromAgent": "opencode",

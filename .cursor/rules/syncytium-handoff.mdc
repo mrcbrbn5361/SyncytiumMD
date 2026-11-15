@@ -14,10 +14,10 @@ alwaysApply: true
 ### 🤝 Live Handoff Status
 - **Active Agent:** `opencode` (Next: `Human`)
 - **Status:** `READY_FOR_REVIEW`
-- **Current Goal:** Phase 1: monitor the 3 open awesome-list PRs to merge, complete manual directory submissions (mcpservers.org/Smithery/Glama/mcp.so/cursor.directory), then launch (Show HN Tue-Thu 14:00-15:00 UTC)
+- **Current Goal:** Phase 1: wait for awesome-list merges (punkpeye #14698 fully unblocked: has-glama/has-emoji/valid-name), complete remaining manual submissions (mcpservers.org/Smithery/mcp.so/cursor.directory), then launch (Show HN Tue-Thu 14:00-15:00 UTC)
 - **Pending Tasks:**
-  - [ ] Monitor + gently follow up on punkpeye #14698, bradAGI #660, yzfly #1069 until merged
-  - [ ] Manual web submissions: mcpservers.org (wong2), Smithery, Glama, mcp.so, cursor.directory
+  - [ ] If #14698 not merged within 3-4 days post-unblock, one polite ping to @punkpeye; same cadence for bradAGI #660 and yzfly #1069 (opened 2026-11-15)
+  - [ ] Manual web submissions pending: mcpservers.org (wong2), Smithery, mcp.so, cursor.directory
   - [ ] Launch window after merges: docs/show-hn-draft.md Tue-Thu 14:00-15:00 UTC
   - [ ] Rotate any credential pasted into chat earlier
 - **Recently Touched:**
@@ -29,6 +29,6 @@ alwaysApply: true
   - `.github/workflows/discoverability.yml`
   - `docs/launch/awesome-lists.md`
   - `docs/release-notes/v0.3.2.md`
-- **Notes:** README npx pins now reference 0.3.2; llms(-full).txt regenerated via scripts/build-discovery.mjs.
-- **Last Updated:** 2026-11-15T18:20:31.615Z
+- **Notes:** Glama submit was already done by human in September; evaluation simply took time to complete.
+- **Last Updated:** 2026-11-15T18:47:52.999Z
 

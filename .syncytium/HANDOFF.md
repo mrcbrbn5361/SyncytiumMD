@@ -3,12 +3,11 @@ activeAgent: opencode
 nextAgent: Human
 status: ready_for_review
 goal: >-
-  Phase 1: monitor the 3 open awesome-list PRs to merge, complete manual
-  directory submissions (mcpservers.org/Smithery/Glama/mcp.so/cursor.directory),
-  then launch (Show HN Tue-Thu 14:00-15:00 UTC)
+  Phase 1: wait for awesome-list merges (punkpeye #14698 fully unblocked:
+  has-glama/has-emoji/valid-name), complete remaining manual submissions
+  (mcpservers.org/Smithery/mcp.so/cursor.directory), then launch (Show HN
+  Tue-Thu 14:00-15:00 UTC)
 completedWork:
-  - Grew the suite from 22 to 114 tests covering every regression above
-  - npm run verify passes (119/119 tests)
   - 'Repository paths, adapters and UI security hardening reviewed'
   - annotations
   - rate limits
@@ -101,12 +100,19 @@ completedWork:
   - >-
     npm trusted-publisher now has --allow-publish (granted via website);
     fix-trusted-publisher.yml removed as dead surface
+  - >-
+    v0.3.2 shipped end-to-end via CI OIDC publish (npm latest=0.3.2, provenance,
+    MCP Discovery green, global install verified, lockfile gate re-green)
+  - >-
+    Glama evaluation now live (rated B); punkpeye #14698 label flipped
+    missing-glama to has-glama, score badge + TS emoji added, all listing
+    requirements satisfied
 pendingTasks:
   - >-
-    Monitor + gently follow up on punkpeye #14698, bradAGI #660, yzfly #1069
-    until merged
+    If #14698 not merged within 3-4 days post-unblock, one polite ping to
+    @punkpeye; same cadence for bradAGI #660 and yzfly #1069 (opened 2026-11-15)
   - >-
-    Manual web submissions: mcpservers.org (wong2), Smithery, Glama, mcp.so,
+    Manual web submissions pending: mcpservers.org (wong2), Smithery, mcp.so,
     cursor.directory
   - 'Launch window after merges: docs/show-hn-draft.md Tue-Thu 14:00-15:00 UTC'
   - Rotate any credential pasted into chat earlier
@@ -141,23 +147,21 @@ touchedFiles:
   - docs/launch/awesome-lists.md
   - docs/release-notes/v0.3.2.md
 contextNotes: >-
-  README npx pins now reference 0.3.2; llms(-full).txt regenerated via
-  scripts/build-discovery.mjs.
-lastUpdated: '2026-11-15T18:20:31.615Z'
+  Glama submit was already done by human in September; evaluation simply took
+  time to complete.
+lastUpdated: '2026-11-15T18:47:52.999Z'
 ---
 # 🤝 Syncytium Handoff & Live State
 
 > **Active Agent:** `opencode`
 > **Next Recommended Agent:** `Human`
 > **Status:** `READY_FOR_REVIEW`
-> **Last Updated:** `2026-11-15T18:20:31.615Z`
+> **Last Updated:** `2026-11-15T18:47:52.999Z`
 
 ## 🎯 Current Goal
-Phase 1: monitor the 3 open awesome-list PRs to merge, complete manual directory submissions (mcpservers.org/Smithery/Glama/mcp.so/cursor.directory), then launch (Show HN Tue-Thu 14:00-15:00 UTC)
+Phase 1: wait for awesome-list merges (punkpeye #14698 fully unblocked: has-glama/has-emoji/valid-name), complete remaining manual submissions (mcpservers.org/Smithery/mcp.so/cursor.directory), then launch (Show HN Tue-Thu 14:00-15:00 UTC)
 
 ## ✅ Completed in Recent Turns
-- Grew the suite from 22 to 114 tests covering every regression above
-- npm run verify passes (119/119 tests)
 - Repository paths, adapters and UI security hardening reviewed
 - annotations
 - rate limits
@@ -196,10 +200,12 @@ Phase 1: monitor the 3 open awesome-list PRs to merge, complete manual directory
 - punkpeye PR #14698 revived to OPEN/MERGEABLE/CLEAN with fast-track marker; bradAGI #660 and yzfly #1069 opened; hesreallyhim dropped (frozen); docs/launch/awesome-lists.md updated to live status
 - v0.3.2 shipped end-to-end: tag + GitHub Release + CI OIDC publish (+ syncytium-md@0.3.2, provenance sigstore 3907611038), MCP Discovery republished registry manifest, global install verified 0.3.2, lockfile gate re-green on 1bb7a24
 - npm trusted-publisher now has --allow-publish (granted via website); fix-trusted-publisher.yml removed as dead surface
+- v0.3.2 shipped end-to-end via CI OIDC publish (npm latest=0.3.2, provenance, MCP Discovery green, global install verified, lockfile gate re-green)
+- Glama evaluation now live (rated B); punkpeye #14698 label flipped missing-glama to has-glama, score badge + TS emoji added, all listing requirements satisfied
 
 ## 📋 Pending Tasks (Next Agent Action Items)
-- [ ] Monitor + gently follow up on punkpeye #14698, bradAGI #660, yzfly #1069 until merged
-- [ ] Manual web submissions: mcpservers.org (wong2), Smithery, Glama, mcp.so, cursor.directory
+- [ ] If #14698 not merged within 3-4 days post-unblock, one polite ping to @punkpeye; same cadence for bradAGI #660 and yzfly #1069 (opened 2026-11-15)
+- [ ] Manual web submissions pending: mcpservers.org (wong2), Smithery, mcp.so, cursor.directory
 - [ ] Launch window after merges: docs/show-hn-draft.md Tue-Thu 14:00-15:00 UTC
 - [ ] Rotate any credential pasted into chat earlier
 
@@ -235,4 +241,4 @@ Phase 1: monitor the 3 open awesome-list PRs to merge, complete manual directory
 - `docs/release-notes/v0.3.2.md`
 
 ## 🧠 Context & Handoff Notes for Next Agent
-README npx pins now reference 0.3.2; llms(-full).txt regenerated via scripts/build-discovery.mjs.
+Glama submit was already done by human in September; evaluation simply took time to complete.
