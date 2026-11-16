@@ -46,6 +46,7 @@
     "gemini-cli",
     "agents-md",
     "mcp",
+    "mcp-server",
     "model-context-protocol",
     "markdown-bridge",
     "agent-handoff",
