@@ -306,6 +306,8 @@ npm install
 npm run verify      # typecheck -> build -> test (Node 20+)
 ```
 
+**Colors.** Terminal output uses `picocolors` and honors the standard [`NO_COLOR`](https://no-color.org/) and `FORCE_COLOR` environment variables: set `NO_COLOR=1` in CI or scripts to strip all ANSI color sequences, or `FORCE_COLOR=1` (with `NO_COLOR` unset) to force colored output when piping.
+
 Demo assets are reproducible: `node scripts/record-demo.mjs` re-records the real
 CLI session and the live 3D graph into `docs/assets/` (needs ffmpeg + a local
 Chromium; see the header comment in the script).

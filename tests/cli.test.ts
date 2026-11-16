@@ -107,4 +107,37 @@ describe('CLI stdout robustness', () => {
       await fs.rm(dir, { recursive: true, force: true });
     }
   });
+
+  test('honors NO_COLOR and FORCE_COLOR environment variables', async () => {
+    const dir = await tmpdir();
+    try {
+      const runInitWithEnv = (envOverrides: NodeJS.ProcessEnv) =>
+        new Promise<string>((resolve, reject) => {
+          const env: NodeJS.ProcessEnv = { ...process.env, ...envOverrides };
+          const child = spawn(process.execPath, [CLI, 'init', 'ColorCheck'], {
+            cwd: dir,
+            env
+          });
+          let data = '';
+          child.stdout.on('data', c => {
+            data += String(c);
+          });
+          child.on('error', reject);
+          child.on('close', () => resolve(data));
+        });
+
+      const noColorEnv: NodeJS.ProcessEnv = { NO_COLOR: '1' };
+      delete noColorEnv.FORCE_COLOR;
+      const plainOutput = await runInitWithEnv(noColorEnv);
+      assert.match(plainOutput, /Initializing SyncytiumMD/);
+      assert.doesNotMatch(plainOutput, /\x1b\[[0-9;]*m/);
+
+      const forceColorEnv: NodeJS.ProcessEnv = { FORCE_COLOR: '1' };
+      delete forceColorEnv.NO_COLOR;
+      const coloredOutput = await runInitWithEnv(forceColorEnv);
+      assert.match(coloredOutput, /\x1b\[[0-9;]*m/);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
 });
